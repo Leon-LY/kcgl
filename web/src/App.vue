@@ -5,8 +5,11 @@ import { useI18n } from 'vue-i18n'
 import MobileShell from './shells/MobileShell.vue'
 import DesktopShell from './shells/DesktopShell.vue'
 import { useShell } from '@/composables/useShell'
+import { useSse } from '@/composables/useSse'
 
 const { shell } = useShell()
+// 实时同步单例挂载（M3-③）：会话联动建连/回前台重建/粗粒度失效分发
+useSse()
 const activeShell = computed(() => (shell.value === 'mobile' ? MobileShell : DesktopShell))
 
 // 三语联动：切换语言时，除组件文案外，文档标题与 <html lang> 同步切换。

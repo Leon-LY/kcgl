@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
  * 每请求账号状态即时校验（D-024）：登录时挡住 enabled/locked 不够——
  * 管理员停用恶意/离职账号后，其既有会话（最长 12h）必须立即失效。
  * 挂在 SecurityContextHolderFilter 之后：按 userId 主键查库（&lt;1ms，≤10 用户规模无压力），
+ * 即死口径唯一出口 AccountStatuses.dead（与 SseHub 心跳共用，防「请求被拒但 SSE 仍推送」窗口）：
  * enabled=0 或 DB 锁定未过期 → 清 SecurityContext + 会话中的 context 属性 + 401。
  * 匿名请求（登录端点）无认证体，天然跳过。
  */
@@ -44,10 +45,7 @@ public class AccountStatusFilter extends OncePerRequestFilter {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof KcglUserDetails details) {
             SysUserEntity fresh = userMapper.selectById(details.getUserId());
-            boolean dead = fresh == null
-                    || fresh.getEnabled() == null || fresh.getEnabled() != 1
-                    || (fresh.getLockedUntil() != null && fresh.getLockedUntil().isAfter(LocalDateTime.now(clock)));
-            if (dead) {
+            if (AccountStatuses.dead(fresh, LocalDateTime.now(clock))) {
                 SecurityContextHolder.clearContext();
                 if (request.getSession(false) != null) {
                     request.getSession(false).removeAttribute("SPRING_SECURITY_CONTEXT");
