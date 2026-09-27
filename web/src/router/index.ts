@@ -53,6 +53,25 @@ const router = createRouter({
       meta: { titleKey: 'today.title' },
     },
     {
+      // 字典管理（M2-8b-2）：会场 E+（创建/改名现场自救，停用=管理员按钮内再收敛）
+      path: '/admin/venues',
+      name: 'admin-venues',
+      component: () => import('@/views/desktop/admin/venue/VenueAdminView.vue'),
+      meta: { titleKey: 'admin.venue.title', roles: [1, 2] },
+    },
+    {
+      path: '/admin/price-bands',
+      name: 'admin-price-bands',
+      component: () => import('@/views/desktop/admin/priceband/PriceBandAdminView.vue'),
+      meta: { titleKey: 'admin.band.title', roles: [1] },
+    },
+    {
+      path: '/admin/year-codes',
+      name: 'admin-year-codes',
+      component: () => import('@/views/desktop/admin/yearcode/YearCodeAdminView.vue'),
+      meta: { titleKey: 'admin.yearCode.title', roles: [1] },
+    },
+    {
       // 标签打印（M2-7）：桌面为主、全员可打印（录入手与贴标手常不同人）
       path: '/print',
       name: 'print',

@@ -26,6 +26,42 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  optimizeDeps: {
+    // 双 UI 库按需解析器（unplugin-vue-components）在 SFC 变换时注入组件 JS 桶与
+    // 逐组件样式子路径——启动依赖扫描器看不到它们。冷依赖缓存（CI 全新 checkout、
+    // 增量依赖变化）下首次加载对应页面才被发现 → vite 运行时 re-optimize 触发
+    // 整页 reload，与 SPA 导航竞态（E2E 曾在首跳 /admin/venues 时偶发白屏超时）。
+    // 显式预打包消除该类竞态；新增 EP/Vant 组件后按报错提示把样式子路径补进来。
+    include: [
+      'element-plus/es',
+      'element-plus/es/components/base/style/css',
+      'element-plus/es/components/button/style/css',
+      'element-plus/es/components/config-provider/style/css',
+      'element-plus/es/components/date-picker/style/css',
+      'element-plus/es/components/dialog/style/css',
+      'element-plus/es/components/input/style/css',
+      'element-plus/es/components/loading/style/css',
+      'element-plus/es/components/option/style/css',
+      'element-plus/es/components/radio-button/style/css',
+      'element-plus/es/components/radio-group/style/css',
+      'element-plus/es/components/select/style/css',
+      'element-plus/es/components/switch/style/css',
+      'element-plus/es/components/table-column/style/css',
+      'element-plus/es/components/table/style/css',
+      'vant/es',
+      'vant/es/button/style/index',
+      'vant/es/cell-group/style/index',
+      'vant/es/cell/style/index',
+      'vant/es/date-picker/style/index',
+      'vant/es/field/style/index',
+      'vant/es/form/style/index',
+      'vant/es/list/style/index',
+      'vant/es/picker/style/index',
+      'vant/es/popup/style/index',
+      'vant/es/tabbar-item/style/index',
+      'vant/es/tabbar/style/index',
+    ],
+  },
   server: {
     port: 5173,
     // 钉 IPv4：默认 localhost 在部分环境仅绑 ::1，导致 127.0.0.1 探活/访问失败

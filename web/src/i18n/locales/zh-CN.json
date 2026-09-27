@@ -57,10 +57,15 @@
     "preparing": "此区域将在后续里程碑中实现"
   },
   "nav": {
+    "label": "导航",
     "home": "首页",
     "entry": "商品录入",
     "arrival": "到货核对",
-    "today": "本日"
+    "today": "本日",
+    "print": "标签打印",
+    "venues": "会场",
+    "priceBands": "价格档位",
+    "yearCodes": "年代号"
   },
   "entry": {
     "title": "商品录入",
@@ -175,6 +180,68 @@
     "voidedTag": "已作废",
     "empty": "今日还没有录入记录",
     "loadFailed": "加载失败"
+  },
+  "admin": {
+    "status": "状态",
+    "enabled": "启用",
+    "disabled": "停用",
+    "actions": "操作",
+    "edit": "编辑",
+    "disable": "停用",
+    "enable": "启用",
+    "loadFailed": "加载失败",
+    "venue": {
+      "title": "会场管理",
+      "note": "会场代码是管理号的前两位，创建后不可修改。",
+      "createButton": "新增会场",
+      "createTitle": "新增会场",
+      "renameTitle": "修改会场名称",
+      "renameButton": "改名",
+      "code": "会场代码",
+      "codePlaceholder": "例）AB",
+      "codeInvalid": "会场代码需为 2 位大写英文字母（A-Z）",
+      "name": "会场名称",
+      "namePlaceholder": "例）飞驒古民具市",
+      "nameRequired": "请输入会场名称",
+      "empty": "还没有登记会场"
+    },
+    "band": {
+      "title": "价格档位管理",
+      "note": "档位字母用于管理号末位，区间重叠的设置无法保存。",
+      "createButton": "新增档位",
+      "createTitle": "新增档位",
+      "editTitle": "编辑档位",
+      "code": "档位字母",
+      "codePlaceholder": "例）X",
+      "codeInvalid": "档位字母需为 1 位大写英文字母（A-Z）",
+      "range": "适用价格",
+      "rangeBetween": "{lower}〜{upper}日元",
+      "rangeFrom": "{lower}日元以上",
+      "rangeTo": "〜{upper}日元",
+      "rangeAll": "所有价格",
+      "lower": "下限（日元）",
+      "upper": "上限（日元）",
+      "boundPlaceholder": "留空=无限制",
+      "hint": "区间按「下限以上、上限未满」处理；下限留空表示向下无限制，上限留空表示向上无限制。",
+      "lowerInvalid": "下限需为 0 以上的整数（日元）",
+      "upperInvalid": "上限需为 1 以上的整数（日元）",
+      "rangeInvalid": "下限需小于上限",
+      "empty": "还没有登记档位"
+    },
+    "yearCode": {
+      "title": "年代号管理",
+      "note": "年代号用于管理号第 3 位；2016=A〜2041=Z 已预置。",
+      "createButton": "新增年代号",
+      "createTitle": "新增年代号",
+      "editTitle": "编辑年代号",
+      "year": "年份",
+      "yearPlaceholder": "例）2042",
+      "yearInvalid": "年份需为 2016〜2999 的整数",
+      "code": "年代号",
+      "codePlaceholder": "例）A",
+      "codeInvalid": "年代号需为 1 位大写英文字母（A-Z）",
+      "empty": "还没有登记年代号"
+    }
   },
   "errors": {
     "400001": "输入内容有误",

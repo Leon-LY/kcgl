@@ -57,10 +57,15 @@
     "preparing": "This area will be implemented in upcoming milestones"
   },
   "nav": {
+    "label": "Navigation",
     "home": "Home",
     "entry": "Entry",
     "arrival": "Arrivals",
-    "today": "Today"
+    "today": "Today",
+    "print": "Label printing",
+    "venues": "Venues",
+    "priceBands": "Price bands",
+    "yearCodes": "Year codes"
   },
   "entry": {
     "title": "Item Entry",
@@ -175,6 +180,68 @@
     "voidedTag": "Cancelled",
     "empty": "No entries yet today",
     "loadFailed": "Failed to load"
+  },
+  "admin": {
+    "status": "Status",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "actions": "Actions",
+    "edit": "Edit",
+    "disable": "Disable",
+    "enable": "Enable",
+    "loadFailed": "Failed to load",
+    "venue": {
+      "title": "Venue Management",
+      "note": "The venue code is the first two characters of item codes and cannot be changed after creation.",
+      "createButton": "Add venue",
+      "createTitle": "Add Venue",
+      "renameTitle": "Rename Venue",
+      "renameButton": "Rename",
+      "code": "Code",
+      "codePlaceholder": "e.g. AB",
+      "codeInvalid": "The code must be two uppercase letters (A-Z)",
+      "name": "Name",
+      "namePlaceholder": "e.g. Hida Antique Market",
+      "nameRequired": "Enter a venue name",
+      "empty": "No venues registered"
+    },
+    "band": {
+      "title": "Price Band Management",
+      "note": "The band code is the last character of item codes. Overlapping ranges cannot be saved.",
+      "createButton": "Add band",
+      "createTitle": "Add Price Band",
+      "editTitle": "Edit Price Band",
+      "code": "Code",
+      "codePlaceholder": "e.g. X",
+      "codeInvalid": "The code must be one uppercase letter (A-Z)",
+      "range": "Price range",
+      "rangeBetween": "¥{lower}–¥{upper}",
+      "rangeFrom": "¥{lower} and above",
+      "rangeTo": "Up to ¥{upper}",
+      "rangeAll": "All prices",
+      "lower": "Lower bound (JPY)",
+      "upper": "Upper bound (JPY)",
+      "boundPlaceholder": "Blank = no limit",
+      "hint": "Ranges are treated as [lower, upper): leave the lower bound blank for no bottom limit, or the upper bound blank for no top limit.",
+      "lowerInvalid": "The lower bound must be a non-negative integer (JPY)",
+      "upperInvalid": "The upper bound must be a positive integer (JPY)",
+      "rangeInvalid": "The lower bound must be less than the upper bound",
+      "empty": "No price bands registered"
+    },
+    "yearCode": {
+      "title": "Year Code Management",
+      "note": "The year code is the third character of item codes. 2016=A through 2041=Z are pre-registered.",
+      "createButton": "Add year code",
+      "createTitle": "Add Year Code",
+      "editTitle": "Edit Year Code",
+      "year": "Year",
+      "yearPlaceholder": "e.g. 2042",
+      "yearInvalid": "The year must be an integer between 2016 and 2999",
+      "code": "Code",
+      "codePlaceholder": "e.g. A",
+      "codeInvalid": "The code must be one uppercase letter (A-Z)",
+      "empty": "No year codes registered"
+    }
   },
   "errors": {
     "400001": "The input is invalid",

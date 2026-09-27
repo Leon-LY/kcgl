@@ -57,10 +57,15 @@
     "preparing": "この領域は今後のマイルストーンで実装されます"
   },
   "nav": {
+    "label": "ナビゲーション",
     "home": "ホーム",
     "entry": "商品登録",
     "arrival": "入庫確認",
-    "today": "本日"
+    "today": "本日",
+    "print": "ラベル印刷",
+    "venues": "会場",
+    "priceBands": "価格帯",
+    "yearCodes": "年代号"
   },
   "entry": {
     "title": "商品登録",
@@ -175,6 +180,68 @@
     "voidedTag": "取り消し",
     "empty": "本日の登録はまだありません",
     "loadFailed": "読み込みに失敗しました"
+  },
+  "admin": {
+    "status": "状態",
+    "enabled": "有効",
+    "disabled": "停止",
+    "actions": "操作",
+    "edit": "編集",
+    "disable": "停止する",
+    "enable": "有効にする",
+    "loadFailed": "読み込みに失敗しました",
+    "venue": {
+      "title": "会場管理",
+      "note": "会場コードは管理番号の先頭2桁です。作成後にコードを変更することはできません。",
+      "createButton": "会場を追加",
+      "createTitle": "会場の追加",
+      "renameTitle": "会場名の変更",
+      "renameButton": "名前を変更",
+      "code": "会場コード",
+      "codePlaceholder": "例）AB",
+      "codeInvalid": "会場コードは半角英字2桁（A-Z）で入力してください",
+      "name": "会場名",
+      "namePlaceholder": "例）飛騨古民具市",
+      "nameRequired": "会場名を入力してください",
+      "empty": "会場が登録されていません"
+    },
+    "band": {
+      "title": "価格帯管理",
+      "note": "価格帯コードは管理番号の末尾に使われます。範囲が重複する設定は保存できません。",
+      "createButton": "価格帯を追加",
+      "createTitle": "価格帯の追加",
+      "editTitle": "価格帯の編集",
+      "code": "価格帯コード",
+      "codePlaceholder": "例）X",
+      "codeInvalid": "価格帯コードは半角英字1桁（A-Z）で入力してください",
+      "range": "対象価格",
+      "rangeBetween": "{lower}〜{upper}円",
+      "rangeFrom": "{lower}円以上",
+      "rangeTo": "〜{upper}円",
+      "rangeAll": "すべての価格",
+      "lower": "下限（円）",
+      "upper": "上限（円）",
+      "boundPlaceholder": "空欄=制限なし",
+      "hint": "範囲は「下限以上・上限未満」で扱われます。下限を空欄にすると下限なし、上限を空欄にすると上限なしになります。",
+      "lowerInvalid": "下限は0以上の整数（円）で入力してください",
+      "upperInvalid": "上限は1以上の整数（円）で入力してください",
+      "rangeInvalid": "下限は上限より小さい値にしてください",
+      "empty": "価格帯が登録されていません"
+    },
+    "yearCode": {
+      "title": "年代号管理",
+      "note": "年代号は管理番号の3桁目に使われます。2016=A〜2041=Z は初期登録済みです。",
+      "createButton": "年代号を追加",
+      "createTitle": "年代号の追加",
+      "editTitle": "年代号の編集",
+      "year": "年",
+      "yearPlaceholder": "例）2042",
+      "yearInvalid": "年は2016〜2999の整数で入力してください",
+      "code": "年代号",
+      "codePlaceholder": "例）A",
+      "codeInvalid": "年代号は半角英字1桁（A-Z）で入力してください",
+      "empty": "年代号が登録されていません"
+    }
   },
   "errors": {
     "400001": "入力内容に誤りがあります",
