@@ -43,6 +43,11 @@ mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
 
+# CSRF 双保险的 Origin 白名单（docs/01 八节）；生产注入实际域名，如 https://kcgl.example.com
+kcgl:
+  security:
+    allowed-origins: ${KCGL_ALLOWED_ORIGINS:}
+
 management:
   endpoints:
     web:

@@ -44,6 +44,12 @@
       <artifactId>spring-boot-starter-actuator</artifactId>
     </dependency>
 
+    <!-- 安全：Session 认证 + BCrypt(12)（Security 7.1，Boot BOM 托管） -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security</artifactId>
+    </dependency>
+
     <!-- ORM：MyBatis-Plus（复杂 SQL 放 XML，见 docs/01 四节包结构）；Boot 4 专用 starter -->
     <dependency>
       <groupId>com.baomidou</groupId>
@@ -82,6 +88,12 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Boot 4 测试模块化拆分：@AutoConfigureMockMvc 从 starter-test 移入本模块 -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-webmvc-test</artifactId>
       <scope>test</scope>
     </dependency>
     <!-- @ServiceConnection 所在模块（Testcontainers 与 Boot 数据源自动接线） -->
