@@ -1,0 +1,16 @@
+# 统一行尾：仓库内 LF，Windows 检出也保持 LF（部署脚本/Dockerfile/yml 对 CRLF 敏感）
+* text=auto eol=lf
+
+# Windows 专用脚本
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 二进制
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.jar binary
+*.woff binary
+*.woff2 binary
