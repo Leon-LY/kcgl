@@ -1,0 +1,71 @@
+package com.kcgl.module.itemcode;
+
+import com.kcgl.common.obs.AlertService;
+import com.kcgl.common.web.BizException;
+import com.kcgl.common.web.ErrorCode;
+import com.kcgl.module.item.ItemEntity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.DeadlockLoserDataAccessException;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.stereotype.Service;
+
+import java.util.concurrent.ThreadLocalRandom;
+
+/**
+ * 管理号引擎·外层（无 @Transactional）：重试在事务边界之外——每次经独立事务代理
+ * {@link ItemCodeTxService} 全新进入（C1 审查修正）。重试信号仅限并发类异常
+ * （uk 冲突/锁等待超时/死锁败者），业务校验异常原样上抛不消耗重试。
+ * 重试耗尽=INTERNAL+sys_alert 落库（持久红点，非在线即逝的日志行）。
+ */
+@Service
+public class ItemCodeService {
+
+    static final int MAX_ATTEMPTS = 3;
+
+    private static final Logger log = LoggerFactory.getLogger(ItemCodeService.class);
+
+    private final ItemCodeTxService txService;
+    private final AlertService alertService;
+
+    public ItemCodeService(ItemCodeTxService txService, AlertService alertService) {
+        this.txService = txService;
+        this.alertService = alertService;
+    }
+
+    public ItemEntity create(CreateItemCommand cmd) {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return txService.allocateAndInsert(cmd);
+            } catch (DuplicateKeyException | CannotAcquireLockException
+                    | DeadlockLoserDataAccessException e) {
+                if (attempt >= MAX_ATTEMPTS) {
+                    String detail = "clientReqId=" + cmd.clientReqId()
+                            + ", venueId=" + cmd.venueId() + ", buyDate=" + cmd.buyDate();
+                    log.error("管理号生成重试耗尽 attempts={} {} {}", MAX_ATTEMPTS,
+                            e.getClass().getSimpleName(), detail, e);
+                    alertService.record("ITEM_CODE", AlertService.LEVEL_ERROR,
+                            "管理号生成のリトライ回数が上限に達しました（" + MAX_ATTEMPTS + "回）",
+                            "item-code-retry-exhausted",
+                            "{\"cause\":\"" + e.getClass().getSimpleName() + "\","
+                                    + "\"clientReqId\":\"" + cmd.clientReqId() + "\"}");
+                    throw new BizException(ErrorCode.INTERNAL);
+                }
+                log.warn("管理号生成冲突重试 attempt={}/{} type={} clientReqId={}",
+                        attempt, MAX_ATTEMPTS, e.getClass().getSimpleName(), cmd.clientReqId());
+                backoff();
+            }
+        }
+    }
+
+    /** 微抖动退避：死锁双败者同时重进会再次相撞，随机化错开。 */
+    private static void backoff() {
+        try {
+            Thread.sleep(20 + ThreadLocalRandom.current().nextInt(30));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BizException(ErrorCode.INTERNAL);
+        }
+    }
+}

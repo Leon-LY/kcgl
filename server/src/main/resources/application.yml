@@ -47,6 +47,9 @@ mybatis-plus:
 kcgl:
   security:
     allowed-origins: ${KCGL_ALLOWED_ORIGINS:}
+  item-code:
+    # 价格码是否进管理号（A1 口径，默认含；对外业务格式，变更须甲方确认后随发版固化）
+    include-price-code: ${KCGL_ITEM_CODE_INCLUDE_PRICE_CODE:true}
 
 management:
   endpoints:
