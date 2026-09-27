@@ -43,6 +43,7 @@ watchEffect(() => {
   --kcgl-color-info-text: #1b5290;
   --kcgl-color-info-bg: #eaf2fa;
   --kcgl-color-info-border: #c5d9ee;
+  --kcgl-color-success: #2e7d32;
   font-size: 16px;
 }
 

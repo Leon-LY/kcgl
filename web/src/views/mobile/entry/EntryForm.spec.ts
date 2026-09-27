@@ -1,3 +1,4 @@
+import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
@@ -5,22 +6,29 @@ import { createPinia, setActivePinia } from 'pinia'
 const apiMocks = vi.hoisted(() => ({
   createItem: vi.fn(),
   previewItemCode: vi.fn(),
+  uploadImage: vi.fn(),
 }))
 
 // ApiError/errors/format 保持真实实现（EntryForm 依赖 instanceof 与 t 双参签名），
-// 仅替换两个网络端点
+// 仅替换网络端点；压缩桩为透传（jsdom 无 canvas）
 vi.mock('@/utils/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/api')>()
   return {
     ...actual,
     createItem: apiMocks.createItem,
     previewItemCode: apiMocks.previewItemCode,
+    uploadImage: apiMocks.uploadImage,
   }
 })
+vi.mock('@/utils/compress', () => ({
+  compressImage: async (file: File) => ({ data: await file.arrayBuffer(), mimeType: 'image/jpeg' }),
+}))
 
 import EntryForm from './EntryForm.vue'
 import { useDictsStore } from '@/stores/dicts'
 import { i18n } from '@/i18n'
+import { db } from '@/db/dexie'
+import { useUploadQueue } from '@/composables/useUploadQueue'
 import { ApiError } from '@/utils/api'
 import { JST_TZ, dayjs } from '@/utils/format'
 
@@ -71,10 +79,48 @@ async function fillAndSubmit(wrapper: VueWrapper, price: string): Promise<void> 
   await flushPromises()
 }
 
-beforeEach(() => {
+/**
+ * 等待断言条件成立：保存链（createItem → bindItem → emit）与队列链横跨 Dexie 宏任务，
+ * flushPromises 盖不住，统一用 10ms 轮询（probe 可异步）。
+ */
+async function waitFor<T>(
+  probe: () => T | undefined | Promise<T | undefined>,
+  timeoutMs = 1000,
+): Promise<T> {
+  const start = Date.now()
+  for (;;) {
+    const value = await probe()
+    if (value !== undefined) {
+      return value
+    }
+    if (Date.now() - start > timeoutMs) {
+      throw new Error('waitFor 超时')
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+}
+
+beforeEach(async () => {
   setActivePinia(createPinia())
   localStorage.clear()
   vi.clearAllMocks()
+  apiMocks.uploadImage.mockReset()
+  apiMocks.uploadImage.mockResolvedValue({
+    id: 1,
+    clientUuid: 'x',
+    itemId: 11,
+    url: '/img/orig/2026/09/x.jpg',
+    thumbUrl: '/img/thumb/2026/09/x.jpg',
+    imageType: 1,
+    sortOrder: 0,
+  })
+  // 先等上一用例可能遗留的后台泵静止（1s 兜底防卡死），再清表——
+  // 否则失败用例的遗留上传链会把调用打进展新 reset 的 mock，污染下一用例
+  await Promise.race([
+    useUploadQueue().whenIdle(),
+    new Promise((resolve) => setTimeout(resolve, 1000)),
+  ])
+  await useUploadQueue().resetForTests()
   i18n.global.locale.value = 'ja-JP'
 
   const dicts = useDictsStore()
@@ -211,6 +257,115 @@ describe('保存失败重试（7.0 幂等：复用同 clientReqId）', () => {
     const second = apiMocks.createItem.mock.calls[1]![0] as { clientReqId: string }
     expect(second.clientReqId).toBe(first.clientReqId)
     expect(first.clientReqId).toMatch(/^[0-9a-f-]{36}$/)
-    expect(wrapper.emitted('saved')?.[0]?.[0]).toMatchObject({ id: 11, itemCode: 'HTK9-A1X' })
+    const saved = await waitFor(() => wrapper.emitted('saved')?.[0])
+    expect(saved[0]).toMatchObject({ id: 11, itemCode: 'HTK9-A1X' })
+  })
+})
+
+// ------------------------------------------------------------------ 照片（7.5 先存后传）
+
+const JPEG_BYTES = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10])
+
+function fileOf(name: string): File {
+  return new File([JPEG_BYTES], name, { type: 'image/jpeg' })
+}
+
+/** jsdom 无 DataTransfer：直接定义 input.files 后触发 change（EntryForm 读 target.files）。 */
+async function chooseFiles(
+  wrapper: VueWrapper,
+  inputIndex: number,
+  files: File[],
+): Promise<void> {
+  const input = wrapper.findAll('input[type="file"]')[inputIndex]!
+  Object.defineProperty(input.element, 'files', { value: files, configurable: true })
+  await input.trigger('change')
+  // addFiles 链（压缩桩 + Dexie 写）横跨宏任务：等本批全部落库
+  await waitFor(async () =>
+    (await db.uploadQueue.count()) >= files.length ? true : undefined,
+  )
+  await flushPromises()
+}
+
+describe('照片选择（先压缩落 Dexie，保存后绑新商品续传）', () => {
+  it('拍照选择 → 缩略预览 + 计数 + 撮影日自动=今天 + 队列 pending_bind', async () => {
+    const wrapper = mountForm()
+    await chooseFiles(wrapper, 0, [fileOf('a.jpg')]) // index 0 = capture 相机入口
+
+    expect(wrapper.findAll('.entry-photo img')).toHaveLength(1)
+    expect(wrapper.find('.entry-photo-count').text()).toBe('1/9')
+    // 拍照 → 撮影日自动今天（readonly 字段值）
+    expect(wrapper.find('.entry-photo-date input').element.value).toBe(todayJst().replaceAll('-', '/'))
+
+    const rows = await db.uploadQueue.toArray()
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.status).toBe('pending_bind')
+    expect(rows[0]!.itemId).toBeNull()
+    expect(apiMocks.uploadImage).not.toHaveBeenCalled() // 未保存不上传
+  })
+
+  it('相册选择不默认撮影日（EXIF 读取为 D-034 延后项）', async () => {
+    const wrapper = mountForm()
+    await chooseFiles(wrapper, 1, [fileOf('a.jpg')]) // index 1 = 相册入口
+
+    expect(wrapper.findAll('.entry-photo img')).toHaveLength(1)
+    expect(wrapper.find('.entry-photo-date input').element.value).toBe('')
+  })
+
+  it('第 10 张 → 就地上限提示且不入队', async () => {
+    const wrapper = mountForm()
+    const nine = Array.from({ length: 9 }, (_, i) => fileOf(`p${i}.jpg`))
+    await chooseFiles(wrapper, 1, nine)
+    expect(wrapper.find('.entry-photo-count').text()).toBe('9/9')
+
+    await chooseFiles(wrapper, 1, [fileOf('over.jpg')])
+    expect(wrapper.text()).toContain('写真は1件につき9枚までです')
+    expect(await db.uploadQueue.count()).toBe(9)
+    expect(wrapper.findAll('.entry-photo img')).toHaveLength(9)
+  })
+
+  it('× 删除未绑定照片 → 出队且缩略图消失', async () => {
+    const wrapper = mountForm()
+    await chooseFiles(wrapper, 1, [fileOf('a.jpg')])
+    await wrapper.find('.entry-photo-remove').trigger('click')
+    await waitFor(async () => ((await db.uploadQueue.count()) === 0 ? true : undefined))
+    await flushPromises()
+
+    expect(wrapper.findAll('.entry-photo img')).toHaveLength(0)
+  })
+
+  it('保存成功 → bindItem 绑定并开始上传，payload 携带 photoDate，saved 附照片数', async () => {
+    apiMocks.createItem.mockResolvedValue(itemFixture)
+    const wrapper = mountForm()
+    await pickFirstVenue(wrapper)
+    await chooseFiles(wrapper, 0, [fileOf('a.jpg')]) // 相机 → photoDate=今天
+    await fillAndSubmit(wrapper, '1000')
+
+    const saved = await waitFor(() => wrapper.emitted('saved')?.[0])
+    const payload = apiMocks.createItem.mock.calls[0]![0] as { photoDate?: string }
+    expect(payload.photoDate).toBe(todayJst())
+    expect(saved).toMatchObject([
+      { id: 11, itemCode: 'HTK9-A1X' },
+      1, // boundCount
+    ])
+
+    // 绑定后队列开始上传（mock 立即成功 → 出清）
+    await useUploadQueue().whenIdle()
+    expect(apiMocks.uploadImage).toHaveBeenCalledTimes(1)
+    const form = apiMocks.uploadImage.mock.calls[0]![0] as FormData
+    expect(form.get('itemId')).toBe('11')
+    expect(await db.uploadQueue.count()).toBe(0)
+  })
+
+  it('无照片保存 → photoDate 不提交、photoCount=0', async () => {
+    apiMocks.createItem.mockResolvedValue(itemFixture)
+    const wrapper = mountForm()
+    await pickFirstVenue(wrapper)
+    await fillAndSubmit(wrapper, '1000')
+
+    const saved = await waitFor(() => wrapper.emitted('saved')?.[0])
+    const payload = apiMocks.createItem.mock.calls[0]![0] as { photoDate?: string }
+    expect(payload.photoDate).toBeUndefined()
+    expect(saved[1]).toBe(0)
+    expect(apiMocks.uploadImage).not.toHaveBeenCalled()
   })
 })

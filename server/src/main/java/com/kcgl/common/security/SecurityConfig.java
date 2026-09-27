@@ -74,6 +74,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/login", "/api/auth/logout").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
+                        // 图片直出（docs/01 7.5 A17）：URL 内嵌 128-bit UUID 不可枚举
+                        .requestMatchers("/img/**").permitAll()
                         .requestMatchers("/api/users/**").hasRole(UserRole.ADMIN.name())
                         // 告警与错误上报查询仅管理员；client-errors 的 POST 走 anyRequest（登录用户均可）
                         .requestMatchers(HttpMethod.GET, "/api/client-errors").hasRole(UserRole.ADMIN.name())

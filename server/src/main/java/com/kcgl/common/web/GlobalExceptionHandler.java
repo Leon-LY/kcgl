@@ -8,6 +8,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.security.SecureRandom;
@@ -41,6 +42,16 @@ public class GlobalExceptionHandler {
         HttpStatus status = HttpStatus.valueOf(ex.errorCode().code() / 1000);
         return ResponseEntity.status(status)
                 .body(ApiResponse.error(ex.errorCode(), ex.getMessage()));
+    }
+
+    /**
+     * multipart 容器层粗筛（>6MB 在进入业务前被拒）：与应用层 5MB 上限同文案同码，
+     * 前端只见到一种「画像サイズが上限（5MB）を超えています」。
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> onMaxUpload(MaxUploadSizeExceededException ex) {
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.error(ErrorCode.IMAGE_TOO_LARGE));
     }
 
     /**

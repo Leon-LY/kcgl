@@ -35,6 +35,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     include: ['src/**/*.spec.ts'],
+    setupFiles: ['src/test/setup.ts'],
     // 全测试套钉死 Asia/Shanghai（docs/01 7.8）：用非 JST 本地时区跑 JST 边界用例，
     // 本地解析类回归（dayjs(str) 误用）当场暴露而非到日本生产才「自愈」。
     env: {

@@ -163,6 +163,8 @@ export interface CreateItemPayload {
   buyDate: string
   purchasePrice: number
   warehouse: number
+  /** 拍摄日期：有照片时随保存提交（拍照=当天；相册=手动选填，docs/01 7.5）。 */
+  photoDate?: string
   fee?: number
   shippingFee?: number
   tax?: number
@@ -206,4 +208,28 @@ export interface ItemResponse {
 
 export function createItem(payload: CreateItemPayload): Promise<ItemResponse> {
   return request('/api/items', jsonInit('POST', payload))
+}
+
+// ------------------------------------------------------------------ 图片上传
+
+export interface ImageUploadResult {
+  id: number
+  clientUuid: string
+  itemId: number
+  url: string
+  thumbUrl: string
+  imageType: number
+  sortOrder: number
+}
+
+/**
+ * multipart 图片上传（M2-5）。不设 Content-Type——浏览器自动带 boundary。
+ * 幂等契约（docs/01 7.0）：同 clientUuid 重放服务端 200 读回原记录，队列据此出清。
+ */
+export function uploadImage(form: FormData): Promise<ImageUploadResult> {
+  return request('/api/images', { method: 'POST', body: form })
+}
+
+export function fetchItemImages(itemId: number): Promise<ImageUploadResult[]> {
+  return request(`/api/items/${itemId}/images`, { method: 'GET' })
 }

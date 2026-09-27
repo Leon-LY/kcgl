@@ -86,6 +86,18 @@
     "penGuide": "请用油性笔把管理号抄写到吊牌或收纳袋上，回公司后再统一换成打印标签",
     "continueEntry": "继续录入",
     "dictLoadFailed": "会场与价格档位加载失败，请重新加载",
+    "photos": "照片",
+    "photoCamera": "拍照",
+    "photoAlbum": "从相册选择",
+    "photoRemove": "删除照片",
+    "photoLimit": "每件商品最多 9 张照片",
+    "photoReadFailed": "照片读取失败，请重试",
+    "photosHint": "照片在保存商品后自动上传（离线不丢失，恢复连接后自动续传）",
+    "photoDate": "拍摄日期",
+    "photoDatePlaceholder": "未设置（拍照时自动设定）",
+    "uploading": "正在上传 {count} 张…",
+    "uploadDone": "已上传 {count} 张照片",
+    "uploadFailed": "{failed} 张上传失败",
     "validation": {
       "venueRequired": "请选择会场",
       "priceRequired": "请输入进货单价",
@@ -115,6 +127,10 @@
     "403002": "不允许的访问来源",
     "423001": "账号已被锁定，请稍后重试",
     "429001": "提交次数超过上限，请稍后重试",
-    "500000": "系统发生错误"
+    "500000": "系统发生错误",
+    "400005": "不支持的图片格式（仅 JPEG / PNG）",
+    "400006": "图片大小超过上限（5MB）",
+    "400007": "图片分辨率超过上限（8000×8000）",
+    "400008": "每件商品最多 9 张照片"
   }
 }

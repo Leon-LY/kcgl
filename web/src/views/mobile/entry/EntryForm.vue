@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useUploadQueue } from '@/composables/useUploadQueue'
 import { useDictsStore } from '@/stores/dicts'
 import { useEntrySessionStore } from '@/stores/entrySession'
 import { ApiError, createItem, previewItemCode, type ItemResponse } from '@/utils/api'
 import { toDisplayMessage } from '@/utils/errors'
 import { JST_TZ, dayjs } from '@/utils/format'
+import { newClientId } from '@/utils/id'
 import { normalizeNumericText, parseAmount, trimText } from '@/utils/normalize'
 
 /**
@@ -14,13 +16,15 @@ import { normalizeNumericText, parseAmount, trimText } from '@/utils/normalize'
  * - 两级预览：档位字母本地即时算（零往返）；完整号 300ms 防抖调 preview（≠保留，文案明示）
  * - 幂等（7.0）：clientReqId 一次逻辑保存从生成到成功共用；失败重试复用同键防重复件
  * - IME（7.8）：金额字段仅在 blur 归一化（NFKC 全角→半角）；备注仅 trim
+ * - 照片（7.5）：选图即压缩落 Dexie（pending_bind）；保存成功后 bindItem 绑新商品后台续传
  */
 
-const emit = defineEmits<{ saved: [item: ItemResponse] }>()
+const emit = defineEmits<{ saved: [item: ItemResponse, photoCount: number] }>()
 
 const { t } = useI18n()
 const dicts = useDictsStore()
 const session = useEntrySessionStore()
+const uploadQueue = useUploadQueue()
 
 // ------------------------------------------------------------------ 表单状态
 
@@ -97,6 +101,85 @@ function onInDateConfirm({ selectedValues }: { selectedValues: Array<string | nu
 
 const buyDateDisplay = computed(() => buyDate.value.replaceAll('-', '/'))
 
+// ------------------------------------------------------------------ 照片（7.5 先存后传）
+
+const MAX_PHOTOS = 9
+type PhotoSource = 'camera' | 'album'
+
+interface LocalPhoto {
+  clientUuid: string
+  previewUrl: string
+  source: PhotoSource
+}
+
+const photos = ref<LocalPhoto[]>([])
+const photoDate = ref('')
+const photoError = ref<string | null>(null)
+const showPhotoDatePicker = ref(false)
+const cameraInput = ref<HTMLInputElement | null>(null)
+const albumInput = ref<HTMLInputElement | null>(null)
+/** 撮影日上限=今天（后端同口径校验）。 */
+const photoDateMax = buyDateMax
+
+async function onFilesChosen(event: Event, source: PhotoSource): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const files = Array.from(input.files ?? [])
+  input.value = '' // 允许再次选择同一张
+  if (files.length === 0) {
+    return
+  }
+  if (photos.value.length + files.length > MAX_PHOTOS) {
+    photoError.value = t('entry.photoLimit')
+    return
+  }
+  photoError.value = null
+  try {
+    // 压缩（≤0.3MB/1920px）后即刻入 Dexie 队列——崩溃/刷新不丢
+    const entries = await uploadQueue.addFiles(files)
+    for (const entry of entries) {
+      photos.value.push({
+        clientUuid: entry.clientUuid,
+        previewUrl: URL.createObjectURL(new Blob([entry.data], { type: entry.mimeType })),
+        source,
+      })
+    }
+    // 拍照=撮影日=今天（7.5）；相册不默认今天（EXIF 自动读取为 D-034 决策延后项）
+    if (source === 'camera' && photoDate.value === '') {
+      photoDate.value = todayJst()
+    }
+  } catch {
+    photoError.value = t('entry.photoReadFailed')
+  }
+}
+
+async function removePhoto(clientUuid: string): Promise<void> {
+  const index = photos.value.findIndex((photo) => photo.clientUuid === clientUuid)
+  if (index === -1) {
+    return
+  }
+  URL.revokeObjectURL(photos.value[index]!.previewUrl)
+  photos.value.splice(index, 1)
+  await uploadQueue.removeUnbound(clientUuid)
+}
+
+onUnmounted(() => {
+  for (const photo of photos.value) {
+    URL.revokeObjectURL(photo.previewUrl)
+  }
+})
+
+const photoDateDisplay = computed(() => (photoDate.value ? photoDate.value.replaceAll('-', '/') : ''))
+
+function onPhotoDateConfirm({ selectedValues }: { selectedValues: Array<string | number> }): void {
+  photoDate.value = fromPickerValues(selectedValues)
+  showPhotoDatePicker.value = false
+}
+
+/** 有照片时随保存提交撮影日（拍照自动=当天，可改；无照片不提交）。 */
+function photoDateForPayload(): string | undefined {
+  return photos.value.length > 0 && photoDate.value !== '' ? photoDate.value : undefined
+}
+
 // ------------------------------------------------------------------ 管理号预览
 
 const PREVIEW_DEBOUNCE_MS = 300
@@ -170,13 +253,6 @@ const warehouseOptions = [1, 2]
 
 let clientReqId = ''
 
-function newReqId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
-  }
-  return `r-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-}
-
 const submitting = ref(false)
 const saveError = ref<string | null>(null)
 const saveErrorId = ref<string | null>(null)
@@ -190,7 +266,7 @@ async function onSubmit(): Promise<void> {
     return // van-form 规则已拦，此为类型收窄兜底
   }
   if (!clientReqId) {
-    clientReqId = newReqId()
+    clientReqId = newClientId()
   }
   submitting.value = true
   saveError.value = null
@@ -202,6 +278,7 @@ async function onSubmit(): Promise<void> {
       buyDate: buyDate.value,
       purchasePrice: price,
       warehouse: warehouse.value,
+      photoDate: photoDateForPayload(),
       fee: parseAmount(feeText.value) ?? undefined,
       shippingFee: parseAmount(shippingText.value) ?? undefined,
       tax: parseAmount(taxText.value) ?? undefined,
@@ -210,8 +287,10 @@ async function onSubmit(): Promise<void> {
       groupNo: trimText(groupNo.value) || undefined,
       remark: trimText(remark.value) || undefined,
     })
+    // 照片绑定新商品（孤儿 pending_bind → pending），随后后台续传；失败保留 clientReqId
+    const boundCount = await uploadQueue.bindItem(item.id)
     clientReqId = '' // 成功出清：下一件用新键
-    emit('saved', item)
+    emit('saved', item, boundCount)
   } catch (error) {
     // 失败保留 clientReqId：「同じ内容で再送信」复用同键（7.0 防重复件）
     saveError.value = toDisplayMessage(error, t)
@@ -324,6 +403,104 @@ async function onSubmit(): Promise<void> {
         </template>
       </van-field>
     </van-cell-group>
+
+    <van-cell-group inset>
+      <van-field :label="t('entry.photos')">
+        <template #input>
+          <div class="entry-photos">
+            <div
+              v-for="photo in photos"
+              :key="photo.clientUuid"
+              class="entry-photo"
+            >
+              <img
+                :src="photo.previewUrl"
+                :alt="t('entry.photos')"
+              >
+              <button
+                type="button"
+                class="entry-photo-remove"
+                :aria-label="t('entry.photoRemove')"
+                @click="removePhoto(photo.clientUuid)"
+              >
+                ×
+              </button>
+            </div>
+            <span
+              v-if="photos.length > 0"
+              class="entry-photo-count"
+            >{{ photos.length }}/9</span>
+          </div>
+        </template>
+      </van-field>
+      <div class="entry-photo-actions">
+        <button
+          type="button"
+          class="kcgl-btn entry-photo-btn"
+          @click="cameraInput?.click()"
+        >
+          {{ t('entry.photoCamera') }}
+        </button>
+        <button
+          type="button"
+          class="kcgl-btn entry-photo-btn"
+          @click="albumInput?.click()"
+        >
+          {{ t('entry.photoAlbum') }}
+        </button>
+      </div>
+      <p
+        v-if="photoError"
+        class="entry-photo-error"
+      >
+        {{ photoError }}
+      </p>
+      <p class="entry-photo-hint">
+        {{ t('entry.photosHint') }}
+      </p>
+      <van-field
+        :model-value="photoDateDisplay"
+        :label="t('entry.photoDate')"
+        :placeholder="t('entry.photoDatePlaceholder')"
+        class="entry-photo-date"
+        readonly
+        is-link
+        name="photoDate"
+        @click="showPhotoDatePicker = true"
+      />
+      <van-popup
+        v-model:show="showPhotoDatePicker"
+        position="bottom"
+        round
+      >
+        <van-date-picker
+          :model-value="toPickerValues(photoDate)"
+          :min-date="MIN_DATE"
+          :max-date="photoDateMax"
+          :title="t('entry.photoDate')"
+          @confirm="onPhotoDateConfirm"
+          @cancel="showPhotoDatePicker = false"
+        />
+      </van-popup>
+    </van-cell-group>
+
+    <!-- iOS 相机直启（capture=environment）与相册多选分开两个入口：撮影日来源语义 -->
+    <input
+      ref="cameraInput"
+      type="file"
+      accept="image/jpeg,image/png"
+      capture="environment"
+      hidden
+      @change="onFilesChosen($event, 'camera')"
+    >
+    <input
+      ref="albumInput"
+      type="file"
+      accept="image/jpeg,image/png"
+      multiple
+      hidden
+      @change="onFilesChosen($event, 'album')"
+    >
 
     <div class="entry-preview">
       <div class="entry-preview-row">
@@ -530,6 +707,74 @@ async function onSubmit(): Promise<void> {
   border-color: var(--kcgl-color-primary);
   color: var(--kcgl-color-primary);
   font-weight: 600;
+}
+
+/* 照片区：缩略图 56px + 删除角标（触控目标 ≥44px 由按钮整体承担，角标为可点区域中心） */
+.entry-photos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.entry-photo {
+  position: relative;
+  width: 56px;
+  height: 56px;
+}
+
+.entry-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--kcgl-color-border);
+  display: block;
+}
+
+.entry-photo-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.entry-photo-count {
+  font-size: 0.8rem;
+  color: var(--kcgl-color-text-sub);
+}
+
+.entry-photo-actions {
+  display: flex;
+  gap: 8px;
+  padding: 0 16px 8px;
+}
+
+.entry-photo-btn {
+  flex: 1;
+  height: 36px;
+  font-size: 0.85rem;
+}
+
+.entry-photo-error {
+  margin: 0 16px 4px;
+  font-size: 0.8rem;
+  color: var(--kcgl-color-danger);
+}
+
+.entry-photo-hint {
+  margin: 0 16px 8px;
+  font-size: 0.75rem;
+  color: var(--kcgl-color-text-sub);
 }
 
 .entry-preview {

@@ -1,20 +1,32 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import QRCode from 'qrcode'
+import { useUploadQueue } from '@/composables/useUploadQueue'
 import type { ItemResponse } from '@/utils/api'
 
 /**
  * 录入成功页：大字管理号 + 本地二维码（离线可用，D-033 决策：qrcode 前端唯一实现）
- * + 本日计数 + 抄号流程文案（H3：现场无打印机，「录一件抄一件（笔）+回社贴一件（标签）」）。
+ * + 本日计数 + 照片上传角标（7.5：保存后后台续传，弱网时角标持续显示）+ 抄号流程文案
+ * （H3：现场无打印机，「录一件抄一件（笔）+回社贴一件（标签）」）。
  */
 
-const props = defineProps<{ item: ItemResponse; todayCount: number }>()
+const props = defineProps<{ item: ItemResponse; todayCount: number; photoCount: number }>()
 const emit = defineEmits<{ continue: [] }>()
 
 const { t } = useI18n()
+const uploadQueue = useUploadQueue()
 const qrDataUrl = ref<string | null>(null)
 const qrFailed = ref(false)
+
+/** 本商品仍在传/待传数（reactive Map：随队列进度实时收缩到 0）。 */
+const activeCount = computed(() => uploadQueue.activeByItem.get(props.item.id) ?? 0)
+const failedCount = computed(
+  () => uploadQueue.state.failures.filter((failure) => failure.itemId === props.item.id).length,
+)
+const uploadDone = computed(
+  () => props.photoCount > 0 && activeCount.value === 0 && failedCount.value === 0,
+)
 
 onMounted(async () => {
   try {
@@ -46,6 +58,24 @@ onMounted(async () => {
       </p>
       <p class="entry-success-count">
         {{ t('entry.todayCount', { count: todayCount }) }}
+      </p>
+      <p
+        v-if="photoCount > 0 && activeCount > 0"
+        class="entry-success-upload is-active"
+      >
+        {{ t('entry.uploading', { count: activeCount }) }}
+      </p>
+      <p
+        v-else-if="uploadDone"
+        class="entry-success-upload is-done"
+      >
+        {{ t('entry.uploadDone', { count: photoCount }) }}
+      </p>
+      <p
+        v-else-if="failedCount > 0"
+        class="entry-success-upload is-failed"
+      >
+        {{ t('entry.uploadFailed', { failed: failedCount }) }}
       </p>
       <img
         v-if="qrDataUrl"
@@ -114,6 +144,23 @@ onMounted(async () => {
   margin: 0;
   font-size: 0.9rem;
   color: var(--kcgl-color-text-sub);
+}
+
+.entry-success-upload {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.entry-success-upload.is-active {
+  color: var(--kcgl-color-info-text);
+}
+
+.entry-success-upload.is-done {
+  color: var(--kcgl-color-success);
+}
+
+.entry-success-upload.is-failed {
+  color: var(--kcgl-color-danger);
 }
 
 .entry-success-qr {

@@ -27,6 +27,11 @@ spring:
       request-timeout: 12h           # SSE 长连接（docs/01 7.6），不依赖容器默认 30s
   lifecycle:
     timeout-per-shutdown-phase: 30s
+  servlet:
+    multipart:
+      # 容器层粗筛（>6MB 直接拒并映射 400006）；业务上限 5MB 由 ImageService 精确校验
+      max-file-size: 6MB
+      max-request-size: 8MB
 
 server:
   port: 8080
@@ -50,6 +55,13 @@ kcgl:
   item-code:
     # 价格码是否进管理号（A1 口径，默认含；对外业务格式，变更须甲方确认后随发版固化）
     include-price-code: ${KCGL_ITEM_CODE_INCLUDE_PRICE_CODE:true}
+  image:
+    # 图片落盘根目录（orig/ 原图与 thumb/ 缩略图两子目录）；生产由部署卷挂载注入
+    dir: ${KCGL_IMAGE_DIR:./data/images}
+    # 单文件上限 5MB（docs/01 7.5）；客户端已压至 ≤0.3MB，此为绕过直传 API 的兜底
+    max-upload-bytes: ${KCGL_IMAGE_MAX_BYTES:5242880}
+    # 解码前读头校验的像素上限（防像素炸弹 OOM）
+    max-pixels: ${KCGL_IMAGE_MAX_PIXELS:8000}
 
 management:
   endpoints:

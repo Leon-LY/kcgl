@@ -24,6 +24,11 @@ public enum ErrorCode {
     VENUE_NOT_FOUND(404003, "選択された会場が存在しません"),
     YEAR_CODE_NOT_FOUND(404004, "落札日の年に対応する年代号が未登録です。管理画面で年代号を登録してください"),
 
+    IMAGE_FORMAT_INVALID(400005, "対応していない画像形式です（JPEG / PNG のみ）"),
+    IMAGE_TOO_LARGE(400006, "画像サイズが上限（5MB）を超えています"),
+    IMAGE_PIXEL_LIMIT(400007, "画像の解像度が上限（8000×8000）を超えています"),
+    IMAGE_COUNT_LIMIT(400008, "商品画像は1件につき9枚までです"),
+
     ACCOUNT_LOCKED(423001, "アカウントがロックされました。しばらくしてからもう一度お試しください"),
 
     USER_EXISTS(409001, "同じユーザー名が既に存在します"),

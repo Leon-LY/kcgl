@@ -89,6 +89,12 @@
       <artifactId>lombok</artifactId>
       <optional>true</optional>
     </dependency>
+    <!-- 图片重编码/缩略图（docs/01 7.5）：BufferedImage 重编码即剥 EXIF/GPS -->
+    <dependency>
+      <groupId>net.coobird</groupId>
+      <artifactId>thumbnailator</artifactId>
+      <version>0.4.20</version>
+    </dependency>
 
     <!-- 测试 -->
     <dependency>
