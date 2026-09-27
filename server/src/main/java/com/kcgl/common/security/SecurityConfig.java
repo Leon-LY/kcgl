@@ -8,6 +8,7 @@ import com.kcgl.module.auth.LoginLockService;
 import com.kcgl.module.auth.LoginThrottleFilter;
 import com.kcgl.module.user.SysUserMapper;
 import com.kcgl.module.user.UserRole;
+import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -72,6 +73,10 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
+                        // SSE 长连接完成后的 ASYNC 派发会重过滤链：容器内部派发不可伪造、
+                        // 初次请求已过完整认证授权——放行，否则对已提交响应写 401 必刷 ERROR
+                        // （会话被踢/过期关流的正常事件，D-045 E 同族治理）
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                         .requestMatchers("/api/auth/login", "/api/auth/logout").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         // 图片直出（docs/01 7.5 A17）：URL 内嵌 128-bit UUID 不可枚举
@@ -114,10 +119,16 @@ public class SecurityConfig {
         return new SessionInformationExpiredStrategy() {
             @Override
             public void onExpiredSessionDetected(SessionInformationExpiredEvent event) throws IOException {
-                event.getResponse().setStatus(401);
-                event.getResponse().setContentType("application/json;charset=UTF-8");
-                event.getResponse().setCharacterEncoding("UTF-8");
-                objectMapper.writeValue(event.getResponse().getWriter(),
+                jakarta.servlet.http.HttpServletResponse response = event.getResponse();
+                // SSE 长连接的 ASYNC 完成派发会再过本策略：流已用 getOutputStream 且已提交，
+                // 再 getWriter 必抛 IllegalStateException——正常踢人事件不该刷 ERROR 污染诊断导出
+                if (response.isCommitted()) {
+                    return;
+                }
+                response.setStatus(401);
+                response.setContentType("application/json;charset=UTF-8");
+                response.setCharacterEncoding("UTF-8");
+                objectMapper.writeValue(response.getWriter(),
                         ApiResponse.error(ErrorCode.UNAUTHENTICATED));
             }
         };

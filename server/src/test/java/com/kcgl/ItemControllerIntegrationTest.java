@@ -487,4 +487,78 @@ class ItemControllerIntegrationTest {
     private static String extract(String json, String field) {
         return json.replaceAll(".*\"" + field + "\":\"?([^,\"}]*)\"?.*", "$1");
     }
+
+    // ------------------------------------------------------------- 扫码定位（M3-⑤）
+
+    /** 重录一件（reEntryOf 指向旧件）并返回新件 id。 */
+    private long reEnter(MockHttpSession session, String clientReqId, long sourceId) throws Exception {
+        String json = mockMvc.perform(post("/api/items").session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(("{\"clientReqId\":\"" + clientReqId + "\",\"reEntryOf\":" + sourceId
+                                + ",\"venueId\":" + venueId + ",\"buyDate\":\"2026-09-15\","
+                                + "\"purchasePrice\":2000,\"warehouse\":1}")))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return Long.parseLong(json.replaceAll(".*\"id\":(\\d+).*", "$1"));
+    }
+
+    private void voidItem(MockHttpSession session, long itemId, String clientReqId) throws Exception {
+        mockMvc.perform(post("/api/items/" + itemId + "/void").session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"clientReqId\":\"" + clientReqId + "\",\"reason\":\"価格ミス\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void byCode_voidedShowsReEntryChain_softDeletedVisible_unknown404() throws Exception {
+        MockHttpSession editor = loginAs("eichi");
+        // 链两跳：A 作废→B 重录→B 再作废→C 再重录；扫 A 码须追到链终点 C（docs/01 7.1）
+        long idA = createItem(editor, "bc-a");
+        String codeA = jdbcTemplate.queryForObject(
+                "SELECT item_code FROM item WHERE id = ?", String.class, idA);
+        voidItem(editor, idA, "bc-void-a");
+        long idB = reEnter(editor, "bc-b", idA);
+        voidItem(editor, idB, "bc-void-b");
+        long idC = reEnter(editor, "bc-c", idB);
+        String codeC = jdbcTemplate.queryForObject(
+                "SELECT item_code FROM item WHERE id = ?", String.class, idC);
+
+        mockMvc.perform(get("/api/items/by-code/" + codeA).session(editor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.item.id").value(idA))
+                .andExpect(jsonPath("$.data.item.voided").value(true))
+                .andExpect(jsonPath("$.data.reEntry.itemId").value(idC))
+                .andExpect(jsonPath("$.data.reEntry.itemCode").value(codeC));
+
+        // 活件：无 reEntry
+        mockMvc.perform(get("/api/items/by-code/" + codeC).session(editor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.item.id").value(idC))
+                .andExpect(jsonPath("$.data.item.voided").value(false))
+                .andExpect(jsonPath("$.data.reEntry").doesNotExist());
+
+        // 已作废未重录：reEntry 空（提示撕标签/划掉，docs/01 7.1）
+        long idD = createItem(editor, "bc-d");
+        String codeD = jdbcTemplate.queryForObject(
+                "SELECT item_code FROM item WHERE id = ?", String.class, idD);
+        voidItem(editor, idD, "bc-void-d");
+        mockMvc.perform(get("/api/items/by-code/" + codeD).session(editor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.item.voided").value(true))
+                .andExpect(jsonPath("$.data.reEntry").doesNotExist());
+
+        // 软删件照常返回（deleted 标志驱动扫码页按角色禁操作——非管理员见「已删除」提示）
+        long idE = createItem(editor, "bc-e");
+        String codeE = jdbcTemplate.queryForObject(
+                "SELECT item_code FROM item WHERE id = ?", String.class, idE);
+        jdbcTemplate.update("UPDATE item SET deleted = 1 WHERE id = ?", idE);
+        mockMvc.perform(get("/api/items/by-code/" + codeE).session(editor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.item.deleted").value(true));
+
+        // 号不存在 → 404
+        mockMvc.perform(get("/api/items/by-code/ZZZ9-Z9Z").session(editor))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(404001));
+    }
 }

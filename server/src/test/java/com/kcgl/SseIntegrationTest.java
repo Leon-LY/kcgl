@@ -74,16 +74,27 @@ class SseIntegrationTest {
     SessionRegistry sessionRegistry;
 
     String base;
+    long venueId;
 
     @BeforeEach
     void resetFixtures() {
         base = "http://127.0.0.1:" + port;
         jdbcTemplate.update("DELETE FROM operation_log");
+        jdbcTemplate.update("DELETE FROM stock_ledger");
+        jdbcTemplate.update("DELETE FROM item");
+        jdbcTemplate.update("DELETE FROM seq_item_code");
         jdbcTemplate.update("DELETE FROM sys_user WHERE username IN ('eichi')");
         jdbcTemplate.update("""
                 INSERT INTO sys_user(username, password_hash, display_name, role, enabled, must_change_pwd)
                 VALUES ('eichi', ?, '編集者', 2, 1, 0)
                 """, ENCODER.encode(PASSWORD));
+        jdbcTemplate.update("DELETE FROM auction_venue");
+        jdbcTemplate.update("DELETE FROM price_band");
+        jdbcTemplate.update("DELETE FROM year_code");
+        jdbcTemplate.update("INSERT INTO year_code(`year`, code) VALUES (2026,'K')");
+        jdbcTemplate.update("INSERT INTO price_band(code, lower_bound, upper_bound, enabled) VALUES ('X', 0, 3000, 1)");
+        jdbcTemplate.update("INSERT INTO auction_venue(code, name, enabled) VALUES ('HT', '飛騨古民具市', 1)");
+        venueId = jdbcTemplate.queryForObject("SELECT id FROM auction_venue WHERE code = 'HT'", Long.class);
     }
 
     @Test
@@ -147,6 +158,33 @@ class SseIntegrationTest {
         sseHub.heartbeat();
 
         assertThat(awaitLine(lines, EOF::equals)).isEqualTo(EOF);
+    }
+
+    /**
+     * 动作端点全链路（M3-⑤）：HTTP 卖出 → 事务提交 → SseHub 广播 → 字节真的流到
+     * 另一会话的打开流——「端点接线了广播」唯一可证明的层（mock 证明不了线上字节）。
+     * 到仓广播（entity=null 批次级）先达，卖出广播（entity=管理号）后达，顺序天然分离。
+     */
+    @Test
+    void actionEndpoint_fullChain_broadcastsInventoryEventToOpenStream() throws Exception {
+        Session actor = login();
+        Session watcher = login();
+        LinkedBlockingQueue<String> lines = openStream(watcher);
+        awaitDataLine(lines, "HELLO");
+
+        long itemId = createItem(actor);
+        postJson(actor, "/api/inventory/arrivals",
+                "{\"items\":[{\"itemId\":" + itemId + ",\"clientReqId\":\"sse-arr\"}]}");
+        assertThat(awaitDataLine(lines, "INVENTORY"))
+                .as("到仓批次级广播应先达（entity=null）").contains("\"type\":\"INVENTORY\"");
+
+        String itemCode = jdbcTemplate.queryForObject(
+                "SELECT item_code FROM item WHERE id = ?", String.class, itemId);
+        postJson(actor, "/api/inventory/sell",
+                "{\"itemId\":" + itemId + ",\"clientReqId\":\"sse-sell\",\"soldPrice\":15000}");
+        String event = awaitDataLine(lines, itemCode);
+        assertThat(event).contains("\"type\":\"INVENTORY\"")
+                .contains("\"entity\":\"" + itemCode + "\"");
     }
 
     // ------------------------------------------------------------- 夹具与助手
@@ -230,5 +268,26 @@ class SseIntegrationTest {
     private String awaitDataLine(LinkedBlockingQueue<String> lines, String marker)
             throws InterruptedException {
         return awaitLine(lines, line -> line.startsWith("data:") && line.contains(marker));
+    }
+
+    /** POST JSON 并断言 200（错误体进失败信息）。 */
+    private String postJson(Session session, String path, String body) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder(URI.create(base + path))
+                .timeout(Duration.ofSeconds(10))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build();
+        HttpResponse<String> response = session.client().send(request, HttpResponse.BodyHandlers.ofString());
+        assertThat(response.statusCode()).as("POST %s 应成功: %s", path, response.body()).isEqualTo(200);
+        return response.body();
+    }
+
+    /** 录一件在途并返回 id（动作全链路的起点）。 */
+    private long createItem(Session session) throws Exception {
+        String body = postJson(session, "/api/items",
+                "{\"clientReqId\":\"sse-item\",\"venueId\":" + venueId
+                        + ",\"buyDate\":\"2026-09-15\",\"purchasePrice\":1000,\"warehouse\":1,"
+                        + "\"remark\":\"SSE全鏈路テスト\"}");
+        return Long.parseLong(body.replaceAll(".*\"id\":(\\d+).*", "$1"));
     }
 }

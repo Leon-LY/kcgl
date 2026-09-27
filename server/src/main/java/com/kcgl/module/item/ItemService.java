@@ -10,7 +10,9 @@ import com.kcgl.module.image.FirstThumbReader;
 import com.kcgl.module.inventory.StockLedgerEntity;
 import com.kcgl.module.inventory.StockLedgerMapper;
 import com.kcgl.module.inventory.TxnType;
+import com.kcgl.module.item.dto.ItemByCodeResponse;
 import com.kcgl.module.item.dto.ItemListResponse;
+import com.kcgl.module.item.dto.ItemResponse;
 import com.kcgl.module.item.dto.ItemSummaryResponse;
 import com.kcgl.module.item.dto.TodaySessionResponse;
 import com.kcgl.module.item.dto.VoidItemRequest;
@@ -39,6 +41,8 @@ import java.util.Map;
 public class ItemService {
 
     private static final int MAX_PAGE_SIZE = 100;
+    /** 重录反链最大跳数（防脏数据成环；正常深度 1-2 跳）。 */
+    private static final int MAX_RE_ENTRY_HOPS = 10;
 
     private final ItemMapper itemMapper;
     private final StockLedgerMapper ledgerMapper;
@@ -64,6 +68,45 @@ public class ItemService {
             throw new BizException(ErrorCode.NOT_FOUND);
         }
         return item;
+    }
+
+    /**
+     * 扫码定位（M3-⑤，docs/01 六节 by-code 行）：管理号 NFKC+大文字化容错
+     * （全角/小写手输兜底，与打印页単票再印刷同一归一规则）。
+     * 作废/软删件同样返回（404 仅限「号不存在」）——deleted/voided 标志由前端按角色
+     * 处置：非管理员见提示禁操作、管理员见回收站/作废态；作废件顺 void_re_entry
+     * 反链给出重录新号（docs/01 7.1「扫旧码必须能查到新号」）。
+     */
+    public ItemByCodeResponse byCode(String code) {
+        String normalized = Normalizer.normalize(code.trim(), Normalizer.Form.NFKC)
+                .toUpperCase(Locale.ROOT);
+        ItemEntity item = itemMapper.selectOne(new LambdaQueryWrapper<ItemEntity>()
+                .eq(ItemEntity::getItemCode, normalized));
+        if (item == null) {
+            throw new BizException(ErrorCode.NOT_FOUND);
+        }
+        return new ItemByCodeResponse(ItemResponse.from(item), followReEntry(item));
+    }
+
+    /**
+     * 作废重录链：沿 void_re_entry 反链逐跳到尽头（新件再作废再重录时链自然延伸）。
+     * 已作废未重录/反链悬空（异常数据）返回 null——不阻断扫码主流程。
+     */
+    private ItemByCodeResponse.ReEntry followReEntry(ItemEntity item) {
+        ItemEntity cursor = item;
+        for (int hop = 0; hop < MAX_RE_ENTRY_HOPS
+                && cursor.getVoided() != null && cursor.getVoided() == 1; hop++) {
+            if (cursor.getVoidReEntry() == null) {
+                return null;
+            }
+            ItemEntity next = itemMapper.selectById(cursor.getVoidReEntry());
+            if (next == null) {
+                return null;
+            }
+            cursor = next;
+        }
+        return cursor == item ? null
+                : new ItemByCodeResponse.ReEntry(cursor.getId(), cursor.getItemCode());
     }
 
     /**

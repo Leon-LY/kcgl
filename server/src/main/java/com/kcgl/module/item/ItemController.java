@@ -5,6 +5,7 @@ import com.kcgl.common.web.BizException;
 import com.kcgl.common.web.ErrorCode;
 import com.kcgl.module.auth.KcglUserDetails;
 import com.kcgl.module.item.dto.CreateItemRequest;
+import com.kcgl.module.item.dto.ItemByCodeResponse;
 import com.kcgl.module.item.dto.ItemListResponse;
 import com.kcgl.module.item.dto.ItemResponse;
 import com.kcgl.module.item.dto.TodaySessionResponse;
@@ -69,6 +70,13 @@ public class ItemController {
     @PreAuthorize("hasAnyRole('ADMIN','EDITOR','VIEWER')")
     public ApiResponse<ItemResponse> get(@PathVariable long id) {
         return ApiResponse.ok(ItemResponse.from(itemService.getById(id)));
+    }
+
+    /** 扫码定位（M3-⑤）：管理号命中即返回（含作废/软删件，标志驱动前端禁操作）；404=号不存在。 */
+    @GetMapping("/by-code/{code}")
+    @PreAuthorize("hasAnyRole('ADMIN','EDITOR','VIEWER')")
+    public ApiResponse<ItemByCodeResponse> byCode(@PathVariable String code) {
+        return ApiResponse.ok(itemService.byCode(code));
     }
 
     /** 打印页列表（M2-7 日期/会场；M2-9 code=管理号单票再印刷，优先于日期条件）；作废/软删件不出标签。 */
