@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -126,7 +127,36 @@ public class ItemCodeTxService {
                 "priceBand", band.code(),
                 "purchasePrice", cmd.purchasePrice(),
                 "skips", skips));
-        return item;
+        // 生成列（total_cost/profit）由 DB 计算，重读回填——响应携带真实成本而非 null
+        return itemMapper.selectById(item.getId());
+    }
+
+    /**
+     * 预览号（无锁只读，E+）：计数器现值+1 推算，不做存在性检查（预览≠保留——
+     * 两人可能同见一个号，先保存者得之，后者保存时引擎落库取新号；前端文案须明示以保存为准）。
+     */
+    public ItemCodePreviewResponse preview(long venueId, LocalDate buyDate, long price) {
+        VenueEntity venue = requireVenue(venueId);
+        YearCodeEntity yearCode = requireYearCode(buyDate.getYear());
+        PriceBandResponse band = priceBandService.match(price);
+        int month = buyDate.getMonthValue();
+        SeqItemCodeEntity bucket = seqMapper.selectOne(new LambdaQueryWrapper<SeqItemCodeEntity>()
+                .eq(SeqItemCodeEntity::getVenueId, venueId)
+                .eq(SeqItemCodeEntity::getYear, buyDate.getYear())
+                .eq(SeqItemCodeEntity::getMonth, month));
+        String prefix = "A";
+        int seq = 1;
+        if (bucket != null) {
+            prefix = bucket.getCurPrefix();
+            if (bucket.getCurSeq() >= MAX_SEQ) {
+                prefix = ItemCodeFormatter.nextPrefix(prefix);
+            } else {
+                seq = bucket.getCurSeq() + 1;
+            }
+        }
+        String code = ItemCodeFormatter.format(venue.getCode(), yearCode.getCode(), month,
+                prefix, seq, band.code(), properties.withPriceCode());
+        return new ItemCodePreviewResponse(code, band.code(), prefix, seq);
     }
 
     // ------------------------------------------------------------------ 内部

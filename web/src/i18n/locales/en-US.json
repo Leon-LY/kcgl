@@ -53,6 +53,8 @@
     "400102": "New password does not meet the requirements",
     "404001": "Not found",
     "404002": "No price band matches this price. Please configure price bands in the admin console",
+    "404003": "The selected auction venue does not exist",
+    "404004": "No year code is registered for the year of the purchase date. Please register it in the admin console",
     "409001": "This username already exists",
     "409002": "This venue code already exists",
     "409003": "This price band code already exists",
