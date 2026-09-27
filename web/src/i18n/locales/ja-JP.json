@@ -163,7 +163,10 @@
       "small": "38×21（65面）",
       "medium": "50×30（36面）",
       "large": "70×25（33面）"
-    }
+    },
+    "reprintLabel": "管理番号で再印刷",
+    "reprintPlaceholder": "例）HTK9-A12X",
+    "reprintNotFound": "この管理番号で印刷できる商品が見つかりません（取り消し済み・削除済みは対象外です）"
   },
   "arrival": {
     "title": "入庫確認",

@@ -366,6 +366,8 @@ export interface PrintItemsParams {
   createdFrom: string
   createdTo: string
   venueId?: number
+  /** 管理号单票重打（M2-9）：精确匹配，优先于日期/会场条件；空=按日期模式。 */
+  code?: string
   page?: number
   size?: number
 }
@@ -377,6 +379,9 @@ export function fetchItemsForPrint(params: PrintItemsParams): Promise<ItemListRe
   })
   if (params.venueId != null) {
     query.set('venueId', String(params.venueId))
+  }
+  if (params.code != null && params.code !== '') {
+    query.set('code', params.code)
   }
   if (params.page != null) {
     query.set('page', String(params.page))

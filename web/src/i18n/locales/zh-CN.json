@@ -163,7 +163,10 @@
       "small": "38×21（65张）",
       "medium": "50×30（36张）",
       "large": "70×25（33张）"
-    }
+    },
+    "reprintLabel": "按管理号重打",
+    "reprintPlaceholder": "例）HTK9-A12X",
+    "reprintNotFound": "未找到可按此管理号打印的商品（不含已作废/已删除）"
   },
   "arrival": {
     "title": "到货核对",

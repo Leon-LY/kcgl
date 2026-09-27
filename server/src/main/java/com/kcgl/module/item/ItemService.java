@@ -17,11 +17,13 @@ import com.kcgl.module.item.dto.VoidItemRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.text.Normalizer;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -122,20 +124,27 @@ public class ItemService {
      * thumbUrl=每件首图缩略图（带缩略图标签排版用，无图为 null）。
      */
     public ItemListResponse listForPrint(LocalDate createdFrom, LocalDate createdTo,
-            Long venueId, int page, int size) {
-        if (createdFrom.isAfter(createdTo)) {
-            throw new BizException(ErrorCode.VALIDATION, "作成日範囲の開始が終了より後になっています");
-        }
+            Long venueId, String code, int page, int size) {
         int safePage = Math.max(page, 1);
         int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
-        Page<ItemEntity> result = itemMapper.selectPage(new Page<>(safePage, safeSize),
-                new LambdaQueryWrapper<ItemEntity>()
-                        .ge(ItemEntity::getCreatedAt, LocalDateTime.of(createdFrom, LocalTime.MIN))
-                        .lt(ItemEntity::getCreatedAt, LocalDateTime.of(createdTo.plusDays(1), LocalTime.MIN))
-                        .eq(venueId != null, ItemEntity::getVenueId, venueId)
-                        .eq(ItemEntity::getVoided, 0)
-                        .eq(ItemEntity::getDeleted, 0)
-                        .orderByAsc(ItemEntity::getId));
+        LambdaQueryWrapper<ItemEntity> wrapper = new LambdaQueryWrapper<ItemEntity>()
+                .eq(ItemEntity::getVoided, 0)
+                .eq(ItemEntity::getDeleted, 0)
+                .orderByAsc(ItemEntity::getId);
+        if (code != null && !code.isBlank()) {
+            // 単票再印刷（M2-9）：管理番号完全一致のみ。全角/小写容错=NFKC+大文字化。
+            // 日付/会場条件は不問（古いラベルの張り替えは作成日を覚えている前提がない）。
+            wrapper.eq(ItemEntity::getItemCode,
+                    Normalizer.normalize(code.trim(), Normalizer.Form.NFKC).toUpperCase(Locale.ROOT));
+        } else {
+            if (createdFrom.isAfter(createdTo)) {
+                throw new BizException(ErrorCode.VALIDATION, "作成日範囲の開始が終了より後になっています");
+            }
+            wrapper.ge(ItemEntity::getCreatedAt, LocalDateTime.of(createdFrom, LocalTime.MIN))
+                    .lt(ItemEntity::getCreatedAt, LocalDateTime.of(createdTo.plusDays(1), LocalTime.MIN))
+                    .eq(venueId != null, ItemEntity::getVenueId, venueId);
+        }
+        Page<ItemEntity> result = itemMapper.selectPage(new Page<>(safePage, safeSize), wrapper);
         List<Long> itemIds = result.getRecords().stream().map(ItemEntity::getId).toList();
         Map<Long, String> firstThumbs = firstThumbReader.byItemIds(itemIds);
         List<ItemSummaryResponse> rows = result.getRecords().stream()

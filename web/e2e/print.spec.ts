@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
-import jsQR from 'jsqr'
 
+import { decodeQr } from './qr'
 import { TEST_JPEG } from './fixtures'
 
 /**
@@ -24,20 +24,7 @@ async function login(page: Page, username: string): Promise<void> {
   await expect(page.locator('.home-welcome')).toBeVisible()
 }
 
-/** 浏览器内把 QR img 画进 canvas 取像素，Node 侧 jsQR 解码（码内容=管理号的直接证明）。 */
-async function decodeQr(page: Page, index: number): Promise<string | null> {
-  const image = await page.locator('.print-qr').nth(index).evaluate((img: HTMLImageElement) => {
-    const canvas = document.createElement('canvas')
-    canvas.width = img.naturalWidth
-    canvas.height = img.naturalHeight
-    const ctx = canvas.getContext('2d')!
-    ctx.drawImage(img, 0, 0)
-    const data = ctx.getImageData(0, 0, canvas.width, canvas.height)
-    return { width: data.width, height: data.height, pixels: Array.from(data.data) }
-  })
-  const code = jsQR(new Uint8ClampedArray(image.pixels), image.width, image.height)
-  return code?.data ?? null
-}
+/** 打印页共享断言助手见 ./qr.ts（entry.spec 10 件闭环同样使用）。 */
 
 test.describe('label printing (desktop-chromium)', () => {
   test('item entered with photo reaches the print page: labels, count, guide bar, jsQR decode matching the management code, and size switch with thumbnails', async ({ page }) => {
@@ -87,10 +74,14 @@ test.describe('label printing (desktop-chromium)', () => {
     await page.locator('.el-radio-button', { hasText: '50×30（36面）' }).click()
     await expect(page.locator('.el-switch')).not.toHaveClass(/is-disabled/)
     await page.locator('.el-switch').click()
-    const thumbCount = await page.locator('.print-thumb').count()
-    expect(thumbCount).toBe(labelCount)
-    const thumbSrc = await page.locator('.print-thumb').first().getAttribute('src')
-    expect(thumbSrc).toContain('/img/thumb/')
+    // 缩略图只对带图件渲染：同日件未必有照片（entry.spec 十件闭环不拍照），
+    // 断言锚定本用例已知带图件——标签出现 /img/thumb/ 且真实加载成功（404 不算过）
+    const ownThumb = page.locator('.print-label', { hasText: itemCode! }).locator('.print-thumb')
+    await expect(ownThumb).toHaveCount(1)
+    await expect(ownThumb).toHaveAttribute('src', /\/img\/thumb\//)
+    await expect
+      .poll(async () => ownThumb.evaluate((img: HTMLImageElement) => img.naturalWidth))
+      .toBeGreaterThan(0)
   })
 
   test('viewer can also print (printing is an all-roles capability since entry and labeling hands often differ)', async ({ page }) => {

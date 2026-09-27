@@ -71,17 +71,18 @@ public class ItemController {
         return ApiResponse.ok(ItemResponse.from(itemService.getById(id)));
     }
 
-    /** 打印页列表（M2-7）：创建日区间 + 可选会场；作废/软删件不出标签。 */
+    /** 打印页列表（M2-7 日期/会场；M2-9 code=管理号单票再印刷，优先于日期条件）；作废/软删件不出标签。 */
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','EDITOR','VIEWER')")
     public ApiResponse<ItemListResponse> list(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate createdFrom,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate createdTo,
             @RequestParam(required = false) Long venueId,
+            @RequestParam(required = false) String code,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "100") int size) {
         return ApiResponse.ok(
-                itemService.listForPrint(createdFrom, createdTo, venueId, page, size));
+                itemService.listForPrint(createdFrom, createdTo, venueId, code, page, size));
     }
 
     /** 本日录入会话（M2-8b）：我的当天录入（含作废），现场誊写与收工对数。 */

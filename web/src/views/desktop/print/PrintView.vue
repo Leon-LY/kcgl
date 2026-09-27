@@ -9,6 +9,7 @@ import { useDictsStore } from '@/stores/dicts'
 import { ApiError, fetchItemsForPrint, type ItemSummary } from '@/utils/api'
 import { toDisplayMessage } from '@/utils/errors'
 import { dayjs, JST_TZ } from '@/utils/format'
+import { normalizeNumericText } from '@/utils/normalize'
 import LabelSheet from './LabelSheet.vue'
 import { LABEL_PRESETS, type LabelEntry, type LabelPresetKey } from './label'
 
@@ -27,6 +28,7 @@ const dicts = useDictsStore()
 
 const range = ref<[string, string]>([todayJst(), todayJst()])
 const venueIdFilter = ref<number | null>(null)
+const reprintCode = ref('')
 const presetKey = ref<LabelPresetKey>('small')
 const showThumb = ref(false)
 const entries = ref<LabelEntry[]>([])
@@ -35,6 +37,14 @@ const truncated = ref(false)
 const loading = ref(false)
 const loadError = ref<string | null>(null)
 const loadErrorId = ref<string | null>(null)
+
+/** 管理号重打输入（blur 归一化，IME 组合输入中不转换——7.8 纪律）。 */
+function normalizeCodeOnBlur(): void {
+  reprintCode.value = normalizeNumericText(reprintCode.value).toUpperCase()
+}
+
+/** 单票重打模式：输入了管理号即以精确匹配优先（日期/会场条件不适用）。 */
+const codeMode = computed(() => reprintCode.value !== '')
 
 function todayJst(): string {
   return dayjs().tz(JST_TZ).format('YYYY-MM-DD')
@@ -97,6 +107,7 @@ async function load(): Promise<void> {
       createdFrom: range.value[0],
       createdTo: range.value[1],
       venueId: venueIdFilter.value ?? undefined,
+      code: codeMode.value ? reprintCode.value : undefined,
     }
     const first = await fetchItemsForPrint({ ...base, page: 1, size: PAGE_SIZE })
     total.value = first.total
@@ -174,6 +185,16 @@ onMounted(() => {
               />
             </el-select>
           </label>
+          <label class="print-field">
+            <span class="print-field-label">{{ t('print.reprintLabel') }}</span>
+            <el-input
+              v-model="reprintCode"
+              class="print-reprint"
+              :placeholder="t('print.reprintPlaceholder')"
+              clearable
+              @blur="normalizeCodeOnBlur"
+            />
+          </label>
           <div class="print-field">
             <span class="print-field-label">{{ t('print.presetLabel') }}</span>
             <el-radio-group v-model="presetKey">
@@ -245,7 +266,7 @@ onMounted(() => {
         v-else-if="!loading && !loadError"
         class="print-empty"
       >
-        {{ t('print.empty') }}
+        {{ codeMode ? t('print.reprintNotFound') : t('print.empty') }}
       </p>
     </section>
   </el-config-provider>
@@ -291,6 +312,10 @@ onMounted(() => {
 
 .print-venue {
   width: 220px;
+}
+
+.print-reprint {
+  width: 180px;
 }
 
 .print-actions {

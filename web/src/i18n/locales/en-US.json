@@ -163,7 +163,10 @@
       "small": "38×21 (65)",
       "medium": "50×30 (36)",
       "large": "70×25 (33)"
-    }
+    },
+    "reprintLabel": "Reprint by item code",
+    "reprintPlaceholder": "e.g. HTK9-A12X",
+    "reprintNotFound": "No printable item found for this item code (voided and deleted items are excluded)"
   },
   "arrival": {
     "title": "Arrival Check",

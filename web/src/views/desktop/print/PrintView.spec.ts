@@ -185,3 +185,55 @@ describe('paged fetching and truncation', () => {
     expect(wrapper.find('.print-count').text()).toContain('先頭500件のみ')
   })
 })
+
+describe('reprint by item code (M2-9)', () => {
+  it('loads exactly one label by code (blur normalization), shows not-found wording, and returns to date mode when cleared', async () => {
+    // 依次：挂载自动加载 / code 命中 / code 未存在 / 清空回日期模式
+    apiMocks.fetchItemsForPrint
+      .mockResolvedValueOnce(listResult([row(1), row(2)]))
+      .mockResolvedValueOnce(listResult([row(5)]))
+      .mockResolvedValueOnce(listResult([]))
+      .mockResolvedValueOnce(listResult([]))
+    const wrapper = mountView()
+    await flushPromises()
+
+    // 全角小写输入（IME 想定）→ blur 归一化为半角大写
+    const input = wrapper.find('.print-reprint input')
+    await input.setValue('ｈｔｋ９－ａ５ｘ')
+    await input.trigger('blur')
+    expect((input.element as HTMLInputElement).value).toBe('HTK9-A5X')
+
+    await wrapper.findAll('button').find((b) => b.text() === '読み込む')!.trigger('click')
+    await flushPromises()
+
+    expect(apiMocks.fetchItemsForPrint).toHaveBeenLastCalledWith({
+      createdFrom: todayJst(),
+      createdTo: todayJst(),
+      venueId: undefined,
+      code: 'HTK9-A5X',
+      page: 1,
+      size: 100,
+    })
+    expect(wrapper.findAll('.print-label')).toHaveLength(1)
+    expect(wrapper.find('.print-count').text()).toContain('1件・1枚')
+
+    // 未存在管理号 → 专用空态（区别于日期模式的「调整区间」提示）
+    await wrapper.findAll('button').find((b) => b.text() === '読み込む')!.trigger('click')
+    await flushPromises()
+    expect(wrapper.findAll('.print-label')).toHaveLength(0)
+    expect(wrapper.find('.print-empty').text()).toContain('見つかりません')
+
+    // 清空管理号 → 回日期模式（请求不带 code，空态文案恢复区间提示）
+    await input.setValue('')
+    await wrapper.findAll('button').find((b) => b.text() === '読み込む')!.trigger('click')
+    await flushPromises()
+    expect(apiMocks.fetchItemsForPrint).toHaveBeenLastCalledWith({
+      createdFrom: todayJst(),
+      createdTo: todayJst(),
+      venueId: undefined,
+      page: 1,
+      size: 100,
+    })
+    expect(wrapper.find('.print-empty').text()).toContain('期間を見直してください')
+  })
+})

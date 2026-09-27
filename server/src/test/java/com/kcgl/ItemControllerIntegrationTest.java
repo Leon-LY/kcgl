@@ -412,6 +412,56 @@ class ItemControllerIntegrationTest {
     }
 
     @Test
+    void list_codeFilter_exactMatchWithNormalization() throws Exception {
+        MockHttpSession editor = loginAs("eichi");
+        createItem(editor, "code-a"); // HTK9-A1X
+        createItem(editor, "code-b"); // HTK9-A2X
+        // 半角小写 → 精确命中 1 件
+        mockMvc.perform(get("/api/items").session(editor)
+                        .param("createdFrom", todayParam(-1)).param("createdTo", todayParam(1))
+                        .param("code", "htk9-a2x"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HTK9-A2X"));
+        // 全角（IME 想定）→ NFKC+大写化后同命中
+        mockMvc.perform(get("/api/items").session(editor)
+                        .param("createdFrom", todayParam(-1)).param("createdTo", todayParam(1))
+                        .param("code", "ＨＴＫ９－Ａ２Ｘ"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HTK9-A2X"));
+        // code 优先于日期条件（重打不看创建日——旧标签补打场景）
+        mockMvc.perform(get("/api/items").session(editor)
+                        .param("createdFrom", "2020-01-01").param("createdTo", "2020-01-31")
+                        .param("code", "HTK9-A1X"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HTK9-A1X"));
+        // 不存在 → 0 件（前端据此显示「找不到」而非空列表）
+        mockMvc.perform(get("/api/items").session(editor)
+                        .param("createdFrom", todayParam(-1)).param("createdTo", todayParam(1))
+                        .param("code", "HTK9-Z99X"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(0));
+    }
+
+    @Test
+    void list_codeFilter_excludesVoided() throws Exception {
+        MockHttpSession editor = loginAs("eichi");
+        long voidedId = createItem(editor, "code-void");
+        mockMvc.perform(post("/api/items/" + voidedId + "/void").session(editor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"clientReqId\":\"void-code\",\"reason\":\"誤入力\"}"))
+                .andExpect(status().isOk());
+        // 作废件不可重打（打印语义=作废标签须撕除/划掉，补打会复活旧号）
+        mockMvc.perform(get("/api/items").session(editor)
+                        .param("createdFrom", todayParam(-1)).param("createdTo", todayParam(1))
+                        .param("code", "HTK9-A1X"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(0));
+    }
+
+    @Test
     void list_viewerAllowed_printingForAllRoles() throws Exception {
         MockHttpSession viewer = loginAs("miru");
         mockMvc.perform(get("/api/items").session(viewer)
