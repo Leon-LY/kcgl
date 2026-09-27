@@ -229,6 +229,50 @@ export function voidItem(id: number, clientReqId: string, reason: string): Promi
   return request(`/api/items/${id}/void`, jsonInit('POST', { clientReqId, reason }))
 }
 
+// ------------------------------------------------------------------ 打印列表（M2-7）
+
+/** 打印页行摘要：标签只需管理号/落札日/会场码 + 可选首图缩略图。 */
+export interface ItemSummary {
+  id: number
+  itemCode: string
+  buyDate: string
+  venueCode: string
+  thumbUrl: string | null
+}
+
+export interface ItemListResponse {
+  total: number
+  page: number
+  size: number
+  rows: ItemSummary[]
+}
+
+export interface PrintItemsParams {
+  /** 创建日区间（JST 日界，含两端）；作废/软删件不出标签（服务端过滤）。 */
+  createdFrom: string
+  createdTo: string
+  venueId?: number
+  page?: number
+  size?: number
+}
+
+export function fetchItemsForPrint(params: PrintItemsParams): Promise<ItemListResponse> {
+  const query = new URLSearchParams({
+    createdFrom: params.createdFrom,
+    createdTo: params.createdTo,
+  })
+  if (params.venueId != null) {
+    query.set('venueId', String(params.venueId))
+  }
+  if (params.page != null) {
+    query.set('page', String(params.page))
+  }
+  if (params.size != null) {
+    query.set('size', String(params.size))
+  }
+  return request(`/api/items?${query}`, { method: 'GET' })
+}
+
 // ------------------------------------------------------------------ 图片上传
 
 export interface ImageUploadResult {

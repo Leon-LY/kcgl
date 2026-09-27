@@ -70,19 +70,24 @@ const shellOptions = [
       </div>
     </div>
 
-    <div
-      v-if="canEntry"
-      class="kcgl-card home-card"
-    >
+    <div class="kcgl-card home-card">
       <h2 class="home-card-title">
         {{ t('home.quickActions') }}
       </h2>
       <button
+        v-if="canEntry"
         type="button"
         class="home-entry-link"
         @click="router.push({ name: 'entry' })"
       >
         {{ t('home.goEntry') }}
+      </button>
+      <button
+        type="button"
+        class="home-entry-link"
+        @click="router.push({ name: 'print' })"
+      >
+        {{ t('home.goPrint') }}
       </button>
     </div>
 

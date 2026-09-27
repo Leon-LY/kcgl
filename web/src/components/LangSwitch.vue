@@ -41,7 +41,7 @@ async function onChange(event: Event): Promise<void> {
   padding: 0 8px;
   border: 1px solid var(--kcgl-color-border);
   border-radius: 4px;
-  background: #fff;
+  background: var(--kcgl-color-card);
   color: var(--kcgl-color-text);
   font-size: 0.85rem;
   cursor: pointer;

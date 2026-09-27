@@ -39,6 +39,13 @@ const router = createRouter({
       meta: { titleKey: 'entry.title', roles: [1, 2] },
     },
     {
+      // 标签打印（M2-7）：桌面为主、全员可打印（录入手与贴标手常不同人）
+      path: '/print',
+      name: 'print',
+      component: () => import('@/views/desktop/print/PrintView.vue'),
+      meta: { titleKey: 'print.title' },
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/',
     },

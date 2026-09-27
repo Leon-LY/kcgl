@@ -1,0 +1,279 @@
+/**
+ * 品牌设计系统（docs/05-UI设计规范.md 的代码落地）——双壳（Vant 移动端 / Element Plus
+ * 桌面端）共享同一套语义令牌，两个 UI 库通过各自的 CSS 变量体系桥接到令牌：
+ * 换主色只改 :root 一处，全端同步。设计基准=日本業務 SaaS（Zaico/freee 系）：
+ * 克制的单主色 + 中性灰阶、信息密度合理、栅格对齐、无装饰性渐变/重阴影。
+ *
+ * 结构：①设计令牌 ②基础样式 ③Vant 主题桥接 ④Element Plus 主题桥接 ⑤共享基元。
+ */
+
+/* ---------------------------------------------------------------- ① 设计令牌 */
+
+:root {
+  /* 品牌主色：业务蓝（按压态加深，浅底用于选中/信息面） */
+  --kcgl-color-primary: #2062a6;
+  --kcgl-color-primary-dark: #1b5290;
+  --kcgl-color-primary-bg: #eaf2fa;
+
+  /* 文字三级 */
+  --kcgl-color-text: #1f2329;
+  --kcgl-color-text-sub: #5f6672;
+  --kcgl-color-text-faint: #9aa1ac;
+
+  /* 面与边框 */
+  --kcgl-color-bg: #f5f6f7;
+  --kcgl-color-card: #ffffff;
+  --kcgl-color-border: #dcdfe6;
+  --kcgl-color-border-strong: #c0c4cc;
+
+  /* 语义四色（文字/浅底/描边三件套） */
+  --kcgl-color-danger: #b3261e;
+  --kcgl-color-danger-bg: #fdeceb;
+  --kcgl-color-danger-border: #f2c4c1;
+  --kcgl-color-success: #2e7d32;
+  --kcgl-color-success-bg: #eaf2ea;
+  --kcgl-color-success-border: #c0d8c2;
+  --kcgl-color-warning: #8a6116;
+  --kcgl-color-warning-bg: #faf3e2;
+  --kcgl-color-warning-border: #e8d8ab;
+  --kcgl-color-info-text: #1b5290;
+  --kcgl-color-info-bg: #eaf2fa;
+  --kcgl-color-info-border: #c5d9ee;
+
+  /* 圆角两档 + 卡片投影一档 */
+  --kcgl-radius-s: 4px;
+  --kcgl-radius-m: 6px;
+  --kcgl-shadow-card: 0 1px 2px rgba(31, 35, 41, 0.04);
+
+  font-size: 16px;
+}
+
+/* ---------------------------------------------------------------- ② 基础样式 */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  /* 字体栈（docs/01 7.8）：Hiragino(iOS/mac) + Yu Gothic UI/Meiryo(Windows) + Noto Sans CJK JP(Android) */
+  font-family:
+    Hiragino Kaku Gothic ProN,
+    'Hiragino Sans',
+    'Yu Gothic UI',
+    YuGothic,
+    Meiryo,
+    'Noto Sans CJK JP',
+    sans-serif;
+  color: var(--kcgl-color-text);
+  background: var(--kcgl-color-bg);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ------------------------------------------------- ③ Vant 主题桥接（移动端） */
+
+:root {
+  --van-primary-color: var(--kcgl-color-primary);
+  --van-text-color: var(--kcgl-color-text);
+  --van-text-color-2: var(--kcgl-color-text-sub);
+  --van-text-color-3: var(--kcgl-color-text-faint);
+  --van-border-color: var(--kcgl-color-border);
+  --van-background: var(--kcgl-color-bg);
+  --van-background-2: var(--kcgl-color-card);
+  --van-radius-sm: var(--kcgl-radius-s);
+  --van-radius-md: var(--kcgl-radius-m);
+
+  /* 按钮（primary/danger 对齐品牌语义色） */
+  --van-button-primary-background: var(--kcgl-color-primary);
+  --van-button-primary-border-color: var(--kcgl-color-primary);
+  --van-button-danger-background: var(--kcgl-color-danger);
+  --van-button-danger-border-color: var(--kcgl-color-danger);
+  --van-button-radius: var(--kcgl-radius-s);
+
+  /* 单元格/表单（录入页高频面） */
+  --van-cell-background: var(--kcgl-color-card);
+  --van-cell-text-color: var(--kcgl-color-text);
+  --van-cell-border-color: var(--kcgl-color-border);
+  --van-cell-group-background: var(--kcgl-color-card);
+  --van-field-input-text-color: var(--kcgl-color-text);
+  --van-field-placeholder-text-color: var(--kcgl-color-text-faint);
+  --van-field-label-color: var(--kcgl-color-text-sub);
+  --van-popup-background: var(--kcgl-color-card);
+
+  /* 选择器（会场/日期确认按钮） */
+  --van-picker-confirm-action-color: var(--kcgl-color-primary);
+  --van-picker-option-text-color: var(--kcgl-color-text);
+}
+
+/* ------------------------------------------ ④ Element Plus 主题桥接（桌面端） */
+
+:root {
+  /* 主色梯度（hover=light-3 / disabled=light-5 / 浅底=light-9，与品牌浅底对齐） */
+  --el-color-primary: var(--kcgl-color-primary);
+  --el-color-primary-dark-2: var(--kcgl-color-primary-dark);
+  --el-color-primary-light-3: #6391c1;
+  --el-color-primary-light-5: #90b0d2;
+  --el-color-primary-light-7: #bcd0e4;
+  --el-color-primary-light-8: #d2e0ed;
+  --el-color-primary-light-9: var(--kcgl-color-primary-bg);
+
+  /* 语义色对齐品牌（error 与 danger 同值） */
+  --el-color-success: var(--kcgl-color-success);
+  --el-color-success-light-3: #6da470;
+  --el-color-success-light-5: #96be98;
+  --el-color-success-light-7: #c0d8c2;
+  --el-color-success-light-8: #d5e5d6;
+  --el-color-success-light-9: var(--kcgl-color-success-bg);
+  --el-color-danger: var(--kcgl-color-danger);
+  --el-color-danger-light-3: #ca6762;
+  --el-color-danger-light-5: #d9928e;
+  --el-color-danger-light-7: #e8bebc;
+  --el-color-danger-light-8: #f0d4d2;
+  --el-color-danger-light-9: var(--kcgl-color-danger-bg);
+  --el-color-error: var(--kcgl-color-danger);
+  --el-color-error-light-3: #ca6762;
+  --el-color-error-light-5: #d9928e;
+  --el-color-error-light-7: #e8bebc;
+  --el-color-error-light-8: #f0d4d2;
+  --el-color-error-light-9: var(--kcgl-color-danger-bg);
+  --el-color-warning: var(--kcgl-color-warning);
+  --el-color-warning-light-3: #ad905c;
+  --el-color-warning-light-5: #c4b08a;
+  --el-color-warning-light-7: #dcd0b9;
+  --el-color-warning-light-8: #e8dfd0;
+  --el-color-warning-light-9: var(--kcgl-color-warning-bg);
+
+  /* 文字/边框/底面 */
+  --el-text-color-primary: var(--kcgl-color-text);
+  --el-text-color-regular: var(--kcgl-color-text);
+  --el-text-color-secondary: var(--kcgl-color-text-sub);
+  --el-text-color-placeholder: var(--kcgl-color-text-faint);
+  --el-text-color-disabled: var(--kcgl-color-text-faint);
+  --el-border-color: var(--kcgl-color-border);
+  --el-border-color-light: #e4e7ed;
+  --el-border-color-lighter: #ebeef5;
+  --el-border-color-extra-light: #f2f6fc;
+  --el-border-color-dark: var(--kcgl-color-border-strong);
+  --el-bg-color: var(--kcgl-color-card);
+  --el-bg-color-page: var(--kcgl-color-bg);
+  --el-bg-color-overlay: var(--kcgl-color-card);
+  --el-fill-color-blank: var(--kcgl-color-card);
+  --el-fill-color-light: #f5f7fa;
+  --el-fill-color-lighter: var(--kcgl-color-bg);
+
+  /* 圆角/投影/字体对齐 */
+  --el-border-radius-base: var(--kcgl-radius-s);
+  --el-border-radius-small: 2px;
+  --el-box-shadow: var(--kcgl-shadow-card);
+  --el-box-shadow-light: 0 1px 4px rgba(31, 35, 41, 0.06);
+  --el-font-family:
+    Hiragino Kaku Gothic ProN,
+    'Hiragino Sans',
+    'Yu Gothic UI',
+    YuGothic,
+    Meiryo,
+    'Noto Sans CJK JP',
+    sans-serif;
+}
+
+/* ---------------------------------------------------------------- ⑤ 共享基元 */
+
+.kcgl-card {
+  background: var(--kcgl-color-card);
+  border: 1px solid var(--kcgl-color-border);
+  border-radius: var(--kcgl-radius-m);
+  box-shadow: var(--kcgl-shadow-card);
+  padding: 28px;
+}
+
+.kcgl-field {
+  display: grid;
+  gap: 4px;
+}
+
+.kcgl-label {
+  font-size: 0.85rem;
+  color: var(--kcgl-color-text-sub);
+}
+
+.kcgl-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--kcgl-color-border);
+  border-radius: var(--kcgl-radius-s);
+  font: inherit;
+  font-size: 1rem; /* 16px：防止 iOS Safari 聚焦自动放大 */
+  color: var(--kcgl-color-text);
+  background: var(--kcgl-color-card);
+}
+
+.kcgl-input::placeholder {
+  color: var(--kcgl-color-text-faint);
+}
+
+.kcgl-input:focus {
+  outline: none;
+  border-color: var(--kcgl-color-primary);
+}
+
+.kcgl-btn {
+  height: 44px;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--kcgl-radius-s);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.kcgl-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.kcgl-btn-primary {
+  background: var(--kcgl-color-primary);
+  color: #fff;
+}
+
+.kcgl-btn-primary:hover:not(:disabled) {
+  background: var(--kcgl-color-primary-dark);
+}
+
+.kcgl-btn-block {
+  width: 100%;
+}
+
+.kcgl-error-box {
+  padding: 10px 12px;
+  border: 1px solid var(--kcgl-color-danger-border);
+  border-radius: var(--kcgl-radius-s);
+  background: var(--kcgl-color-danger-bg);
+  color: var(--kcgl-color-danger);
+  font-size: 0.9rem;
+}
+
+.kcgl-info-box {
+  padding: 10px 12px;
+  border: 1px solid var(--kcgl-color-info-border);
+  border-radius: var(--kcgl-radius-s);
+  background: var(--kcgl-color-info-bg);
+  color: var(--kcgl-color-info-text);
+  font-size: 0.9rem;
+}
+
+.kcgl-warning-box {
+  padding: 10px 12px;
+  border: 1px solid var(--kcgl-color-warning-border);
+  border-radius: var(--kcgl-radius-s);
+  background: var(--kcgl-color-warning-bg);
+  color: var(--kcgl-color-warning);
+  font-size: 0.9rem;
+}

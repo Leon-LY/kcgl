@@ -3,17 +3,23 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import Components from 'unplugin-vue-components/vite'
+import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import { VantResolver } from '@vant/auto-import-resolver'
 
-// 构建配置：Vant 按需引入随 M2 录入页接入（D-027：Vant 随 M2 首个消费页引入）；
-// element-plus 桌面壳按需引入随后续桌面页接入；PWA（vite-plugin-pwa）在 M6 接入。
+// 构建配置：Vant 随 M2 录入页接入、Element Plus 随 M2-7 打印页接入（均按需，D-027）；
+// PWA（vite-plugin-pwa）在 M6 接入。
 // vitest 的 SSR 管道不处理 node_modules 的 css 导入（"Unknown file extension .css"），
 // 测试模式下关掉按需样式注入——单测不依赖视觉样式。
 const isVitest = Boolean(process.env.VITEST)
 export default defineConfig({
   plugins: [
     vue(),
-    Components({ resolvers: [VantResolver({ importStyle: !isVitest })] }),
+    Components({
+      resolvers: [
+        VantResolver({ importStyle: !isVitest }),
+        ElementPlusResolver({ importStyle: !isVitest }),
+      ],
+    }),
   ],
   resolve: {
     alias: {
@@ -27,6 +33,12 @@ export default defineConfig({
     proxy: {
       '/api': {
         // 默认本地 compose app（8080）；E2E 由 Playwright 注入 KCGL_API_TARGET 指向一次性栈
+        target: process.env.KCGL_API_TARGET ?? 'http://127.0.0.1:8080',
+        changeOrigin: false,
+      },
+      // 图片直出（StaticResourceConfig /img/thumb|orig）：dev/E2E 下缩略图随 API 同源代理，
+      // 与生产 nginx 直出同路径（标签打印页/继承图片预览消费）
+      '/img': {
         target: process.env.KCGL_API_TARGET ?? 'http://127.0.0.1:8080',
         changeOrigin: false,
       },

@@ -2,19 +2,28 @@ package com.kcgl.module.item;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.kcgl.common.audit.AuditRecorder;
 import com.kcgl.common.web.BizException;
 import com.kcgl.common.web.ErrorCode;
+import com.kcgl.module.image.ImageEntity;
+import com.kcgl.module.image.ImageMapper;
 import com.kcgl.module.inventory.StockLedgerEntity;
 import com.kcgl.module.inventory.StockLedgerMapper;
 import com.kcgl.module.inventory.TxnType;
+import com.kcgl.module.item.dto.ItemListResponse;
+import com.kcgl.module.item.dto.ItemSummaryResponse;
 import com.kcgl.module.item.dto.VoidItemRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 商品作废与查询（docs/01 7.1 作废重录全路径、7.2 VOID 行）。
@@ -23,20 +32,25 @@ import java.util.Map;
  * - VOID 流水账规则（对账不变量）：在库件记该仓 −1；在途/已出库记 0（从未入账/已出账）
  * - 冻结：已作废件 409006；软删件按不存在 404（回收站视图 M5）
  * - 乐观锁：version 条件更新，并发变更（到仓/调拨在飞）时 409 快速失败重读
+ * - 列表（M2-7 打印页）：创建日区间（JST 日界）+ 会场筛选，作废/软删件不出标签
  */
 @Service
 public class ItemService {
 
+    private static final int MAX_PAGE_SIZE = 100;
+
     private final ItemMapper itemMapper;
     private final StockLedgerMapper ledgerMapper;
+    private final ImageMapper imageMapper;
     private final AuditRecorder auditRecorder;
     private final TransactionTemplate txTemplate;
     private final Clock clock;
 
-    public ItemService(ItemMapper itemMapper, StockLedgerMapper ledgerMapper,
+    public ItemService(ItemMapper itemMapper, StockLedgerMapper ledgerMapper, ImageMapper imageMapper,
             AuditRecorder auditRecorder, TransactionTemplate txTemplate, Clock clock) {
         this.itemMapper = itemMapper;
         this.ledgerMapper = ledgerMapper;
+        this.imageMapper = imageMapper;
         this.auditRecorder = auditRecorder;
         this.txTemplate = txTemplate;
         this.clock = clock;
@@ -78,6 +92,50 @@ public class ItemService {
                     "stockStatus", item.getStockStatus()));
             return itemMapper.selectById(itemId);
         });
+    }
+
+    /**
+     * 打印页列表（M2-7）：创建日区间（JST 日界：[from 00:00, to+1 00:00)）+ 可选会场，
+     * 按录入顺序（id 升序）；作废/软删件不出标签（旧标签物理撕除，7.1）。
+     * thumbUrl=每件首图缩略图（带缩略图标签排版用，无图为 null）。
+     */
+    public ItemListResponse listForPrint(LocalDate createdFrom, LocalDate createdTo,
+            Long venueId, int page, int size) {
+        if (createdFrom.isAfter(createdTo)) {
+            throw new BizException(ErrorCode.VALIDATION, "作成日範囲の開始が終了より後になっています");
+        }
+        int safePage = Math.max(page, 1);
+        int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+        Page<ItemEntity> result = itemMapper.selectPage(new Page<>(safePage, safeSize),
+                new LambdaQueryWrapper<ItemEntity>()
+                        .ge(ItemEntity::getCreatedAt, LocalDateTime.of(createdFrom, LocalTime.MIN))
+                        .lt(ItemEntity::getCreatedAt, LocalDateTime.of(createdTo.plusDays(1), LocalTime.MIN))
+                        .eq(venueId != null, ItemEntity::getVenueId, venueId)
+                        .eq(ItemEntity::getVoided, 0)
+                        .eq(ItemEntity::getDeleted, 0)
+                        .orderByAsc(ItemEntity::getId));
+        List<Long> itemIds = result.getRecords().stream().map(ItemEntity::getId).toList();
+        Map<Long, String> firstThumbs = firstThumbByItem(itemIds);
+        List<ItemSummaryResponse> rows = result.getRecords().stream()
+                .map(item -> ItemSummaryResponse.from(item, firstThumbs.get(item.getId())))
+                .toList();
+        return new ItemListResponse(result.getTotal(), safePage, safeSize, rows);
+    }
+
+    /** 每件首图（sort_order 最小）缩略图 URL；空列表短路避免 IN ()。 */
+    private Map<Long, String> firstThumbByItem(List<Long> itemIds) {
+        if (itemIds.isEmpty()) {
+            return Map.of();
+        }
+        return imageMapper.selectList(new LambdaQueryWrapper<ImageEntity>()
+                        .in(ImageEntity::getItemId, itemIds)
+                        .orderByAsc(ImageEntity::getItemId)
+                        .orderByAsc(ImageEntity::getSortOrder))
+                .stream()
+                .collect(Collectors.toMap(
+                        ImageEntity::getItemId,
+                        image -> "/img/thumb/" + image.getThumbPath(),
+                        (first, later) -> first));
     }
 
     // ------------------------------------------------------------------ 内部

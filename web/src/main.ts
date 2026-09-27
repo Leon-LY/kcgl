@@ -8,6 +8,7 @@ import enVant from 'vant/es/locale/lang/en-US'
 import App from './App.vue'
 import router from './router'
 import { i18n } from './i18n'
+import './styles/brand.css'
 
 // Vant 组件内置文案（选择器确认/取消等）随应用语言联动（D-029：三语全量同步切换）。
 Locale.use('ja-JP', jaVant)

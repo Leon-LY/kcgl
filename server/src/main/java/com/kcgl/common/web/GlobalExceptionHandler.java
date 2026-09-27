@@ -6,8 +6,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -71,6 +73,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ApiResponse<Void>> onNoResource(NoResourceFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ErrorCode.NOT_FOUND));
+    }
+
+    /**
+     * 缺参/参数类型不符是客户端错误（400），原样落入 onUnhandled 会变 500 并以 ERROR 级
+     * 污染日志与环形缓冲。WARN 留排查线索，响应用日文通文案（不透出 Spring 英文消息）。
+     */
+    @ExceptionHandler({MissingServletRequestParameterException.class,
+            MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<ApiResponse<Void>> onClientInput(Exception ex) {
+        log.warn("请求参数错误: {}", ex.getMessage());
+        return ResponseEntity.badRequest().body(ApiResponse.error(ErrorCode.VALIDATION));
     }
 
     @ExceptionHandler(Exception.class)

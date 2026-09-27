@@ -17,8 +17,10 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.mysql.MySQLContainer;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -27,6 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * 录入端点集成测试（M2-3）：POST /api/items 角色矩阵/参数校验/前置校验错误码透传/
  * clientReqId 幂等重放/生成列回填；GET /api/item-codes/preview 预览语义（≠保留）。
+ * M2-7：GET /api/items 打印列表——JST 日界区间/会场筛选/作废软删排除/分页/首图缩略图/三角色可查。
  */
 @SpringBootTest(properties = "kcgl.security.allowed-origins=https://kcgl.example.com")
 @AutoConfigureMockMvc
@@ -82,11 +85,25 @@ class ItemControllerIntegrationTest {
     }
 
     private String body(String clientReqId, String buyDate, String price, String warehouse) {
+        return body(clientReqId, buyDate, price, warehouse, venueId);
+    }
+
+    private String body(String clientReqId, String buyDate, String price, String warehouse, long vid) {
         return """
                 {"clientReqId":"%s","venueId":%d,"buyDate":"%s","purchasePrice":%s,"warehouse":%s,
                  "fee":300,"shippingFee":200,"remark":"連続録入口ニア"}
-                """.formatted(clientReqId == null ? "" : clientReqId, venueId, buyDate, price, warehouse)
+                """.formatted(clientReqId == null ? "" : clientReqId, vid, buyDate, price, warehouse)
                 .replace("\n", "");
+    }
+
+    /** 录一件（在途）并返回 id。 */
+    private long createItem(MockHttpSession session, String clientReqId) throws Exception {
+        String json = mockMvc.perform(post("/api/items").session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(clientReqId, "2026-09-15", "1000", "1")))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return Long.parseLong(json.replaceAll(".*\"id\":(\\d+).*", "$1"));
     }
 
     @Test
@@ -257,6 +274,164 @@ class ItemControllerIntegrationTest {
                         .param("price", "1000"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value(404004));
+    }
+
+    // ------------------------------------------------------------- M2-7 打印列表
+
+    /** 今日 JST 前后各让一天，规避测试执行跨 JST 午夜的窗口（created_at=应用时钟当下）。 */
+    private String todayParam(long offsetDays) {
+        return LocalDate.now(ZoneId.of("Asia/Tokyo")).plusDays(offsetDays).toString();
+    }
+
+    @Test
+    void 列表_创建日区间JST日界_左闭右开按日过滤() throws Exception {
+        MockHttpSession editor = loginAs("eichi");
+        long idEdgeA = createItem(editor, "list-a");
+        long idEdgeB = createItem(editor, "list-b");
+        long idLater = createItem(editor, "list-c");
+        // 钉死三件 created_at：20 日最后一毫秒 / 21 日第一毫秒 / 22 日中午
+        jdbcTemplate.update("UPDATE item SET created_at = '2026-09-20 23:59:59.500' WHERE id = ?", idEdgeA);
+        jdbcTemplate.update("UPDATE item SET created_at = '2026-09-21 00:00:00.000' WHERE id = ?", idEdgeB);
+        jdbcTemplate.update("UPDATE item SET created_at = '2026-09-22 12:00:00.000' WHERE id = ?", idLater);
+        // [20 00:00, 21 00:00)：仅 20 日件
+        mockMvc.perform(get("/api/items").session(editor)
+                        .param("createdFrom", "2026-09-20").param("createdTo", "2026-09-20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.rows[0].id").value(idEdgeA));
+        // to=21 含 21 日全天（to+1 00:00 开区间）
+        mockMvc.perform(get("/api/items").session(editor)
+                        .param("createdFrom", "2026-09-20").param("createdTo", "2026-09-21"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andExpect(jsonPath("$.data.rows[0].id").value(idEdgeA))
+                .andExpect(jsonPath("$.data.rows[1].id").value(idEdgeB));
+        // 区间外零行
+        mockMvc.perform(get("/api/items").session(editor)
+                        .param("createdFrom", "2026-09-23").param("createdTo", "2026-09-25"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(0))
+                .andExpect(jsonPath("$.data.rows").isEmpty());
+    }
+
+    @Test
+    void 列表_录入顺序id升序_分页与size上限钳制() throws Exception {
+        MockHttpSession editor = loginAs("eichi");
+        createItem(editor, "pg-a");
+        createItem(editor, "pg-b");
+        createItem(editor, "pg-c");
+        // 录入顺序（id 升序）= 标签贴件顺序
+        mockMvc.perform(get("/api/items").session(editor)
+                        .param("createdFrom", todayParam(-1)).param("createdTo", todayParam(1))
+                        .param("size", "2").param("page", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(3))
+                .andExpect(jsonPath("$.data.size").value(2))
+                .andExpect(jsonPath("$.data.rows", hasSize(2)))
+                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HTK9-A1X"))
+                .andExpect(jsonPath("$.data.rows[1].itemCode").value("HTK9-A2X"));
+        mockMvc.perform(get("/api/items").session(editor)
+                        .param("createdFrom", todayParam(-1)).param("createdTo", todayParam(1))
+                        .param("size", "2").param("page", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.rows", hasSize(1)))
+                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HTK9-A3X"));
+        // size 钳制到 100（响应回显钳后值）
+        mockMvc.perform(get("/api/items").session(editor)
+                        .param("createdFrom", todayParam(-1)).param("createdTo", todayParam(1))
+                        .param("size", "500"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.size").value(100));
+    }
+
+    @Test
+    void 列表_会场筛选() throws Exception {
+        MockHttpSession editor = loginAs("eichi");
+        jdbcTemplate.update("INSERT INTO auction_venue(code, name, enabled) VALUES ('NG', '名古屋骨董市', 1)");
+        Long ngId = jdbcTemplate.queryForObject("SELECT id FROM auction_venue WHERE code = 'NG'", Long.class);
+        createItem(editor, "venue-a");
+        createItem(editor, "venue-b");
+        mockMvc.perform(post("/api/items").session(editor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body("venue-ng", "2026-09-15", "1000", "1", ngId)))
+                .andExpect(status().isOk());
+        // 全会场=3，NG=1（且 venueCode 为 NG 快照）
+        mockMvc.perform(get("/api/items").session(editor)
+                        .param("createdFrom", todayParam(-1)).param("createdTo", todayParam(1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(3));
+        mockMvc.perform(get("/api/items").session(editor)
+                        .param("createdFrom", todayParam(-1)).param("createdTo", todayParam(1))
+                        .param("venueId", String.valueOf(ngId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.rows[0].venueCode").value("NG"));
+    }
+
+    @Test
+    void 列表_作废件与软删件不出标签() throws Exception {
+        MockHttpSession editor = loginAs("eichi");
+        long liveId = createItem(editor, "live-a");
+        long voidedId = createItem(editor, "void-b");
+        long deletedId = createItem(editor, "del-c");
+        // 真实作废链路（作废走端点；软删无端点 M5 前直改标志位）
+        mockMvc.perform(post("/api/items/" + voidedId + "/void").session(editor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"clientReqId\":\"void-list\",\"reason\":\"誤入力\"}"))
+                .andExpect(status().isOk());
+        jdbcTemplate.update("UPDATE item SET deleted = 1 WHERE id = ?", deletedId);
+        mockMvc.perform(get("/api/items").session(editor)
+                        .param("createdFrom", todayParam(-1)).param("createdTo", todayParam(1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.rows[0].id").value(liveId));
+    }
+
+    @Test
+    void 列表_缩略图取sort_order最小首图() throws Exception {
+        MockHttpSession editor = loginAs("eichi");
+        long id = createItem(editor, "thumb-a");
+        long editorId = jdbcTemplate.queryForObject(
+                "SELECT id FROM sys_user WHERE username = 'eichi'", Long.class);
+        // 乱序插入（sort 2 先、sort 1 后），首图应为 sort=1
+        jdbcTemplate.update("""
+                INSERT INTO item_image(item_id, client_uuid, stored_path, thumb_path, sort_order, created_by)
+                VALUES (?, '11111111-1111-1111-1111-111111111112', '2026/09/b.jpg', '2026/09/b_t.jpg', 2, ?),
+                       (?, '11111111-1111-1111-1111-111111111111', '2026/09/a.jpg', '2026/09/a_t.jpg', 1, ?)
+                """, id, editorId, id, editorId);
+        mockMvc.perform(get("/api/items").session(editor)
+                        .param("createdFrom", todayParam(-1)).param("createdTo", todayParam(1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.rows[0].thumbUrl").value("/img/thumb/2026/09/a_t.jpg"));
+        // 无图件 thumbUrl 为 null（38×21 排版无图位）
+        createItem(editor, "thumb-b");
+        mockMvc.perform(get("/api/items").session(editor)
+                        .param("createdFrom", todayParam(-1)).param("createdTo", todayParam(1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.rows[1].thumbUrl").isEmpty());
+    }
+
+    @Test
+    void 列表_viewer可查_打印是全员能力() throws Exception {
+        MockHttpSession viewer = loginAs("miru");
+        mockMvc.perform(get("/api/items").session(viewer)
+                        .param("createdFrom", todayParam(-1)).param("createdTo", todayParam(1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+    }
+
+    @Test
+    void 列表_起止颠倒与缺参_400() throws Exception {
+        MockHttpSession editor = loginAs("eichi");
+        mockMvc.perform(get("/api/items").session(editor)
+                        .param("createdFrom", "2026-09-21").param("createdTo", "2026-09-20"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400001));
+        // 回归：缺参曾被 GlobalExceptionHandler 兜底吞成 500（应 400，且不得进 ERROR 日志）
+        mockMvc.perform(get("/api/items").session(editor)
+                        .param("createdFrom", "2026-09-20"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400001));
     }
 
     private static String extract(String json, String field) {

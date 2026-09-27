@@ -52,7 +52,7 @@ async function onLogout(): Promise<void> {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: #fff;
+  background: var(--kcgl-color-card);
   border-bottom: 1px solid var(--kcgl-color-border);
   height: 52px;
   padding: 0 16px;
@@ -83,7 +83,7 @@ async function onLogout(): Promise<void> {
   padding: 0 12px;
   border: 1px solid var(--kcgl-color-border);
   border-radius: 4px;
-  background: #fff;
+  background: var(--kcgl-color-card);
   color: var(--kcgl-color-text-sub);
   font-size: 0.85rem;
   cursor: pointer;
