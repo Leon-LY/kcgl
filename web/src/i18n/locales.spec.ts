@@ -40,14 +40,14 @@ function placeholders(text: string): Set<string> {
   return new Set([...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]))
 }
 
-describe('i18n 三语契约', () => {
+describe('i18n trilingual contract', () => {
   const flattened = Object.fromEntries(
     Object.entries(LOCALES).map(([locale, messages]) => [locale, flatten(messages)]),
   ) as Record<string, Map<string, string>>
   const jaKeys = [...flattened['ja-JP']!.keys()].sort()
   const peers = ['zh-CN', 'en-US'] as const
 
-  test('三个语言文件 key 树完全一致（以 ja-JP 为基准）', () => {
+  test('key trees are identical across the three locale files (ja-JP as baseline)', () => {
     for (const locale of peers) {
       const otherKeys = new Set(flattened[locale]!.keys())
       const missing = jaKeys.filter((key) => !otherKeys.has(key))
@@ -57,7 +57,7 @@ describe('i18n 三语契约', () => {
     }
   })
 
-  test('同 key 的插值参数三语一致', () => {
+  test('interpolation placeholders match across locales for the same key', () => {
     for (const key of jaKeys) {
       const expected = placeholders(flattened['ja-JP']!.get(key)!)
       for (const locale of peers) {
@@ -66,7 +66,7 @@ describe('i18n 三语契约', () => {
     }
   })
 
-  test('无空文案', () => {
+  test('has no empty messages', () => {
     for (const [locale, entries] of Object.entries(flattened)) {
       for (const [key, value] of entries) {
         expect(value.trim().length > 0, `${locale}:${key} 为空文案`).toBe(true)
@@ -74,7 +74,7 @@ describe('i18n 三语契约', () => {
     }
   })
 
-  test('全部文案经 vue-i18n 渲染与模板直接插值一致（拦截消息语法误用）', () => {
+  test('every message renders through vue-i18n identically to direct template interpolation (guards against message-syntax misuse)', () => {
     // vue-i18n 消息里 ASCII | 是复数分支、@ 是链接语法——误用时 t() 静默丢内容
     // （实测：「{page} | {app}」渲染成「{page}」）。本测试要求每个 key 的实际渲染
     // 与「字面模板插值」逐字一致，任何被特殊解析的写法当场暴露。

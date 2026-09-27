@@ -93,7 +93,7 @@ class AuditIntegrationTest {
     // ------------------------------------------------------------------ 管理端操作审计
 
     @Test
-    void 建号_审计USER_CREATE含操作人快照与IP_UA() throws Exception {
+    void createUser_auditContainsOperatorSnapshotAndIpUa() throws Exception {
         MockHttpSession admin = loginAs("boss", ADMIN_PWD);
         mockMvc.perform(post("/api/users").session(admin)
                         .header("User-Agent", "KcglTestAgent/1.0")
@@ -118,7 +118,7 @@ class AuditIntegrationTest {
     }
 
     @Test
-    void 改号_审计含前后值diff() throws Exception {
+    void updateUser_auditContainsBeforeAfterDiff() throws Exception {
         jdbcTemplate.update("""
                 INSERT INTO sys_user(username, password_hash, display_name, role, enabled, must_change_pwd)
                 VALUES ('taro', ?, '太郎', 3, 1, 0)
@@ -141,7 +141,7 @@ class AuditIntegrationTest {
     }
 
     @Test
-    void 停用与解锁_各审计一行() throws Exception {
+    void disableAndUnlock_eachWritesAuditRow() throws Exception {
         jdbcTemplate.update("""
                 INSERT INTO sys_user(username, password_hash, display_name, role, enabled, must_change_pwd)
                 VALUES ('locky', ?, 'ロッキー', 2, 1, 0)
@@ -161,7 +161,7 @@ class AuditIntegrationTest {
     }
 
     @Test
-    void 重置密码_审计行绝不含任何密码材料() throws Exception {
+    void resetPassword_auditRowContainsNoPasswordMaterial() throws Exception {
         jdbcTemplate.update("""
                 INSERT INTO sys_user(username, password_hash, display_name, role, enabled, must_change_pwd)
                 VALUES ('jiro', ?, '次郎', 3, 1, 0)
@@ -186,7 +186,7 @@ class AuditIntegrationTest {
     // ------------------------------------------------------------------ 自助操作审计
 
     @Test
-    void 自助改密_审计CHANGE_PASSWORD() throws Exception {
+    void changeOwnPassword_auditActionChangePassword() throws Exception {
         jdbcTemplate.update("""
                 INSERT INTO sys_user(username, password_hash, display_name, role, enabled, must_change_pwd)
                 VALUES ('hanako', ?, '花子', 2, 1, 0)
@@ -206,7 +206,7 @@ class AuditIntegrationTest {
     }
 
     @Test
-    void 自助改语言_审计CHANGE_LOCALE() throws Exception {
+    void changeOwnLocale_auditActionChangeLocale() throws Exception {
         jdbcTemplate.update("""
                 INSERT INTO sys_user(username, password_hash, display_name, role, enabled, must_change_pwd)
                 VALUES ('hanako', ?, '花子', 2, 1, 0)
@@ -225,7 +225,7 @@ class AuditIntegrationTest {
     // ------------------------------------------------------------------ 不可变性
 
     @Test
-    void operation_log无任何改删端点_表只增() {
+    void operationLog_noPutOrDeleteEndpoints_appendOnly() {
         // 结构性保证：审计表无 UPDATE/DELETE API 路由；本用例固化该契约——
         // 任何审计相关端点只能是只读查询，写路径唯一为业务事务内同步 INSERT
         List<String> routes = handlerMapping.getHandlerMethods().keySet().stream()

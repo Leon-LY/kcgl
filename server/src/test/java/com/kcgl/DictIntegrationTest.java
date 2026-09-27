@@ -89,7 +89,7 @@ class DictIntegrationTest {
     // ------------------------------------------------------------------ 会场
 
     @Test
-    void viewer可查会场空列表() throws Exception {
+    void listVenues_byViewer_returnsEmptyList() throws Exception {
         MockHttpSession viewer = loginAs("miru");
         mockMvc.perform(get("/api/venues").session(viewer))
                 .andExpect(status().isOk())
@@ -98,7 +98,7 @@ class DictIntegrationTest {
     }
 
     @Test
-    void editor建会场成功_审计落库() throws Exception {
+    void createVenue_byEditor_writesAuditLog() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         String body = mockMvc.perform(post("/api/venues").session(editor)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -113,7 +113,7 @@ class DictIntegrationTest {
     }
 
     @Test
-    void viewer建会场_403() throws Exception {
+    void createVenue_byViewer_403() throws Exception {
         MockHttpSession viewer = loginAs("miru");
         mockMvc.perform(post("/api/venues").session(viewer)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -125,7 +125,7 @@ class DictIntegrationTest {
     }
 
     @Test
-    void 重复会场码_409002() throws Exception {
+    void createVenue_duplicateCode_409002() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         mockMvc.perform(post("/api/venues").session(editor)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -142,7 +142,7 @@ class DictIntegrationTest {
     }
 
     @Test
-    void 非法小写会场码_400() throws Exception {
+    void createVenue_lowercaseCode_400() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         mockMvc.perform(post("/api/venues").session(editor)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -154,7 +154,7 @@ class DictIntegrationTest {
     }
 
     @Test
-    void editor改名_管理员停用_启用过滤参数() throws Exception {
+    void updateVenue_editorRename_adminDisable_enabledFilter() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         MockHttpSession admin = loginAs("boss");
         String body = mockMvc.perform(post("/api/venues").session(editor)
@@ -201,7 +201,7 @@ class DictIntegrationTest {
     // ------------------------------------------------------------------ 年代号
 
     @Test
-    void 年代号种子列表按年排序_viewer可查() throws Exception {
+    void listYearCodes_byViewer_seededSortedByYear() throws Exception {
         MockHttpSession viewer = loginAs("miru");
         mockMvc.perform(get("/api/year-codes").session(viewer))
                 .andExpect(status().isOk())
@@ -213,7 +213,7 @@ class DictIntegrationTest {
     }
 
     @Test
-    void admin增年代号_非法码_重复年份与重复码_409005() throws Exception {
+    void createYearCode_byAdmin_invalidCode_400_duplicateYearOrCode_409005() throws Exception {
         MockHttpSession admin = loginAs("boss");
         // 双字母码超 CHAR(1)/正则 → 400
         mockMvc.perform(post("/api/year-codes").session(admin)
@@ -242,7 +242,7 @@ class DictIntegrationTest {
     }
 
     @Test
-    void editor增年代号_403_admin改年代号审计含前后值() throws Exception {
+    void createYearCode_byEditor_403_adminUpdateAudited() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         mockMvc.perform(post("/api/year-codes").session(editor)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -265,7 +265,7 @@ class DictIntegrationTest {
     // ------------------------------------------------------------------ 档位
 
     @Test
-    void admin建三档_列表按下限排序_首档无下限() throws Exception {
+    void createPriceBands_byAdmin_sortedByLowerBound_firstOpenEnded() throws Exception {
         MockHttpSession admin = loginAs("boss");
         mockMvc.perform(post("/api/price-bands").session(admin)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -293,7 +293,7 @@ class DictIntegrationTest {
     }
 
     @Test
-    void 重叠区间_409004_相邻区间不算重叠() throws Exception {
+    void createPriceBand_overlappingRange_409004_adjacentAllowed() throws Exception {
         MockHttpSession admin = loginAs("boss");
         mockMvc.perform(post("/api/price-bands").session(admin)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -326,7 +326,7 @@ class DictIntegrationTest {
     }
 
     @Test
-    void 下限大于上限_400_重复档位码_409003_editor建档_403() throws Exception {
+    void createPriceBand_invertedRange_400_duplicateCode_409003_byEditor_403() throws Exception {
         MockHttpSession admin = loginAs("boss");
         MockHttpSession editor = loginAs("eichi");
         mockMvc.perform(post("/api/price-bands").session(admin)
@@ -359,7 +359,7 @@ class DictIntegrationTest {
     }
 
     @Test
-    void 匹配左闭右开_无界端_空档与停用_404002() throws Exception {
+    void matchPriceBand_leftClosedRightOpen_gapOrDisabled_404002() throws Exception {
         MockHttpSession admin = loginAs("boss");
         MockHttpSession viewer = loginAs("miru");
         // 只配 B 档 [1000,3000)：500 落在空档
@@ -395,7 +395,7 @@ class DictIntegrationTest {
     }
 
     @Test
-    void admin改档位区间_与自身不误判重叠_审计落库() throws Exception {
+    void updatePriceBand_byAdmin_overlapRejected_selfAllowed_audited() throws Exception {
         MockHttpSession admin = loginAs("boss");
         String body = mockMvc.perform(post("/api/price-bands").session(admin)
                         .contentType(MediaType.APPLICATION_JSON)

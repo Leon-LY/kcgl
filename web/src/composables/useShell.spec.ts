@@ -6,12 +6,12 @@ describe('useShell', () => {
     localStorage.clear()
   })
 
-  it('初始壳为合法值（按当前 UA/偏好解析）', () => {
+  it('resolves the initial shell to a valid value (from current UA/preference)', () => {
     const { shell } = useShell()
     expect(['mobile', 'desktop']).toContain(shell.value)
   })
 
-  it('switchShell 即时生效并写入偏好（下次访问恢复）', () => {
+  it('switchShell takes effect immediately and persists the preference for the next visit', () => {
     const { shell, switchShell } = useShell()
     switchShell('desktop')
     expect(shell.value).toBe('desktop')
@@ -22,7 +22,7 @@ describe('useShell', () => {
     expect(localStorage.getItem('kcgl-shell')).toBe('mobile')
   })
 
-  it('多处调用共享同一状态（SPA 单例）', () => {
+  it('shares the same state across multiple calls (SPA singleton)', () => {
     const first = useShell()
     const second = useShell()
     first.switchShell('desktop')

@@ -13,34 +13,34 @@ function entry(id: number): LabelEntry {
   }
 }
 
-describe('标签预置栅格（A4=210×297mm）', () => {
-  it.each(LABEL_PRESETS)('$key：横向 2·padX+cols·w+(cols−1)·gap=210', (preset) => {
+describe('label preset grid (A4 = 210×297mm)', () => {
+  it.each(LABEL_PRESETS)('$key: horizontal 2·padX+cols·w+(cols−1)·gap=210', (preset) => {
     expect(
       2 * preset.padXMm + preset.cols * preset.widthMm + (preset.cols - 1) * preset.colGapMm,
     ).toBe(210)
   })
 
-  it.each(LABEL_PRESETS)('$key：纵向 2·padY+rows·h+(rows−1)·gap=297', (preset) => {
+  it.each(LABEL_PRESETS)('$key: vertical 2·padY+rows·h+(rows−1)·gap=297', (preset) => {
     expect(
       2 * preset.padYMm + preset.rows * preset.heightMm + (preset.rows - 1) * preset.rowGapMm,
     ).toBe(297)
   })
 
-  it('每页容量：65／36／33（预置文档口径）', () => {
+  it('per-sheet capacity: 65/36/33 (per the preset documentation)', () => {
     expect(LABEL_PRESETS.map((p) => p.cols * p.rows)).toEqual([65, 36, 33])
   })
 
-  it('缩略图仅 50×30 与 70×25 支持（38×21 放不下，旅程 M7）', () => {
+  it('supports thumbnails on 50×30 and 70×25 only (38×21 has no room, journey M7)', () => {
     expect(LABEL_PRESETS.map((p) => p.thumbSupported)).toEqual([false, true, true])
   })
 })
 
-describe('chunkSheets 切页', () => {
-  it('空列表无页', () => {
+describe('chunkSheets sheet splitting', () => {
+  it('returns no sheets for an empty list', () => {
     expect(chunkSheets([], LABEL_PRESETS[0]!)).toEqual([])
   })
 
-  it('恰好一页容量不多切', () => {
+  it('does not split when the count exactly fills one sheet', () => {
     const sheets = chunkSheets(
       Array.from({ length: 65 }, (_, i) => entry(i + 1)),
       LABEL_PRESETS[0]!,
@@ -49,7 +49,7 @@ describe('chunkSheets 切页', () => {
     expect(sheets[0]).toHaveLength(65)
   })
 
-  it('跨页按录入顺序切（65+1 → 两页，第二页 1 件）', () => {
+  it('splits overflow in entry order (65+1 → two sheets, one entry on the second)', () => {
     const sheets = chunkSheets(
       Array.from({ length: 66 }, (_, i) => entry(i + 1)),
       LABEL_PRESETS[0]!,
@@ -60,16 +60,16 @@ describe('chunkSheets 切页', () => {
   })
 })
 
-describe('splitItemCode 人读码分段', () => {
-  it('会场/日期段带连字符、流水段独立（HTK9-A1X）', () => {
+describe('splitItemCode human-readable code segmentation', () => {
+  it('keeps the hyphen with the venue/date head and separates the sequence tail (HTK9-A1X)', () => {
     expect(splitItemCode('HTK9-A1X')).toEqual({ head: 'HTK9-', tail: 'A1X' })
   })
 
-  it('多字母前缀（HTK9-AA12X）只按首个连字符分段', () => {
+  it('splits multi-letter prefixes (HTK9-AA12X) at the first hyphen only', () => {
     expect(splitItemCode('HTK9-AA12X')).toEqual({ head: 'HTK9-', tail: 'AA12X' })
   })
 
-  it('无连字符的异常输入原样返回不抛错', () => {
+  it('returns hyphen-less malformed input as-is without throwing', () => {
     expect(splitItemCode('HTK9A1X')).toEqual({ head: 'HTK9A1X', tail: '' })
   })
 })

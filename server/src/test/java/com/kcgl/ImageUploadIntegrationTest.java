@@ -149,7 +149,7 @@ class ImageUploadIntegrationTest {
     // ------------------------------------------------------------------ 用例
 
     @Test
-    void editor上传JPEG成功_落库落盘并返回URL() throws Exception {
+    void uploadJpeg_byEditor_persistsAndReturnsUrls() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         String clientUuid = UUID.randomUUID().toString();
 
@@ -176,7 +176,7 @@ class ImageUploadIntegrationTest {
     }
 
     @Test
-    void 同clientUuid重放_200读回原记录不产生第二行() throws Exception {
+    void upload_sameClientUuid_replaysOriginalRowNoDuplicate() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         String clientUuid = UUID.randomUUID().toString();
 
@@ -201,7 +201,7 @@ class ImageUploadIntegrationTest {
     }
 
     @Test
-    void EXIF_GPS段被重编码剥离() throws Exception {
+    void uploadJpeg_exifGps_strippedByReencode() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         String clientUuid = UUID.randomUUID().toString();
         byte[] withExif = jpegWithExif();
@@ -222,7 +222,7 @@ class ImageUploadIntegrationTest {
     }
 
     @Test
-    void PNG带透明通道_铺白底接受() throws Exception {
+    void uploadPng_withAlpha_flattenedToWhiteAccepted() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         String clientUuid = UUID.randomUUID().toString();
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -238,7 +238,7 @@ class ImageUploadIntegrationTest {
     }
 
     @Test
-    void 非JPEG_PNG的文件_400005() throws Exception {
+    void upload_nonJpegOrPngFile_400005() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         mockMvc.perform(multipart("/api/images").file(
                         new MockMultipartFile("file", "note.txt", "text/plain",
@@ -251,7 +251,7 @@ class ImageUploadIntegrationTest {
     }
 
     @Test
-    void 超5MB_400006() throws Exception {
+    void upload_over5mb_400006() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         byte[] big = new byte[5_242_881]; // 5MB + 1
         big[0] = (byte) 0xFF;
@@ -267,7 +267,7 @@ class ImageUploadIntegrationTest {
     }
 
     @Test
-    void 像素炸弹9000px_读头拦截400007不整图解码() throws Exception {
+    void upload_pixelBomb9000px_rejected400007BeforeDecode() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         // 真实 JPEG（9000×60，均匀底色体积很小）——读头发现宽 9000 > 8000 即拒
         mockMvc.perform(multipart("/api/images").file(part(jpeg(9000, 60)))
@@ -279,7 +279,7 @@ class ImageUploadIntegrationTest {
     }
 
     @Test
-    void 商品不存在_404001() throws Exception {
+    void upload_itemNotFound_404001() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         mockMvc.perform(multipart("/api/images").file(part(jpeg(32, 32)))
                         .param("clientUuid", UUID.randomUUID().toString())
@@ -290,7 +290,7 @@ class ImageUploadIntegrationTest {
     }
 
     @Test
-    void 第10张_400008_单件9图上限() throws Exception {
+    void upload_tenthImage_400008_maxNinePerItem() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         for (int i = 1; i <= 9; i++) {
             mockMvc.perform(multipart("/api/images").file(part(jpeg(32, 32)))
@@ -309,7 +309,7 @@ class ImageUploadIntegrationTest {
     }
 
     @Test
-    void viewer上传403_可列图() throws Exception {
+    void upload_byViewer_403_canListImages() throws Exception {
         MockHttpSession viewer = loginAs("miru");
         mockMvc.perform(multipart("/api/images").file(part(jpeg(32, 32)))
                         .param("clientUuid", UUID.randomUUID().toString())
@@ -323,7 +323,7 @@ class ImageUploadIntegrationTest {
     }
 
     @Test
-    void 匿名直出图片URL_200_登录态非必需() throws Exception {
+    void getOrigImage_anonymous_200_loginNotRequired() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         String clientUuid = UUID.randomUUID().toString();
         mockMvc.perform(multipart("/api/images").file(part(jpeg(32, 32)))

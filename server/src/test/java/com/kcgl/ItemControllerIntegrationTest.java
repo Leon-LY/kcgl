@@ -107,7 +107,7 @@ class ItemControllerIntegrationTest {
     }
 
     @Test
-    void editor录一件成功_返回最终管理号与生成列() throws Exception {
+    void create_asEditor_returnsItemCodeAndGeneratedColumns() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         String json = mockMvc.perform(post("/api/items").session(editor)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -133,7 +133,7 @@ class ItemControllerIntegrationTest {
     }
 
     @Test
-    void viewer录件_403() throws Exception {
+    void create_asViewer_403() throws Exception {
         MockHttpSession viewer = loginAs("miru");
         mockMvc.perform(post("/api/items").session(viewer)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -143,7 +143,7 @@ class ItemControllerIntegrationTest {
     }
 
     @Test
-    void 参数校验失败_400() throws Exception {
+    void create_invalidParams_400() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         mockMvc.perform(post("/api/items").session(editor)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -159,7 +159,7 @@ class ItemControllerIntegrationTest {
     }
 
     @Test
-    void 落札日未来_400() throws Exception {
+    void create_futureBuyDate_400() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         // +2 日：对 JST 与本机时区均严格为未来，规避 00-01 时区窗口 flaky
         String future = LocalDate.now().plusDays(2).toString();
@@ -171,7 +171,7 @@ class ItemControllerIntegrationTest {
     }
 
     @Test
-    void 会场不存在_404003() throws Exception {
+    void create_venueNotFound_404003() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         mockMvc.perform(post("/api/items").session(editor)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -184,7 +184,7 @@ class ItemControllerIntegrationTest {
     }
 
     @Test
-    void 年代号缺失_404004() throws Exception {
+    void create_yearCodeNotFound_404004() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         mockMvc.perform(post("/api/items").session(editor)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -194,7 +194,7 @@ class ItemControllerIntegrationTest {
     }
 
     @Test
-    void 档位不匹配_404002() throws Exception {
+    void create_priceBandNotMatched_404002() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         mockMvc.perform(post("/api/items").session(editor)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -204,7 +204,7 @@ class ItemControllerIntegrationTest {
     }
 
     @Test
-    void clientReqId重放_同件同号零新行() throws Exception {
+    void create_sameClientReqId_replaysSameItemZeroNewRows() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         String first = mockMvc.perform(post("/api/items").session(editor)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -225,7 +225,7 @@ class ItemControllerIntegrationTest {
     }
 
     @Test
-    void 预览_计数器现值加一_保存后推进() throws Exception {
+    void preview_returnsCounterPlusOne_advancesAfterCreate() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         mockMvc.perform(get("/api/item-codes/preview").session(editor)
                         .param("venueId", String.valueOf(venueId))
@@ -256,7 +256,7 @@ class ItemControllerIntegrationTest {
     }
 
     @Test
-    void 预览_viewer无权_403() throws Exception {
+    void preview_asViewer_403() throws Exception {
         MockHttpSession viewer = loginAs("miru");
         mockMvc.perform(get("/api/item-codes/preview").session(viewer)
                         .param("venueId", String.valueOf(venueId))
@@ -266,7 +266,7 @@ class ItemControllerIntegrationTest {
     }
 
     @Test
-    void 预览_年代号缺失_404004() throws Exception {
+    void preview_yearCodeNotFound_404004() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         mockMvc.perform(get("/api/item-codes/preview").session(editor)
                         .param("venueId", String.valueOf(venueId))
@@ -284,7 +284,7 @@ class ItemControllerIntegrationTest {
     }
 
     @Test
-    void 列表_创建日区间JST日界_左闭右开按日过滤() throws Exception {
+    void list_createdRangeJstDayBoundary_halfOpenDayFilter() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         long idEdgeA = createItem(editor, "list-a");
         long idEdgeB = createItem(editor, "list-b");
@@ -315,7 +315,7 @@ class ItemControllerIntegrationTest {
     }
 
     @Test
-    void 列表_录入顺序id升序_分页与size上限钳制() throws Exception {
+    void list_entryOrderIdAsc_paginationAndSizeCapClamped() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         createItem(editor, "pg-a");
         createItem(editor, "pg-b");
@@ -345,7 +345,7 @@ class ItemControllerIntegrationTest {
     }
 
     @Test
-    void 列表_会场筛选() throws Exception {
+    void list_filtersByVenue() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         jdbcTemplate.update("INSERT INTO auction_venue(code, name, enabled) VALUES ('NG', '名古屋骨董市', 1)");
         Long ngId = jdbcTemplate.queryForObject("SELECT id FROM auction_venue WHERE code = 'NG'", Long.class);
@@ -369,7 +369,7 @@ class ItemControllerIntegrationTest {
     }
 
     @Test
-    void 列表_作废件与软删件不出标签() throws Exception {
+    void list_excludesVoidedAndSoftDeleted() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         long liveId = createItem(editor, "live-a");
         long voidedId = createItem(editor, "void-b");
@@ -388,7 +388,7 @@ class ItemControllerIntegrationTest {
     }
 
     @Test
-    void 列表_缩略图取sort_order最小首图() throws Exception {
+    void list_thumbUrl_picksLowestSortOrderImage() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         long id = createItem(editor, "thumb-a");
         long editorId = jdbcTemplate.queryForObject(
@@ -412,7 +412,7 @@ class ItemControllerIntegrationTest {
     }
 
     @Test
-    void 列表_viewer可查_打印是全员能力() throws Exception {
+    void list_viewerAllowed_printingForAllRoles() throws Exception {
         MockHttpSession viewer = loginAs("miru");
         mockMvc.perform(get("/api/items").session(viewer)
                         .param("createdFrom", todayParam(-1)).param("createdTo", todayParam(1)))
@@ -421,7 +421,7 @@ class ItemControllerIntegrationTest {
     }
 
     @Test
-    void 列表_起止颠倒与缺参_400() throws Exception {
+    void list_reversedRangeAndMissingParam_400() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         mockMvc.perform(get("/api/items").session(editor)
                         .param("createdFrom", "2026-09-21").param("createdTo", "2026-09-20"))

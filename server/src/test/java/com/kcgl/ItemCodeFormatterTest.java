@@ -24,14 +24,14 @@ class ItemCodeFormatterTest {
             "NG, A, 12, AA, 5,  Q, NGA12-AA5Q",
             "FK, Z, 2,  ZZ, 9,  B, FKZ2-ZZ9B",
     })
-    void 组装_含价格码(String venue, String yearCode, int month, String prefix, int seq,
+    void format_withPriceCode_producesExpectedCode(String venue, String yearCode, int month, String prefix, int seq,
             String band, String expected) {
         assertThat(ItemCodeFormatter.format(venue, yearCode, month, prefix, seq, band, true))
                 .isEqualTo(expected);
     }
 
     @Test
-    void 组装_不含价格码_省略末位() {
+    void format_withoutPriceCode_omitsBandSuffix() {
         assertThat(ItemCodeFormatter.format("HT", "K", 9, "A", 1, "X", false))
                 .isEqualTo("HTK9-A1");
     }
@@ -41,14 +41,14 @@ class ItemCodeFormatterTest {
             "A, B", "B, C", "Y, Z", "Z, AA", "AA, AB", "AZ, BA",
             "BA, BB", "ZZ, AAA", "AAA, AAB", "ZZA, ZZB", "ZZZ, AAAA",
     })
-    void 前缀进位_base26(String current, String expected) {
+    void nextPrefix_base26_advancesWithCarry(String current, String expected) {
         assertThat(ItemCodeFormatter.nextPrefix(current)).isEqualTo(expected);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"HTK9-A1X", "HTK1-A1X", "HTK10-A12X", "HTK12-A99X",
             "NGA12-AA5Q", "FKZ2-ZZ9B", "HTK9-A1", "HTK9-AA99"})
-    void 拆装往返_含价格码与不含双态(String code) {
+    void parseFormat_roundTrip_withAndWithoutPriceCode(String code) {
         ParsedCode parsed = ItemCodeFormatter.parse(code);
         String band = parsed.bandCode();
         boolean includePrice = band != null;
@@ -60,7 +60,7 @@ class ItemCodeFormatterTest {
     @ParameterizedTest
     @ValueSource(strings = {"htk9-A1X", "HTK0-A1X", "HTK13-A1X", "HTK9-A0X", "HTK9-A100X",
             "HTK9-A1XY", "HTK9A1X", "HTKX9-A1X", "", "HTK9-A01"})
-    void 非法管理号_拒绝(String code) {
+    void parse_invalidCode_throwsIllegalArgumentException(String code) {
         assertThatThrownBy(() -> ItemCodeFormatter.parse(code))
                 .isInstanceOf(IllegalArgumentException.class);
     }

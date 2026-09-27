@@ -33,8 +33,8 @@ beforeEach(() => {
   i18n.global.locale.value = 'ja-JP'
 })
 
-describe('initialize 启动恢复', () => {
-  it('未登录（会话失效/401）→ me 为空但不抛出，initialized 置位', async () => {
+describe('initialize startup restore', () => {
+  it('keeps me empty without throwing on 401 and marks initialized', async () => {
     apiMocks.me.mockRejectedValue(new Error('401'))
     const auth = useAuthStore()
     await expect(auth.initialize()).resolves.toBeUndefined()
@@ -42,7 +42,7 @@ describe('initialize 启动恢复', () => {
     expect(auth.initialized).toBe(true)
   })
 
-  it('本地语言偏好先行应用（登录页即刻正确显示）', async () => {
+  it('applies the saved locale preference first (login page renders correctly at once)', async () => {
     localStorage.setItem('kcgl-locale', 'zh-CN')
     apiMocks.me.mockRejectedValue(new Error('401'))
     const auth = useAuthStore()
@@ -50,7 +50,7 @@ describe('initialize 启动恢复', () => {
     expect(i18n.global.locale.value).toBe('zh-CN')
   })
 
-  it('已登录 → me 快照 + 语言跟随账号设置（账号值覆盖本地偏好）', async () => {
+  it('restores the me snapshot when logged in and follows the account locale (account value overrides the local preference)', async () => {
     localStorage.setItem('kcgl-locale', 'zh-CN')
     apiMocks.me.mockResolvedValue(meFixture({ locale: 'en-US' }))
     const auth = useAuthStore()
@@ -59,7 +59,7 @@ describe('initialize 启动恢复', () => {
     expect(i18n.global.locale.value).toBe('en-US')
   })
 
-  it('非法本地偏好值被忽略', async () => {
+  it('ignores invalid saved locale values', async () => {
     localStorage.setItem('kcgl-locale', 'fr-FR')
     apiMocks.me.mockRejectedValue(new Error('401'))
     const auth = useAuthStore()
@@ -69,7 +69,7 @@ describe('initialize 启动恢复', () => {
 })
 
 describe('login', () => {
-  it('成功 → me 设置 + 语言同步 + 本地持久化', async () => {
+  it('sets me, syncs the locale, and persists it locally on success', async () => {
     apiMocks.login.mockResolvedValue(meFixture({ locale: 'zh-CN' }))
     const auth = useAuthStore()
     await auth.login('taro', 'password-123')
@@ -78,7 +78,7 @@ describe('login', () => {
     expect(localStorage.getItem('kcgl-locale')).toBe('zh-CN')
   })
 
-  it('失败 → 异常上抛给登录页就地提示，me 保持空', async () => {
+  it('rethrows on failure for inline login-page feedback and keeps me empty', async () => {
     apiMocks.login.mockRejectedValue(new Error('401'))
     const auth = useAuthStore()
     await expect(auth.login('taro', 'wrong')).rejects.toThrow()
@@ -87,7 +87,7 @@ describe('login', () => {
 })
 
 describe('logout', () => {
-  it('服务端不可达也完成本地登出（防界面残留会话态）', async () => {
+  it('completes local logout even when the server is unreachable (no stale session state left on screen)', async () => {
     apiMocks.me.mockResolvedValue(meFixture())
     const auth = useAuthStore()
     await auth.initialize()
@@ -100,7 +100,7 @@ describe('logout', () => {
 })
 
 describe('setLocale', () => {
-  it('游客态 → 即时生效+本地记忆，不调服务端', async () => {
+  it('applies instantly with local persistence for guests, without calling the server', async () => {
     const auth = useAuthStore()
     await auth.setLocale('en-US')
     expect(i18n.global.locale.value).toBe('en-US')
@@ -108,7 +108,7 @@ describe('setLocale', () => {
     expect(apiMocks.changeLocale).not.toHaveBeenCalled()
   })
 
-  it('登录态 → 同步服务端并更新 me.locale', async () => {
+  it('syncs with the server and updates me.locale when logged in', async () => {
     apiMocks.me.mockResolvedValue(meFixture())
     const auth = useAuthStore()
     await auth.initialize()
@@ -121,7 +121,7 @@ describe('setLocale', () => {
 })
 
 describe('clearSession', () => {
-  it('仅清本地会话态（401 全局处理回调专用）', async () => {
+  it('clears local session state only (reserved for the global 401 handler)', async () => {
     apiMocks.me.mockResolvedValue(meFixture())
     const auth = useAuthStore()
     await auth.initialize()

@@ -39,8 +39,8 @@ async function decodeQr(page: Page, index: number): Promise<string | null> {
   return code?.data ?? null
 }
 
-test.describe('标签打印（desktop-chromium）', () => {
-  test('录入带图 → 打印页：标签/计数/引导条 + jsQR 解码=管理号 + 尺寸切换与缩略图', async ({ page }) => {
+test.describe('label printing (desktop-chromium)', () => {
+  test('item entered with photo reaches the print page: labels, count, guide bar, jsQR decode matching the management code, and size switch with thumbnails', async ({ page }) => {
     await login(page, 'editor')
 
     // 录一件带图（缩略图来自真实上传链路：压缩→Dexie→保存绑定→后端缩略图落盘）
@@ -93,7 +93,7 @@ test.describe('标签打印（desktop-chromium）', () => {
     expect(thumbSrc).toContain('/img/thumb/')
   })
 
-  test('viewer 也可打印（打印是全员能力，录入手与贴标手常不同人）', async ({ page }) => {
+  test('viewer can also print (printing is an all-roles capability since entry and labeling hands often differ)', async ({ page }) => {
     await login(page, 'viewer')
     await page.goto('/print')
     // 上一用例与 entry.spec 的今日件对 viewer 同样可加载

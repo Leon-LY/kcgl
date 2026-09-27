@@ -99,7 +99,7 @@ class ItemCodeIntegrationTest {
     // ------------------------------------------------------------------ 取号正确性
 
     @Test
-    void 同桶连续取号_递增且含价格码() {
+    void allocate_sameBucket_incrementsWithPriceCode() {
         assertThat(create(null, SEP_2026, 1000).getItemCode()).isEqualTo("HTK9-A1X");
         assertThat(create(null, SEP_2026, 1500).getItemCode()).isEqualTo("HTK9-A2X");
         ItemEntity third = create("cr-3", SEP_2026, 2999);
@@ -131,7 +131,7 @@ class ItemCodeIntegrationTest {
     }
 
     @Test
-    void 月不补零_单双位月各自成桶() {
+    void allocate_monthNotZeroPadded_eachMonthGetsOwnBucket() {
         assertThat(create(null, LocalDate.of(2026, 10, 2), 1000).getItemCode()).isEqualTo("HTK10-A1X");
         assertThat(create(null, LocalDate.of(2026, 1, 8), 1000).getItemCode()).isEqualTo("HTK1-A1X");
         assertThat(create(null, LocalDate.of(2026, 12, 30), 1000).getItemCode()).isEqualTo("HTK12-A1X");
@@ -140,20 +140,20 @@ class ItemCodeIntegrationTest {
     }
 
     @Test
-    void A99满进位B1() {
+    void allocate_prefixAAt99_carriesToB1() {
         seedBucket("A", 99);
         assertThat(create(null, SEP_2026, 1000).getItemCode()).isEqualTo("HTK9-B1X");
         assertThat(create(null, SEP_2026, 1000).getItemCode()).isEqualTo("HTK9-B2X");
     }
 
     @Test
-    void Z99满进位AA1() {
+    void allocate_prefixZAt99_carriesToAA1() {
         seedBucket("Z", 99);
         assertThat(create(null, SEP_2026, 1000).getItemCode()).isEqualTo("HTK9-AA1X");
     }
 
     @Test
-    void 补录上月落札_进旧桶独立递增() {
+    void allocate_backdatedBuyDate_usesOldBucketIndependentSequence() {
         assertThat(create(null, SEP_2026, 1000).getItemCode()).isEqualTo("HTK9-A1X");
         // 次日补录 8 月落札：进 8 月桶从 1 起，不与 9 月桶串号
         assertThat(create(null, LocalDate.of(2026, 8, 20), 1000).getItemCode()).isEqualTo("HTK8-A1X");
@@ -167,7 +167,7 @@ class ItemCodeIntegrationTest {
     // ------------------------------------------------------------------ 前置校验
 
     @Test
-    void 会场不存在_404003() {
+    void create_venueNotFound_404003() {
         assertThatThrownBy(() -> create(null, SEP_2026, 1000, 999999L))
                 .isInstanceOf(BizException.class)
                 .extracting(e -> ((BizException) e).errorCode())
@@ -176,7 +176,7 @@ class ItemCodeIntegrationTest {
     }
 
     @Test
-    void 落札年无年代号_404004() {
+    void create_yearCodeNotFound_404004() {
         assertThatThrownBy(() -> create(null, LocalDate.of(2015, 7, 1), 1000))
                 .isInstanceOf(BizException.class)
                 .extracting(e -> ((BizException) e).errorCode())
@@ -184,7 +184,7 @@ class ItemCodeIntegrationTest {
     }
 
     @Test
-    void 价格无匹配档位_404002() {
+    void create_priceBandNotMatched_404002() {
         assertThatThrownBy(() -> create(null, SEP_2026, 5000))
                 .isInstanceOf(BizException.class)
                 .extracting(e -> ((BizException) e).errorCode())
@@ -192,7 +192,7 @@ class ItemCodeIntegrationTest {
     }
 
     @Test
-    void 停用会场仍可补录_历史落札路径() {
+    void create_disabledVenue_stillAllowsBackdatedEntry() {
         jdbcTemplate.update("UPDATE auction_venue SET enabled = 0 WHERE id = ?", venueId);
         ItemEntity item = create(null, SEP_2026, 1000);
         assertThat(item.getItemCode()).isEqualTo("HTK9-A1X");
@@ -201,7 +201,7 @@ class ItemCodeIntegrationTest {
     // ------------------------------------------------------------------ 幂等
 
     @Test
-    void clientReqId重放_读回原件零新行() {
+    void create_sameClientReqId_replaysSameItemZeroNewRows() {
         ItemEntity first = create("replay-1", SEP_2026, 1000);
         // 第二次同键（网络超时重放）：返回原商品，不取新号不落新行
         ItemEntity replayed = create("replay-1", SEP_2026, 1000);
@@ -213,7 +213,7 @@ class ItemCodeIntegrationTest {
     }
 
     @Test
-    void 重放键被其他操作占用_重试耗尽INTERNAL并告警() {
+    void create_replayKeyHeldByOtherTxnType_retriesExhaustedInternal() {
         // 前置：client_req_id 已被一条非 CREATE 流水占用（前端缺陷场景）
         jdbcTemplate.update("INSERT INTO stock_ledger(client_req_id, txn_type, item_id, item_code, "
                 + "qty_change, operator_id, operator_name) VALUES ('hijack-key', 3, 1, 'HTK9-A1X', -1, 1, '他操作')");
@@ -233,7 +233,7 @@ class ItemCodeIntegrationTest {
     // ------------------------------------------------------------------ 并发
 
     @Test
-    void 并发16线程50件_800号唯一计数器一致() throws Exception {
+    void allocate_16Threads50ItemsPerBucket_800UniqueCodesCounterConsistent() throws Exception {
         int threads = 16;
         int perThread = 50;
         ExecutorService pool = Executors.newFixedThreadPool(threads);
@@ -290,7 +290,7 @@ class ItemCodeIntegrationTest {
     }
 
     @Test
-    void 两线程并发建桶_均成功且计数正确() throws Exception {
+    void allocate_twoThreadsRaceBucketCreation_bothSucceedCounterCorrect() throws Exception {
         LocalDate may2027 = LocalDate.of(2027, 5, 10);
         ExecutorService pool = Executors.newFixedThreadPool(2);
         try {
@@ -324,7 +324,7 @@ class ItemCodeIntegrationTest {
     // ------------------------------------------------------------------ 跳号
 
     @Test
-    void 预插冲突行_跳号推进并留痕() {
+    void allocate_preExistingConflictRow_skipsCodeAndLogs() {
         // 外部路径（历史数据修复等）插入已提交行但未推进计数器：A1 已被占
         jdbcTemplate.update("""
                 INSERT INTO item(item_code, venue_id, venue_code, `year`, year_code, buy_month, seq_prefix,

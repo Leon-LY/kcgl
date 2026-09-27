@@ -11,12 +11,12 @@ const MAC_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15'
 
 describe('detectShell', () => {
-  it('iPhone/Android 移动 UA → mobile', () => {
+  it('classifies iPhone/Android mobile UAs as mobile', () => {
     expect(detectShell(IPHONE_UA)).toBe('mobile')
     expect(detectShell(ANDROID_UA)).toBe('mobile')
   })
 
-  it('Windows/Mac 桌面 UA → desktop', () => {
+  it('classifies Windows/Mac desktop UAs as desktop', () => {
     expect(detectShell(WINDOWS_UA)).toBe('desktop')
     expect(detectShell(MAC_UA)).toBe('desktop')
   })
@@ -27,25 +27,25 @@ describe('resolveShell', () => {
     localStorage.clear()
   })
 
-  it('query 一次性覆盖优先于本地偏好与 UA（发链接不带出个人偏好）', () => {
+  it('gives the one-time query override precedence over saved preference and UA (shared links carry no personal preference)', () => {
     localStorage.setItem('kcgl-shell', 'desktop')
     expect(resolveShell(IPHONE_UA, new URLSearchParams('shell=desktop'))).toBe('desktop')
     expect(resolveShell(WINDOWS_UA, new URLSearchParams('shell=mobile'))).toBe('mobile')
   })
 
-  it('本地偏好次之', () => {
+  it('prefers the saved local preference next', () => {
     localStorage.setItem('kcgl-shell', 'mobile')
     expect(resolveShell(WINDOWS_UA, null)).toBe('mobile')
     localStorage.setItem('kcgl-shell', 'desktop')
     expect(resolveShell(IPHONE_UA, null)).toBe('desktop')
   })
 
-  it('无偏好按 UA 检测兜底', () => {
+  it('falls back to UA detection when no preference exists', () => {
     expect(resolveShell(IPHONE_UA, null)).toBe('mobile')
     expect(resolveShell(WINDOWS_UA, null)).toBe('desktop')
   })
 
-  it('非法 query 值忽略不报错', () => {
+  it('ignores invalid query values without throwing', () => {
     expect(resolveShell(IPHONE_UA, new URLSearchParams('shell=tablet'))).toBe('mobile')
     expect(resolveShell(IPHONE_UA, new URLSearchParams('shell='))).toBe('mobile')
   })
@@ -56,7 +56,7 @@ describe('saveShellPreference', () => {
     localStorage.clear()
   })
 
-  it('写入偏好供后续访问恢复', () => {
+  it('persists the preference for restoration on later visits', () => {
     saveShellPreference('desktop')
     expect(localStorage.getItem('kcgl-shell')).toBe('desktop')
   })

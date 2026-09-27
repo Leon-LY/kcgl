@@ -22,8 +22,8 @@ async function login(page: Page, username: string): Promise<void> {
   await expect(page.locator('.home-welcome')).toBeVisible()
 }
 
-test.describe('连续录入（desktop-chromium）', () => {
-  test('录一件成功：全角单价归一化 + 预览目安 + 最终管理号/QR/计数', async ({ page }) => {
+test.describe('continuous entry (desktop-chromium)', () => {
+  test('entering one item succeeds: full-width price normalization, code preview, and final management code/QR/daily count', async ({ page }) => {
     await login(page, 'editor')
     await page.goto('/entry')
     await expect(page).toHaveTitle('商品登録｜在庫管理システム')
@@ -83,14 +83,14 @@ test.describe('连续录入（desktop-chromium）', () => {
     await expect(page.locator('.van-field input').nth(2)).toHaveValue('1000')
   })
 
-  test('viewer 直敲 /entry → 路由守卫回首页（服务端 403 兜底之外的前端拦截）', async ({ page }) => {
+  test('viewer navigating straight to /entry is bounced home by the route guard (frontend guard on top of the server-side 403)', async ({ page }) => {
     await login(page, 'viewer')
     await page.goto('/entry')
     await expect(page).toHaveURL(/\/$/)
     await expect(page.locator('.home-welcome')).toBeVisible()
   })
 
-  test('作废重录全链路：取り消し（理由必填）→ 全字段预填+继承图片 → 新号 ≠ 旧号', async ({ page }) => {
+  test('void and re-enter full chain: required cancellation reason, prefilled fields with inherited photos, and a new code that differs from the old one', async ({ page }) => {
     await login(page, 'editor')
     await page.goto('/entry')
 

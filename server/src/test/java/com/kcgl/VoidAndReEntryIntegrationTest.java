@@ -113,7 +113,7 @@ class VoidAndReEntryIntegrationTest {
     // ------------------------------------------------------------------ void 端点
 
     @Test
-    void editor作废在途件_voided冻结_VOID流水件数0() throws Exception {
+    void voidItem_inTransitByEditor_frozenVoidLedgerQtyZero() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         long itemId = createItem(editor, "void-1", "");
 
@@ -133,7 +133,7 @@ class VoidAndReEntryIntegrationTest {
     }
 
     @Test
-    void 作废在库件_VOID流水记仓账减一() throws Exception {
+    void voidItem_inStock_voidLedgerWhMinusOne() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         long itemId = createItem(editor, "void-2", "");
         jdbcTemplate.update("UPDATE item SET stock_status=1, warehouse=2 WHERE id=?", itemId);
@@ -150,7 +150,7 @@ class VoidAndReEntryIntegrationTest {
     }
 
     @Test
-    void 重复作废_409006() throws Exception {
+    void voidItem_alreadyVoided_409006() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         long itemId = createItem(editor, "void-3", "");
         voidItem(editor, itemId, "v-req-3a", "価格入力ミス");
@@ -163,7 +163,7 @@ class VoidAndReEntryIntegrationTest {
     }
 
     @Test
-    void void幂等重放_同clientReqId返回原结果_流水仅一行() throws Exception {
+    void voidItem_idempotentReplay_originalResult_singleLedgerRow() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         long itemId = createItem(editor, "void-4", "");
 
@@ -182,7 +182,7 @@ class VoidAndReEntryIntegrationTest {
     }
 
     @Test
-    void 理由必填_空理由400() throws Exception {
+    void voidItem_emptyReason_400() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         long itemId = createItem(editor, "void-5", "");
 
@@ -196,7 +196,7 @@ class VoidAndReEntryIntegrationTest {
     }
 
     @Test
-    void viewer作废_403_商品不存在_404() throws Exception {
+    void voidItem_byViewer_403_missingItem_404() throws Exception {
         MockHttpSession viewer = loginAs("miru");
         MockHttpSession editor = loginAs("eichi");
         long itemId = createItem(editor, "void-6", "");
@@ -215,7 +215,7 @@ class VoidAndReEntryIntegrationTest {
     // ------------------------------------------------------------------ 重录（reEntryOf）
 
     @Test
-    void 重录全链_新号互链_不可见字段继承_图片行复制() throws Exception {
+    void reEntry_fullChain_newCodeLinked_fieldsInherited_imagesCopied() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         long oldId = createItem(editor, "re-1", "");
         String oldCode = jdbcTemplate.queryForObject(
@@ -279,7 +279,7 @@ class VoidAndReEntryIntegrationTest {
     }
 
     @Test
-    void 重录未作废件_409007_不存在旧件_404() throws Exception {
+    void reEntry_notVoidedSource_409007_missingSource_404() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         long itemId = createItem(editor, "re-3", "");
         String base = """
@@ -300,7 +300,7 @@ class VoidAndReEntryIntegrationTest {
     }
 
     @Test
-    void 详情可见性_作废件可查_软删件404() throws Exception {
+    void itemDetail_voidedItemVisible_softDeleted404() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         long itemId = createItem(editor, "re-4", "");
         voidItem(editor, itemId, "re-req-4", "誤入力");

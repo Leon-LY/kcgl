@@ -70,8 +70,8 @@ function mountView(): VueWrapper<InstanceType<typeof PrintView>> {
   return mount(PrintView, { global: { plugins: [i18n] } })
 }
 
-describe('打印页加载与渲染', () => {
-  it('默认今日 JST 区间自动加载：标签 2 件 1 页，人读码分段 + QR + 计数', async () => {
+describe('print page load and rendering', () => {
+  it('auto-loads the today-JST range by default: 2 labels on 1 sheet with segmented code, QR, and count', async () => {
     apiMocks.fetchItemsForPrint.mockResolvedValue(
       listResult([row(1), row(2, '/img/thumb/2026/09/a_t.jpg')]),
     )
@@ -99,7 +99,7 @@ describe('打印页加载与渲染', () => {
     expect(wrapper.find('.print-guide').text()).toContain('倍率100%')
   })
 
-  it('超单页容量跨页渲染（66 件 38×21 → 2 页）', async () => {
+  it('renders across sheets beyond single-sheet capacity (66 items on 38×21 → 2 sheets)', async () => {
     apiMocks.fetchItemsForPrint.mockResolvedValue(
       listResult(Array.from({ length: 66 }, (_, i) => row(i + 1))),
     )
@@ -112,8 +112,8 @@ describe('打印页加载与渲染', () => {
   })
 })
 
-describe('预置与缩略图联动', () => {
-  it('38×21 下缩略图开关禁用；切到 50×30 后可开且仅带图件渲染缩略图', async () => {
+describe('preset and thumbnail interplay', () => {
+  it('disables the thumbnail switch on 38×21; after switching to 50×30 it enables and only photo-bearing items get thumbnails', async () => {
     apiMocks.fetchItemsForPrint.mockResolvedValue(
       listResult([row(1), row(2, '/img/thumb/2026/09/a_t.jpg')]),
     )
@@ -138,8 +138,8 @@ describe('预置与缩略图联动', () => {
   })
 })
 
-describe('空态与错误', () => {
-  it('零结果：空态文案 + 印刷按钮禁用', async () => {
+describe('empty state and errors', () => {
+  it('zero results: empty-state message and a disabled print button', async () => {
     apiMocks.fetchItemsForPrint.mockResolvedValue(listResult([]))
     const wrapper = mountView()
     await flushPromises()
@@ -150,7 +150,7 @@ describe('空态与错误', () => {
     expect(printButton!.attributes('disabled')).toBeDefined()
   })
 
-  it('加载失败：错误文案 + errorId 同屏', async () => {
+  it('load failure: error message with errorId on screen', async () => {
     apiMocks.fetchItemsForPrint.mockRejectedValue(
       new ApiError(500000, 'サーバーエラーが発生しました', 'err-7777'),
     )
@@ -163,8 +163,8 @@ describe('空态与错误', () => {
   })
 })
 
-describe('分页续拉与截断', () => {
-  it('total 超上限时逐页续拉，上限截断并提示缩小区间', async () => {
+describe('paged fetching and truncation', () => {
+  it('keeps fetching page by page while total exceeds the cap, truncates at the limit, and prompts to narrow the range', async () => {
     // 第 1 页 100 件、total 600；第 2 页起空（并发删除安全阀）→ 100 件 + 截断提示
     apiMocks.fetchItemsForPrint
       .mockResolvedValueOnce(listResult(Array.from({ length: 100 }, (_, i) => row(i + 1)), 600))

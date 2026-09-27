@@ -82,7 +82,7 @@ class AuthIntegrationTest {
     // ------------------------------------------------------------------ 登录
 
     @Test
-    void 登录成功_返回统一JSON与用户信息() throws Exception {
+    void login_success_returnsEnvelopeWithUserInfo() throws Exception {
         insertUser("taro", 1, 1);
         mockMvc.perform(post("/api/auth/login")
                         .param("username", "taro").param("password", RAW_PWD))
@@ -95,7 +95,7 @@ class AuthIntegrationTest {
     }
 
     @Test
-    void 错误密码_401统一JSON() throws Exception {
+    void login_wrongPassword_401envelope() throws Exception {
         insertUser("taro", 1, 1);
         mockMvc.perform(post("/api/auth/login")
                         .param("username", "taro").param("password", "wrong-password"))
@@ -105,7 +105,7 @@ class AuthIntegrationTest {
     }
 
     @Test
-    void 未知用户名_与错误密码同响应_防枚举() throws Exception {
+    void login_unknownUsername_sameResponseAsWrongPassword_noEnumeration() throws Exception {
         insertUser("taro", 1, 1);
         String unknown = login("ghost", "whatever-x").getResponse().getContentAsString();
         String wrongPwd = login("taro", "wrong-password").getResponse().getContentAsString();
@@ -114,7 +114,7 @@ class AuthIntegrationTest {
     }
 
     @Test
-    void 停用账号_登录拒绝() throws Exception {
+    void login_disabledAccount_rejected401() throws Exception {
         insertUser("sabaku", 1, 0);
         mockMvc.perform(post("/api/auth/login")
                         .param("username", "sabaku").param("password", RAW_PWD))
@@ -125,7 +125,7 @@ class AuthIntegrationTest {
     // ------------------------------------------------------------------ 锁定防爆破
 
     @Test
-    void 连续5次失败_第6次正确密码也423含剩余分钟() throws Exception {
+    void login_fiveFailures_sixthCorrectPasswordStillLocked423() throws Exception {
         insertUser("locky", 2, 1);
         for (int i = 0; i < 5; i++) {
             MvcResult r = login("locky", "wrong-password");
@@ -140,7 +140,7 @@ class AuthIntegrationTest {
     }
 
     @Test
-    void 未知用户名连续5次_第6次也被内存锁423() throws Exception {
+    void login_unknownUserFiveFailures_sixthInMemoryLocked423() throws Exception {
         // 撞库探测不存在的账号：无 DB 行可锁，内存锁兜底（同一 (账号+IP) 维度）
         for (int i = 0; i < 5; i++) {
             MvcResult r = login("ghost-user", "wrong-password");
@@ -155,7 +155,7 @@ class AuthIntegrationTest {
 
     @Test
     @org.junit.jupiter.api.Tag("regression")
-    void regression_锁定后用URL编码路径变体_仍被423拦截() throws Exception {
+    void regression_urlEncodedPathVariantWhileLocked_stillBlocked423() throws Exception {
         // 复现：LoginThrottleFilter 曾对 getRequestURI() 做原始字符串比较，
         // URL 编码变体（%6C=l）绕过内存锁直达 BCrypt；Security 过滤链按解码路径匹配，
         // 节流判断必须用同源 PathPatternRequestMatcher（见 docs/04 防复发纪律）。
@@ -173,7 +173,7 @@ class AuthIntegrationTest {
     // ------------------------------------------------------------------ CSRF 兜底
 
     @Test
-    void Origin非白名单的写请求_403() throws Exception {
+    void csrf_originNotAllowlisted_403() throws Exception {
         mockMvc.perform(post("/api/auth/login")
                         .header("Origin", "https://evil.example")
                         .param("username", "taro").param("password", RAW_PWD))
@@ -184,14 +184,14 @@ class AuthIntegrationTest {
     // ------------------------------------------------------------------ 会话与 me
 
     @Test
-    void 未登录访问受保护端点_401() throws Exception {
+    void me_unauthenticated_401() throws Exception {
         mockMvc.perform(get("/api/auth/me"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(401001));
     }
 
     @Test
-    void 登录后_me返回当前用户() throws Exception {
+    void me_afterLogin_returnsCurrentUser() throws Exception {
         insertUser("hanako", 2, 1);
         MockHttpSession session = loginForSession("hanako", RAW_PWD);
         mockMvc.perform(get("/api/auth/me").session(session))
@@ -202,7 +202,7 @@ class AuthIntegrationTest {
     }
 
     @Test
-    void 登出后原会话失效() throws Exception {
+    void logout_invalidatesSession() throws Exception {
         insertUser("hanako", 2, 1);
         MockHttpSession session = loginForSession("hanako", RAW_PWD);
         mockMvc.perform(post("/api/auth/logout").session(session))
@@ -215,7 +215,7 @@ class AuthIntegrationTest {
     // ------------------------------------------------------------------ 改密
 
     @Test
-    void 修改密码_旧失效新生效_会话保持() throws Exception {
+    void changePassword_oldInvalid_newWorks_sessionPreserved() throws Exception {
         insertUser("jiro", 2, 1);
         MockHttpSession session = loginForSession("jiro", RAW_PWD);
         mockMvc.perform(put("/api/auth/me/password").session(session)
@@ -234,7 +234,7 @@ class AuthIntegrationTest {
     }
 
     @Test
-    void 修改密码_不满足最小10字符_400() throws Exception {
+    void changePassword_newPasswordTooShort_400() throws Exception {
         insertUser("jiro", 2, 1);
         MockHttpSession session = loginForSession("jiro", RAW_PWD);
         mockMvc.perform(put("/api/auth/me/password").session(session)
@@ -248,7 +248,7 @@ class AuthIntegrationTest {
     // ------------------------------------------------------------------ RBAC 首版
 
     @Test
-    void 仅查看角色_访问账号管理_403() throws Exception {
+    void listUsers_byViewer_403() throws Exception {
         insertUser("viewer", 3, 1);
         MockHttpSession session = loginForSession("viewer", RAW_PWD);
         mockMvc.perform(get("/api/users").session(session))
@@ -260,7 +260,7 @@ class AuthIntegrationTest {
 
     @Test
     @org.junit.jupiter.api.Tag("regression")
-    void regression_未知路径_404统一信封而非500() throws Exception {
+    void regression_unknownPath_404envelopeNot500() throws Exception {
         // 复现：onUnhandled(Exception.class) 曾把无 handler 路径的 NoResourceFoundException
         // 吞成 500+errorId——打错的 URL 全变系统错误并污染 ERROR 日志（UserIntegrationTest RED 阶段逮住）。
         // 必须登录后访问：未认证请求在 authorizeHttpRequests 就 401，到不了 handler 层

@@ -39,8 +39,8 @@ beforeEach(() => {
   localStorage.clear()
 })
 
-describe('初始状态', () => {
-  it('无历史 → 落札日期默认当天 JST、计数 0', () => {
+describe('initial state', () => {
+  it('defaults the buy date to today JST with zero count when no history exists', () => {
     const session = useEntrySessionStore()
     expect(session.buyDate).toBe(todayJst())
     expect(session.todayCount).toBe(0)
@@ -48,15 +48,15 @@ describe('初始状态', () => {
     expect(session.warehouse).toBe(1)
   })
 
-  it('损坏 JSON → 回退默认态不抛出', () => {
+  it('falls back to defaults without throwing on corrupted JSON', () => {
     localStorage.setItem('kcgl-entry-session', '{broken')
     const session = useEntrySessionStore()
     expect(session.todayCount).toBe(0)
   })
 })
 
-describe('localStorage 恢复（杀进程不丢）', () => {
-  it('沿用值与计数从上次会话恢复', () => {
+describe('localStorage restore (survives a process kill)', () => {
+  it('restores carry-over values and count from the previous session', () => {
     seedSavedSession()
     const session = useEntrySessionStore()
     expect(session.venueId).toBe(7)
@@ -67,7 +67,7 @@ describe('localStorage 恢复（杀进程不丢）', () => {
 })
 
 describe('recordSaved', () => {
-  it('沿用字段取自落库结果 + 计数递增 + 持久化', () => {
+  it('takes carry-over fields from the saved result, increments the count, and persists', () => {
     const session = useEntrySessionStore()
     session.recordSaved({ ...savedItemFixture, buyDate: todayJst() })
     expect(session.venueId).toBe(7)
@@ -82,8 +82,8 @@ describe('recordSaved', () => {
   })
 })
 
-describe('ensureToday（JST 日界滚动）', () => {
-  it('跨日 → 计数清零、落札日期回今天；会场/仓库/单价仍沿用', () => {
+describe('ensureToday (JST day rollover)', () => {
+  it('rolls over across JST midnight: resets count and buy date, keeps carry-over values', () => {
     seedSavedSession({ buyDate: yesterdayJst(), today: yesterdayJst() })
     const session = useEntrySessionStore()
     session.ensureToday()
@@ -97,7 +97,7 @@ describe('ensureToday（JST 日界滚动）', () => {
     expect(persisted.today).toBe(todayJst())
   })
 
-  it('同日 → 不变', () => {
+  it('leaves state unchanged on the same day', () => {
     seedSavedSession()
     const session = useEntrySessionStore()
     session.ensureToday()
@@ -105,20 +105,20 @@ describe('ensureToday（JST 日界滚动）', () => {
   })
 })
 
-describe('isCarryDateStale（前日角标）', () => {
-  it('沿用落札日 ≠ 今天且今日已有保存 → true', () => {
+describe('isCarryDateStale (stale-date badge)', () => {
+  it('is true when the carried buy date is not today and today already has saves', () => {
     seedSavedSession({ buyDate: yesterdayJst() })
     const session = useEntrySessionStore()
     expect(session.isCarryDateStale).toBe(true)
   })
 
-  it('落札日为今天 → false', () => {
+  it('is false when the buy date is today', () => {
     seedSavedSession()
     const session = useEntrySessionStore()
     expect(session.isCarryDateStale).toBe(false)
   })
 
-  it('首件（今日无保存）即使日期异常也不标 → false', () => {
+  it('is false for the first entry of the day even when the date is off', () => {
     const session = useEntrySessionStore()
     session.$patch({ buyDate: yesterdayJst(), todayCount: 0 })
     expect(session.isCarryDateStale).toBe(false)

@@ -88,8 +88,8 @@ beforeEach(() => {
   i18n.global.locale.value = 'ja-JP'
 })
 
-describe('取り消して再登録（M2-6）', () => {
-  it('理由必填：空理由确认 → 就地错误且不发请求', async () => {
+describe('void and re-entry (M2-6)', () => {
+  it('requires a reason: confirming with an empty reason shows an inline error and sends no request', async () => {
     const wrapper = mountSuccess()
     await openAndFillReason(wrapper, '')
     await clickConfirm(wrapper)
@@ -98,7 +98,7 @@ describe('取り消して再登録（M2-6）', () => {
     expect(apiMocks.voidItem).not.toHaveBeenCalled()
   })
 
-  it('理由填写 → voidItem 调用 → emit reEntry（作废后商品）', async () => {
+  it('calls voidItem with the filled reason and emits reEntry with the voided item', async () => {
     apiMocks.voidItem.mockResolvedValue(voidedFixture)
     const wrapper = mountSuccess()
     await openAndFillReason(wrapper, '価格入力ミス')
@@ -114,7 +114,7 @@ describe('取り消して再登録（M2-6）', () => {
     expect(reEntry![0]![0]).toMatchObject({ id: 11, voided: true })
   })
 
-  it('409006（作废响应丢失后的重试）→ fetchItem 读回 → 照常转重录', async () => {
+  it('on 409006 (retry after a lost void response): reads back via fetchItem and proceeds to re-entry as usual', async () => {
     apiMocks.voidItem.mockRejectedValue(new ApiError(409006, 'この商品は既に取り消されています'))
     apiMocks.fetchItem.mockResolvedValue(voidedFixture)
     const wrapper = mountSuccess()
@@ -127,7 +127,7 @@ describe('取り消して再登録（M2-6）', () => {
     expect(wrapper.text()).not.toContain('既に取り消されています')
   })
 
-  it('其他错误 → 显示错误文案与 errorId，弹层保持可重试', async () => {
+  it('shows the error message and errorId for other errors, keeping the dialog retryable', async () => {
     apiMocks.voidItem.mockRejectedValue(new ApiError(500000, 'システムエラー', 'err-c3d4'))
     const wrapper = mountSuccess()
     await openAndFillReason(wrapper, '価格入力ミス')
@@ -138,7 +138,7 @@ describe('取り消して再登録（M2-6）', () => {
     expect(wrapper.find('.entry-void').exists()).toBe(true)
   })
 
-  it('取消按钮 → 关闭弹层不发请求', async () => {
+  it('cancel button closes the dialog without sending a request', async () => {
     const wrapper = mountSuccess()
     await openAndFillReason(wrapper, '価格入力ミス')
 

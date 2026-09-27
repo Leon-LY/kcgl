@@ -22,24 +22,24 @@ async function login(page: Page, username: string, password: string): Promise<vo
   await page.getByRole('button', { name: 'ログイン' }).click()
 }
 
-test.describe('认证流程（desktop-chromium）', () => {
+test.describe('auth flows (desktop-chromium)', () => {
   onlyOn('desktop-chromium')
 
-  test('登录页默认日文渲染', async ({ page }) => {
+  test('login page renders in Japanese by default', async ({ page }) => {
     await page.goto('/login')
     await expect(page.locator('.login-title')).toHaveText('在庫管理システム')
     await expect(page.locator('.login-subtitle')).toHaveText('在庫管理システムへサインイン')
     await expect(page.getByRole('button', { name: 'ログイン' })).toBeVisible()
   })
 
-  test('错误密码提示日文错误文案', async ({ page }) => {
+  test('wrong password shows the Japanese error message', async ({ page }) => {
     await login(page, 'viewer', 'wrong-password-1')
     await expect(page.locator('.kcgl-error-box')).toContainText(
       'ユーザー名またはパスワードが正しくありません',
     )
   })
 
-  test('登录页语言切换（zh→en→ja 游客态即时生效，含标题与 lang 属性全量同步）', async ({ page }) => {
+  test('login page language switch (zh→en→ja) applies instantly to signed-out users, syncing title and lang attribute', async ({ page }) => {
     await page.goto('/login')
     await expect(page).toHaveTitle('ログイン｜在庫管理システム')
     await expect(page.locator('html')).toHaveAttribute('lang', 'ja-JP')
@@ -60,7 +60,7 @@ test.describe('认证流程（desktop-chromium）', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'ja-JP')
   })
 
-  test('viewer 登录 → 桌面壳 + 账号信息（角色=閲覧者，首页标题=系统名）', async ({ page }) => {
+  test('viewer login shows the desktop shell with account info (viewer role label, home title = system name)', async ({ page }) => {
     await login(page, 'viewer', E2E_PASSWORD)
     await expect(page.locator('.shell-desktop')).toBeVisible()
     await expect(page.locator('.home-welcome')).toContainText('閲覧者 次郎')
@@ -68,7 +68,7 @@ test.describe('认证流程（desktop-chromium）', () => {
     await expect(page).toHaveTitle('在庫管理システム')
   })
 
-  test('三角色角色文案（admin=管理者 / editor=編集者）', async ({ page }) => {
+  test('role label reflects the logged-in account for admin and editor', async ({ page }) => {
     await login(page, 'admin', E2E_PASSWORD)
     await expect(page.locator('.home-info')).toContainText('管理者')
     await page.getByRole('button', { name: 'ログアウト' }).click()
@@ -78,7 +78,7 @@ test.describe('认证流程（desktop-chromium）', () => {
     await expect(page.locator('.home-info')).toContainText('編集者')
   })
 
-  test('登出后直访受保护页 → 回登录页（非根路径带 redirect 参数）', async ({ page }) => {
+  test('visiting a protected page after logout redirects back to login, with a redirect param on non-root paths', async ({ page }) => {
     await login(page, 'viewer', E2E_PASSWORD)
     await expect(page.locator('.home-welcome')).toBeVisible()
     await page.getByRole('button', { name: 'ログアウト' }).click()
@@ -93,7 +93,7 @@ test.describe('认证流程（desktop-chromium）', () => {
     await expect(page).toHaveURL(/\/login\?redirect=/)
   })
 
-  test('首登强制改密：mustChangePwd 拦在改密页，改密后进入 home', async ({ page }) => {
+  test('first login with mustChangePwd is held on the change-password page and enters home after updating it', async ({ page }) => {
     await login(page, 'taro', E2E_PASSWORD)
     await expect(page).toHaveURL(/\/change-password/)
     await expect(page.locator('.kcgl-info-box')).toContainText('初回ログイン')
@@ -108,10 +108,10 @@ test.describe('认证流程（desktop-chromium）', () => {
   })
 })
 
-test.describe('移动壳（Pixel 5 视口）', () => {
+test.describe('mobile shell (Pixel 5 viewport)', () => {
   onlyOn('mobile-chromium')
 
-  test('移动 UA → 移动壳渲染 + 登录闭环', async ({ page }) => {
+  test('mobile UA renders the mobile shell and completes the login flow', async ({ page }) => {
     await login(page, 'viewer', E2E_PASSWORD)
     await expect(page.locator('.shell-mobile')).toBeVisible()
     await expect(page.locator('.shell-desktop')).toHaveCount(0)

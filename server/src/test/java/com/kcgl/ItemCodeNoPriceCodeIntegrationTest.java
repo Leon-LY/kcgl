@@ -75,7 +75,7 @@ class ItemCodeNoPriceCodeIntegrationTest {
     }
 
     @Test
-    void 号不含档位字母_档位快照仍落列() {
+    void create_codeExcludesBandLetter_bandSnapshotStillPersisted() {
         ItemEntity first = itemCodeService.create(command("npc-1"));
         ItemEntity second = itemCodeService.create(command("npc-2"));
         assertThat(first.getItemCode()).isEqualTo("HTK9-A1");

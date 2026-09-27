@@ -48,7 +48,7 @@ beforeEach(() => {
 })
 
 describe('ensureLoaded', () => {
-  it('并发调用共享同一次请求（后到者不空手而归）', async () => {
+  it('shares a single in-flight request across concurrent callers', async () => {
     seedDicts()
     const dicts = useDictsStore()
     const calls = [dicts.ensureLoaded(), dicts.ensureLoaded(), dicts.ensureLoaded()]
@@ -59,7 +59,7 @@ describe('ensureLoaded', () => {
     expect(dicts.loading).toBe(false)
   })
 
-  it('失败后再次调用会重试（inflight 清空）', async () => {
+  it('retries on the next call after a failure (in-flight cleared)', async () => {
     apiMocks.fetchVenues.mockRejectedValueOnce(new Error('network'))
     apiMocks.fetchPriceBands.mockResolvedValue([])
     const dicts = useDictsStore()
@@ -72,7 +72,7 @@ describe('ensureLoaded', () => {
     expect(apiMocks.fetchVenues).toHaveBeenCalledTimes(2)
   })
 
-  it('已加载后不再请求', async () => {
+  it('skips refetching once loaded', async () => {
     seedDicts()
     const dicts = useDictsStore()
     await dicts.ensureLoaded()
@@ -82,7 +82,7 @@ describe('ensureLoaded', () => {
 })
 
 describe('reload', () => {
-  it('强制重取（字典管理改动/SSE 失效广播）', async () => {
+  it('forces a refetch (dict management changes / SSE invalidation broadcast)', async () => {
     seedDicts()
     const dicts = useDictsStore()
     await dicts.ensureLoaded()
@@ -95,7 +95,7 @@ describe('reload', () => {
 })
 
 describe('enabledVenues', () => {
-  it('过滤停用会场（录入下拉只给启用）', async () => {
+  it('filters out disabled venues (entry dropdown offers enabled ones only)', async () => {
     seedDicts()
     const dicts = useDictsStore()
     await dicts.ensureLoaded()
@@ -103,8 +103,8 @@ describe('enabledVenues', () => {
   })
 })
 
-describe('matchBand（左闭右开，与服务端同语义）', () => {
-  it('边界值：下界含、上界不含', async () => {
+describe('matchBand (half-open intervals, same semantics as the server)', () => {
+  it('treats bounds as inclusive lower, exclusive upper', async () => {
     seedDicts()
     const dicts = useDictsStore()
     await dicts.ensureLoaded()
@@ -117,7 +117,7 @@ describe('matchBand（左闭右开，与服务端同语义）', () => {
     expect(dicts.matchBand(10000)?.code).toBe('Z')
   })
 
-  it('停用档位不参与匹配（历史快照不回溯）', async () => {
+  it('excludes disabled bands from matching (no retroactive history rewrite)', async () => {
     seedDicts()
     const dicts = useDictsStore()
     await dicts.ensureLoaded()
@@ -125,7 +125,7 @@ describe('matchBand（左闭右开，与服务端同语义）', () => {
     expect(dicts.matchBand(5)?.code).toBe('X')
   })
 
-  it('空档位表/非法单价 → null', async () => {
+  it('returns null for an empty band table or an invalid price', async () => {
     apiMocks.fetchVenues.mockResolvedValue([])
     apiMocks.fetchPriceBands.mockResolvedValue([])
     const dicts = useDictsStore()

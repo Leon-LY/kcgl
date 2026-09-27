@@ -38,7 +38,7 @@ class V1SchemaMigrationTest {
     JdbcTemplate jdbc;
 
     @Test
-    void 全部17表建成() {
+    void migration_createsAll17Tables() {
         List<String> tables = jdbc.queryForList(
                 "SELECT table_name FROM information_schema.tables "
                         + "WHERE table_schema = DATABASE() AND table_name <> 'flyway_schema_history' "
@@ -51,7 +51,7 @@ class V1SchemaMigrationTest {
     }
 
     @Test
-    void 年份代号种子_2016起A逐年递进不跳IO() {
+    void yearCodeSeed_from2016A_annualIncrementSkippingIO() {
         Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM year_code", Integer.class);
         assertThat(count).isEqualTo(26);
         assertThat(jdbc.queryForObject("SELECT code FROM year_code WHERE `year` = 2016", String.class))
@@ -66,7 +66,7 @@ class V1SchemaMigrationTest {
     }
 
     @Test
-    void 系统设置种子5项() {
+    void sysSettingSeed_contains5Entries() {
         Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM sys_setting", Integer.class);
         assertThat(count).isEqualTo(5);
         assertThat(jdbc.queryForObject("SELECT `value` FROM sys_setting WHERE `key` = 'slow_move.warn_days'", String.class))
@@ -74,7 +74,7 @@ class V1SchemaMigrationTest {
     }
 
     @Test
-    void 窄域CHECK约束生效_盘点单非法仓库被拒() {
+    void checkConstraint_stocktakeInvalidWarehouse_rejected() {
         assertThatThrownBy(() -> jdbc.update(
                 "INSERT INTO stocktake (stocktake_no, warehouse, created_by) VALUES ('PDX', 3, 1)"))
                 .isInstanceOf(DataAccessException.class)
@@ -82,7 +82,7 @@ class V1SchemaMigrationTest {
     }
 
     @Test
-    void 窄域CHECK约束生效_计数器非法月份被拒() {
+    void checkConstraint_counterInvalidMonth_rejected() {
         assertThatThrownBy(() -> jdbc.update(
                 "INSERT INTO seq_item_code (venue_id, `year`, month, cur_prefix, cur_seq) VALUES (1, 2026, 13, 'A', 0)"))
                 .isInstanceOf(DataAccessException.class)
@@ -90,7 +90,7 @@ class V1SchemaMigrationTest {
     }
 
     @Test
-    void 生成列_总成本按四项费用推导() {
+    void generatedColumn_totalCostDerivedFromFees() {
         jdbc.update("INSERT INTO auction_venue (code, name) VALUES ('HT', 'テスト会場')");
         Long venueId = jdbc.queryForObject("SELECT id FROM auction_venue WHERE code = 'HT'", Long.class);
         jdbc.update("""

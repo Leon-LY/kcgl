@@ -83,7 +83,7 @@ class UserIntegrationTest {
     // ------------------------------------------------------------------ 列表与创建
 
     @Test
-    void 管理员查账号列表_含锁定与停用状态() throws Exception {
+    void listUsers_byAdmin_includesLockedStatus() throws Exception {
         insertUser("taro", 2);
         jdbcTemplate.update("UPDATE sys_user SET locked_until = '2099-01-01 00:00:00' WHERE username = 'taro'");
         MockHttpSession admin = loginAs("boss", ADMIN_PWD);
@@ -95,7 +95,7 @@ class UserIntegrationTest {
     }
 
     @Test
-    void 管理员创建账号_新账号立即可登录() throws Exception {
+    void createUser_byAdmin_initialPasswordWorksImmediately() throws Exception {
         MockHttpSession admin = loginAs("boss", ADMIN_PWD);
         mockMvc.perform(post("/api/users").session(admin)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -114,7 +114,7 @@ class UserIntegrationTest {
     }
 
     @Test
-    void 创建重名账号_409() throws Exception {
+    void createUser_duplicateUsername_409() throws Exception {
         MockHttpSession admin = loginAs("boss", ADMIN_PWD);
         mockMvc.perform(post("/api/users").session(admin)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -127,7 +127,7 @@ class UserIntegrationTest {
     }
 
     @Test
-    void 可编辑角色访问账号管理_403() throws Exception {
+    void createUser_byEditor_403() throws Exception {
         insertUser("editor", 2);
         MockHttpSession editor = loginAs("editor", USER_PWD);
         mockMvc.perform(post("/api/users").session(editor)
@@ -142,7 +142,7 @@ class UserIntegrationTest {
     // ------------------------------------------------------------------ 更新与停用
 
     @Test
-    void 管理员更新账号_displayName与角色生效() throws Exception {
+    void updateUser_byAdmin_displayNameAndRoleApplied() throws Exception {
         Long id = insertUser("taro", 3);
         MockHttpSession admin = loginAs("boss", ADMIN_PWD);
         mockMvc.perform(put("/api/users/" + id).session(admin)
@@ -159,7 +159,7 @@ class UserIntegrationTest {
     }
 
     @Test
-    void 停用账号_既有会话下一请求立即401() throws Exception {
+    void disableUser_existingSessionImmediately401() throws Exception {
         insertUser("hanako", 2);
         MockHttpSession victim = loginAs("hanako", USER_PWD);
         // 登录后停用
@@ -175,7 +175,7 @@ class UserIntegrationTest {
     }
 
     @Test
-    void 管理员不能停用自己_防自锁() throws Exception {
+    void disableSelf_byAdmin_rejected400() throws Exception {
         MockHttpSession admin = loginAs("boss", ADMIN_PWD);
         Long adminId = jdbcTemplate.queryForObject("SELECT id FROM sys_user WHERE username = 'boss'", Long.class);
         mockMvc.perform(patch("/api/users/" + adminId + "/status").session(admin)
@@ -191,7 +191,7 @@ class UserIntegrationTest {
     // ------------------------------------------------------------------ 解锁与重置密码
 
     @Test
-    void 管理员解锁被锁账号_正确密码立即恢复登录() throws Exception {
+    void unlockUser_byAdmin_correctPasswordImmediatelyRestoresLogin() throws Exception {
         Long id = insertUser("locky", 2);
         jdbcTemplate.update("UPDATE sys_user SET locked_until = '2099-01-01 00:00:00', "
                 + "failed_attempts = 5 WHERE id = " + id);
@@ -210,7 +210,7 @@ class UserIntegrationTest {
     }
 
     @Test
-    void 管理员重置密码_旧失效新可登录且须首登改密() throws Exception {
+    void resetPassword_byAdmin_oldInvalid_newWorksAndMustChangePwd() throws Exception {
         insertUser("jiro", 3);
         Long id = jdbcTemplate.queryForObject("SELECT id FROM sys_user WHERE username = 'jiro'", Long.class);
         MockHttpSession admin = loginAs("boss", ADMIN_PWD);

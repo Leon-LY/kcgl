@@ -19,8 +19,8 @@ afterEach(() => {
   setUnauthorizedHandler(null)
 })
 
-describe('request 信封解析', () => {
-  it('code=0 返回 data 载荷', async () => {
+describe('request envelope parsing', () => {
+  it('returns the data payload when code=0', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(jsonResponse({ code: 0, message: 'ok', data: { value: 42 } })),
@@ -28,7 +28,7 @@ describe('request 信封解析', () => {
     await expect(api.me()).resolves.toEqual({ value: 42 })
   })
 
-  it('非 0 业务码抛 ApiError 且透传 code/message', async () => {
+  it('throws ApiError passing through code/message for non-zero business codes', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(
@@ -41,7 +41,7 @@ describe('request 信封解析', () => {
     expect((error as ApiError).message).toContain('パスワード')
   })
 
-  it('500 带 errorId 时透传（用户可报此 ID 排障）', async () => {
+  it('passes errorId through on 500 (users can report it for troubleshooting)', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(
@@ -52,7 +52,7 @@ describe('request 信封解析', () => {
     expect((error as ApiError).errorId).toBe('a1b2c3d4')
   })
 
-  it('401 非登录端点触发全局登出处理', async () => {
+  it('triggers the global unauthorized handler on 401 from non-login endpoints', async () => {
     const handler = vi.fn()
     setUnauthorizedHandler(handler)
     vi.stubGlobal(
@@ -63,7 +63,7 @@ describe('request 信封解析', () => {
     expect(handler).toHaveBeenCalledTimes(1)
   })
 
-  it('401 登录端点不触发全局处理（登录失败由页面就地提示）', async () => {
+  it('skips the global handler on 401 from the login endpoint (login failures surface inline on the page)', async () => {
     const handler = vi.fn()
     setUnauthorizedHandler(handler)
     vi.stubGlobal(
@@ -76,7 +76,7 @@ describe('request 信封解析', () => {
     expect(handler).not.toHaveBeenCalled()
   })
 
-  it('网络不可达抛 NETWORK_ERROR', async () => {
+  it('throws NETWORK_ERROR when the network is unreachable', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
     const error = await api.me().catch((e: unknown) => e)
     expect(error).toBeInstanceOf(ApiError)
@@ -84,7 +84,7 @@ describe('request 信封解析', () => {
     expect((error as ApiError).message).toBe('NETWORK_ERROR')
   })
 
-  it('非 JSON 响应抛 INVALID_RESPONSE', async () => {
+  it('throws INVALID_RESPONSE for non-JSON responses', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({ status: 502, json: async () => { throw new Error('not json') } } as unknown as Response),
@@ -95,7 +95,7 @@ describe('request 信封解析', () => {
 })
 
 describe('api.login', () => {
-  it('走表单编码提交（框架 formLogin 契约，D-021）', async () => {
+  it('submits form-encoded credentials (framework formLogin contract, D-021)', async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue(jsonResponse({ code: 0, message: 'ok', data: { username: 'taro', displayName: '太郎', role: 2, locale: 'ja-JP', mustChangePwd: false } }))
@@ -114,7 +114,7 @@ describe('api.login', () => {
   })
 })
 
-describe('api 其余端点契约', () => {
+describe('remaining api endpoint contracts', () => {
   function lastCall(fetchMock: ReturnType<typeof vi.fn>): [string, RequestInit] {
     return fetchMock.mock.calls[0] as [string, RequestInit]
   }
@@ -128,7 +128,7 @@ describe('api 其余端点契约', () => {
     expect(init.method).toBe('POST')
   })
 
-  it('changePassword → PUT JSON 载荷', async () => {
+  it('changePassword → PUTs a JSON payload', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ code: 0, message: 'ok', data: null }))
     vi.stubGlobal('fetch', fetchMock)
     await api.changePassword('old-pass', 'new-pass-123')
@@ -139,7 +139,7 @@ describe('api 其余端点契约', () => {
     expect(JSON.parse(init.body as string)).toEqual({ oldPassword: 'old-pass', newPassword: 'new-pass-123' })
   })
 
-  it('changeLocale → PUT JSON 载荷', async () => {
+  it('changeLocale → PUTs a JSON payload', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ code: 0, message: 'ok', data: null }))
     vi.stubGlobal('fetch', fetchMock)
     await api.changeLocale('zh-CN')
@@ -149,7 +149,7 @@ describe('api 其余端点契约', () => {
     expect(JSON.parse(init.body as string)).toEqual({ locale: 'zh-CN' })
   })
 
-  it('reportClientError → POST 字段透传（前端错误上报）', async () => {
+  it('reportClientError → POSTs with fields passed through (client error reporting)', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ code: 0, message: 'ok', data: null }))
     vi.stubGlobal('fetch', fetchMock)
     await api.reportClientError({ message: 'boom', errorId: 'a1b2c3d4', queuePending: 3 })
@@ -160,7 +160,7 @@ describe('api 其余端点契约', () => {
   })
 })
 
-describe('字典与商品录入端点契约', () => {
+describe('dictionary and item entry endpoint contracts', () => {
   function lastCall(fetchMock: ReturnType<typeof vi.fn>): [string, RequestInit] {
     return fetchMock.mock.calls[0] as [string, RequestInit]
   }
@@ -176,7 +176,7 @@ describe('字典与商品录入端点契约', () => {
     expect(init.method).toBe('GET')
   })
 
-  it('fetchVenues(false) → GET /api/venues（无查询串）', async () => {
+  it('fetchVenues(false) → GET /api/venues (no query string)', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ code: 0, message: 'ok', data: [] }))
     vi.stubGlobal('fetch', fetchMock)
     await fetchVenues(false)
@@ -192,7 +192,7 @@ describe('字典与商品录入端点契约', () => {
     expect(init.method).toBe('GET')
   })
 
-  it('previewItemCode → GET 预览查询参数拼装', async () => {
+  it('previewItemCode → GET with assembled preview query params', async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue(jsonResponse({ code: 0, message: 'ok', data: { code: 'HTK9-A1X', bandCode: 'X', seqPrefix: 'A', seqNo: 1 } }))
@@ -208,7 +208,7 @@ describe('字典与商品录入端点契约', () => {
     expect(init.method).toBe('GET')
   })
 
-  it('createItem → POST JSON 载荷（clientReqId 幂等键透传）', async () => {
+  it('createItem → POSTs a JSON payload (clientReqId idempotency key passed through)', async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue(jsonResponse({ code: 0, message: 'ok', data: { id: 1, itemCode: 'HTK9-A1X' } }))

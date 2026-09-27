@@ -96,7 +96,7 @@ class ObservabilityIntegrationTest {
     // ------------------------------------------------------------------ traceId / errorId 闭环
 
     @Test
-    void 每请求生成唯一traceId响应头() throws Exception {
+    void eachRequest_returnsUniqueTraceIdHeader() throws Exception {
         String trace1 = mockMvc.perform(get("/api/auth/me"))
                 .andExpect(status().isUnauthorized())
                 .andReturn().getResponse().getHeader("X-Trace-Id");
@@ -108,7 +108,7 @@ class ObservabilityIntegrationTest {
     }
 
     @Test
-    void 未处理异常_响应体errorId等于当次traceId() throws Exception {
+    void unhandledException_errorIdMatchesTraceId() throws Exception {
         MockHttpSession admin = loginAs("boss", ADMIN_PWD);
         MvcResult result = mockMvc.perform(get("/api/test/boom").session(admin))
                 .andExpect(status().isInternalServerError())
@@ -124,7 +124,7 @@ class ObservabilityIntegrationTest {
     // ------------------------------------------------------------------ 前端错误上报
 
     @Test
-    void 前端错误上报_落库含会话用户与服务端截断() throws Exception {
+    void reportClientError_persistsUserAndTruncatesFields() throws Exception {
         MockHttpSession viewer = loginAs("viewer", USER_PWD);
         String longStack = "x".repeat(60000);
         mockMvc.perform(post("/api/client-errors").session(viewer)
@@ -148,7 +148,7 @@ class ObservabilityIntegrationTest {
     }
 
     @Test
-    void 前端错误上报_未登录401() throws Exception {
+    void reportClientError_anonymous_401() throws Exception {
         mockMvc.perform(post("/api/client-errors")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"message\": \"x\"}"))
@@ -156,7 +156,7 @@ class ObservabilityIntegrationTest {
     }
 
     @Test
-    void 前端错误上报_超出每用户日上限429() throws Exception {
+    void reportClientError_overPerUserDailyLimit_429() throws Exception {
         MockHttpSession viewer = loginAs("viewer", USER_PWD);
         Long viewerId = jdbcTemplate.queryForObject(
                 "SELECT id FROM sys_user WHERE username='viewer'", Long.class);
@@ -172,7 +172,7 @@ class ObservabilityIntegrationTest {
     }
 
     @Test
-    void 错误上报查询_仅管理员() throws Exception {
+    void listClientErrors_adminOnly() throws Exception {
         MockHttpSession viewer = loginAs("viewer", USER_PWD);
         mockMvc.perform(get("/api/client-errors").session(viewer))
                 .andExpect(status().isForbidden());
@@ -185,7 +185,7 @@ class ObservabilityIntegrationTest {
     // ------------------------------------------------------------------ sys_alert
 
     @Test
-    void 告警同dedupKey只留最新开启态() {
+    void recordAlert_sameDedupKey_keepsLatestOpenState() {
         alertService.record("DISK_USAGE", 2, "ディスク使用率 85%", "disk-usage", "{\"pct\":85}");
         alertService.record("DISK_USAGE", 3, "ディスク使用率 92%", "disk-usage", "{\"pct\":92}");
 
@@ -200,7 +200,7 @@ class ObservabilityIntegrationTest {
     }
 
     @Test
-    void 告警已读_仅管理员可读可标记() throws Exception {
+    void markAlertRead_adminOnly_canListAlerts() throws Exception {
         alertService.record("BACKUP_STALE", 2, "バックアップが3日間実行されていません", "backup-stale", null);
         Long alertId = jdbcTemplate.queryForObject(
                 "SELECT id FROM sys_alert WHERE dedup_key='backup-stale'", Long.class);

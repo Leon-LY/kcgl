@@ -63,8 +63,8 @@ afterAll(async () => {
   await queue.resetForTests()
 })
 
-describe('启动扫描（H3：僵尸复位）', () => {
-  it('遗留 uploading 复位 pending 并继续上传出清', async () => {
+describe('startup scan (zombie reset)', () => {
+  it('resets stale uploading entries to pending and drains the queue', async () => {
     await seedEntry({ status: 'uploading' })
     await queue.init()
     await queue.whenIdle()
@@ -74,8 +74,8 @@ describe('启动扫描（H3：僵尸复位）', () => {
   })
 })
 
-describe('addFiles：压缩入队 pending_bind', () => {
-  it('返回条目（UUID 键/压缩数据），库里 pending_bind 且 itemId 为空', async () => {
+describe('addFiles: compresses and enqueues as pending_bind', () => {
+  it('returns entries (UUID key / compressed data) stored as pending_bind with a null itemId', async () => {
     const created = await queue.addFiles([fileOf('a.jpg'), fileOf('b.jpg')])
 
     expect(created).toHaveLength(2)
@@ -92,8 +92,8 @@ describe('addFiles：压缩入队 pending_bind', () => {
   })
 })
 
-describe('bindItem：绑定商品并上传出清（幂等 200 契约的队列侧）', () => {
-  it('pending_bind → pending → 上传成功删行、计数归零', async () => {
+describe('bindItem: binds the item and drains the queue (queue side of the idempotent-200 contract)', () => {
+  it('pending_bind → pending → deletes the row on upload success and zeroes the counts', async () => {
     const created = await queue.addFiles([fileOf('a.jpg')])
     const bound = await queue.bindItem(5)
 
@@ -110,7 +110,7 @@ describe('bindItem：绑定商品并上传出清（幂等 200 契约的队列侧
     expect(queue.activeByItem.get(5)).toBeUndefined()
   })
 
-  it('removeUnbound 删除未绑定照片（表单 × 按钮）', async () => {
+  it('removeUnbound deletes unbound photos (form × button)', async () => {
     const created = await queue.addFiles([fileOf('a.jpg')])
     await queue.removeUnbound(created[0]!.clientUuid)
 
@@ -119,8 +119,8 @@ describe('bindItem：绑定商品并上传出清（幂等 200 契约的队列侧
   })
 })
 
-describe('单 item 内保序（并发 2 路不交错同一商品）', () => {
-  it('同 item 第二张等第一张完成后才开始', async () => {
+describe('ordering within a single item (two concurrent lanes never interleave one item)', () => {
+  it('holds a same-item photo until the previous one finishes', async () => {
     // 直接播种 3 张就绪条目（绕过 bindItem 的自动泵），受控 mock 挂好后手动启泵——
     // 不能 await pump()：它会等到受控 Promise 释放才返回，先等第一张在传中再放行
     await seedEntry({ clientUuid: 'e1', createdAt: Date.now() - 3 })
@@ -147,8 +147,8 @@ describe('单 item 内保序（并发 2 路不交错同一商品）', () => {
   })
 })
 
-describe('退避重试（1s→5s→30s→5min 封顶 +jitter）', () => {
-  it('网络失败 → pending + nextRetryAt 未来 → 定时到点自动重试成功', async () => {
+describe('backoff retry (1s→5s→30s→5min cap + jitter)', () => {
+  it('on network failure: stays pending with a future nextRetryAt, then auto-retries successfully when the timer fires', async () => {
     apiMocks.uploadImage
       .mockRejectedValueOnce(new ApiError(0, 'NETWORK_ERROR'))
       .mockResolvedValueOnce(resultOf('ok'))
@@ -172,7 +172,7 @@ describe('退避重试（1s→5s→30s→5min 封顶 +jitter）', () => {
     expect(await db.uploadQueue.count()).toBe(0)
   }, 10_000)
 
-  it('online 事件立即清零退避时钟并续传（弱网恢复即冲）', async () => {
+  it('online event clears the backoff clock immediately and resumes uploading', async () => {
     apiMocks.uploadImage
       .mockRejectedValueOnce(new ApiError(0, 'NETWORK_ERROR'))
       .mockResolvedValueOnce(resultOf('ok'))
@@ -189,7 +189,7 @@ describe('退避重试（1s→5s→30s→5min 封顶 +jitter）', () => {
     expect(await db.uploadQueue.count()).toBe(0)
   })
 
-  it('visibilitychange → visible 触发补传（iOS 打开即补传）', async () => {
+  it('visibilitychange → visible triggers a catch-up upload (iOS reopen)', async () => {
     // 直接种一条就绪条目（不经 bindItem 的自动泵），仅由可见性事件唤醒
     await seedEntry({})
     document.dispatchEvent(new Event('visibilitychange'))
@@ -200,8 +200,8 @@ describe('退避重试（1s→5s→30s→5min 封顶 +jitter）', () => {
   })
 })
 
-describe('永久失败（4xx 业务拒绝 / 507 磁盘满）：不无限退避', () => {
-  it('400008 → 删行并落 failures（按 item 归属），不重试', async () => {
+describe('permanent failure (4xx business rejection / 507 disk full): no endless backoff', () => {
+  it('400008 → deletes the row and records a failure grouped by item, never retries', async () => {
     apiMocks.uploadImage.mockRejectedValue(new ApiError(400008, '商品画像は1件につき9枚までです'))
 
     await queue.addFiles([fileOf('a.jpg')])
@@ -215,7 +215,7 @@ describe('永久失败（4xx 业务拒绝 / 507 磁盘满）：不无限退避',
     expect(queue.state.failures[0]).toMatchObject({ itemId: 5, code: 400008 })
   })
 
-  it('500000 系统错误 → 按网络错误退避（可重试）', async () => {
+  it('500000 system error → backs off like a network error (retryable)', async () => {
     apiMocks.uploadImage.mockRejectedValue(new ApiError(500000, 'システムエラー', 'e-1'))
 
     await queue.addFiles([fileOf('a.jpg')])

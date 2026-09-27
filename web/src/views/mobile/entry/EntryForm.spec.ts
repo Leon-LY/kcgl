@@ -134,8 +134,8 @@ beforeEach(async () => {
 // 否则上一用例的 300ms 定时器会在下一用例中触发 preview 调用
 enableAutoUnmount(afterEach)
 
-describe('必填校验（验收核心页 H7）', () => {
-  it('会场/单价未填 → 就地错误提示且不提交', async () => {
+describe('required-field validation (acceptance core page H7)', () => {
+  it('shows inline errors for missing venue/price and does not submit', async () => {
     const wrapper = mountForm()
     await wrapper.find('form').trigger('submit')
     await flushPromises()
@@ -145,7 +145,7 @@ describe('必填校验（验收核心页 H7）', () => {
     expect(apiMocks.createItem).not.toHaveBeenCalled()
   })
 
-  it('单价 0 → 低于下限错误（服务端 @Min(1) 同口径的前置拦截）', async () => {
+  it('rejects a price of 0 as below the minimum (front-end guard matching the server @Min(1))', async () => {
     const wrapper = mountForm()
     await pickFirstVenue(wrapper)
     await fillAndSubmit(wrapper, '0')
@@ -154,8 +154,8 @@ describe('必填校验（验收核心页 H7）', () => {
   })
 })
 
-describe('IME 全半角归一化（7.8：blur 时机）', () => {
-  it('全角１０００ → blur 后半角 1000，提交为数值', async () => {
+describe('IME full/half-width normalization (7.8: on blur)', () => {
+  it('normalizes full-width １０００ to 1000 on blur and submits it as a number', async () => {
     apiMocks.createItem.mockResolvedValue(itemFixture)
     const wrapper = mountForm()
     await pickFirstVenue(wrapper)
@@ -177,8 +177,8 @@ describe('IME 全半角归一化（7.8：blur 时机）', () => {
   })
 })
 
-describe('沿用上一件（A13）', () => {
-  it('挂载时取会话沿用值：会场/仓库/落札日/单价 + 前日角标', async () => {
+describe('carry over from the previous item (A13)', () => {
+  it('restores session carry-overs on mount: venue/warehouse/buy date/price plus the stale-date badge', async () => {
     localStorage.setItem(
       'kcgl-entry-session',
       JSON.stringify({
@@ -206,8 +206,8 @@ describe('沿用上一件（A13）', () => {
   })
 })
 
-describe('管理号两级预览（预览≠保留）', () => {
-  it('本地档位即时算 + 300ms 防抖合并为一次 preview 请求', async () => {
+describe('two-level item code preview (preview ≠ reservation)', () => {
+  it('computes the band locally at once and debounces input into a single preview request', async () => {
     apiMocks.previewItemCode.mockResolvedValue({ code: 'HTK9-A2X', bandCode: 'X', seqPrefix: 'A', seqNo: 2 })
     const wrapper = mountForm()
     await pickFirstVenue(wrapper)
@@ -226,7 +226,7 @@ describe('管理号两级预览（预览≠保留）', () => {
     expect(wrapper.text()).toContain('確定番号は保存時に発行されます')
   })
 
-  it('preview 业务错误（如 404004）就地显示', async () => {
+  it('shows preview business errors (e.g. 404004) inline', async () => {
     apiMocks.previewItemCode.mockRejectedValue(new ApiError(404004, '年代号未登録', 'e-1'))
     const wrapper = mountForm()
     await pickFirstVenue(wrapper)
@@ -239,8 +239,8 @@ describe('管理号两级预览（预览≠保留）', () => {
   })
 })
 
-describe('保存失败重试（7.0 幂等：复用同 clientReqId）', () => {
-  it('失败 → 错误框带 errorId；重试同键；成功后 emitted saved', async () => {
+describe('save-failure retry (7.0 idempotency: reuses the same clientReqId)', () => {
+  it('on failure: error box with errorId; retry reuses the key; saved emitted on success', async () => {
     apiMocks.createItem
       .mockRejectedValueOnce(new ApiError(500000, 'システムエラー', 'err-a1b2'))
       .mockResolvedValueOnce(itemFixture)
@@ -289,8 +289,8 @@ async function chooseFiles(
   await flushPromises()
 }
 
-describe('照片选择（先压缩落 Dexie，保存后绑新商品续传）', () => {
-  it('拍照选择 → 缩略预览 + 计数 + 撮影日自动=今天 + 队列 pending_bind', async () => {
+describe('photo selection (compress into Dexie first, bind to the new item and upload after save)', () => {
+  it('camera capture → thumbnail preview, count, photo date auto-set to today, queue pending_bind', async () => {
     const wrapper = mountForm()
     await chooseFiles(wrapper, 0, [fileOf('a.jpg')]) // index 0 = capture 相机入口
 
@@ -306,7 +306,7 @@ describe('照片选择（先压缩落 Dexie，保存后绑新商品续传）', (
     expect(apiMocks.uploadImage).not.toHaveBeenCalled() // 未保存不上传
   })
 
-  it('相册选择不默认撮影日（EXIF 读取为 D-034 延后项）', async () => {
+  it('album selection does not default the photo date (EXIF reading deferred as D-034)', async () => {
     const wrapper = mountForm()
     await chooseFiles(wrapper, 1, [fileOf('a.jpg')]) // index 1 = 相册入口
 
@@ -314,7 +314,7 @@ describe('照片选择（先压缩落 Dexie，保存后绑新商品续传）', (
     expect(wrapper.find('.entry-photo-date input').element.value).toBe('')
   })
 
-  it('第 10 张 → 就地上限提示且不入队', async () => {
+  it('shows the inline limit message for the 10th photo and does not enqueue it', async () => {
     const wrapper = mountForm()
     const nine = Array.from({ length: 9 }, (_, i) => fileOf(`p${i}.jpg`))
     await chooseFiles(wrapper, 1, nine)
@@ -326,7 +326,7 @@ describe('照片选择（先压缩落 Dexie，保存后绑新商品续传）', (
     expect(wrapper.findAll('.entry-photo img')).toHaveLength(9)
   })
 
-  it('× 删除未绑定照片 → 出队且缩略图消失', async () => {
+  it('× removes an unbound photo from the queue and its thumbnail', async () => {
     const wrapper = mountForm()
     await chooseFiles(wrapper, 1, [fileOf('a.jpg')])
     await wrapper.find('.entry-photo-remove').trigger('click')
@@ -336,7 +336,7 @@ describe('照片选择（先压缩落 Dexie，保存后绑新商品续传）', (
     expect(wrapper.findAll('.entry-photo img')).toHaveLength(0)
   })
 
-  it('保存成功 → bindItem 绑定并开始上传，payload 携带 photoDate，saved 附照片数', async () => {
+  it('on save success: bindItem binds and starts uploading, payload carries photoDate, saved reports the photo count', async () => {
     apiMocks.createItem.mockResolvedValue(itemFixture)
     const wrapper = mountForm()
     await pickFirstVenue(wrapper)
@@ -359,7 +359,7 @@ describe('照片选择（先压缩落 Dexie，保存后绑新商品续传）', (
     expect(await db.uploadQueue.count()).toBe(0)
   })
 
-  it('无照片保存 → photoDate 不提交、photoCount=0', async () => {
+  it('saving without photos omits photoDate and reports photoCount=0', async () => {
     apiMocks.createItem.mockResolvedValue(itemFixture)
     const wrapper = mountForm()
     await pickFirstVenue(wrapper)
@@ -373,7 +373,7 @@ describe('照片选择（先压缩落 Dexie，保存后绑新商品续传）', (
   })
 })
 
-describe('重录（M2-6：取り取消し後に全字段预填）', () => {
+describe('re-entry (M2-6: full-field prefill after voiding)', () => {
   const voidedItem = {
     ...itemFixture,
     id: 31,
@@ -391,7 +391,7 @@ describe('重录（M2-6：取り取消し後に全字段预填）', () => {
     voidReason: '価格入力ミス',
   } as const
 
-  it('原件全字段预填 + 横幅旧号 + 撮影日不预填（新照片取新日期，无则服务端继承）', async () => {
+  it('prefills all fields from the original, banners the old code, and leaves the photo date empty (new photos take a new date; otherwise the server inherits)', async () => {
     apiMocks.fetchItemImages.mockResolvedValue([])
     const wrapper = mountForm({ reEntry: voidedItem })
     await flushPromises()
@@ -419,7 +419,7 @@ describe('重录（M2-6：取り取消し後に全字段预填）', () => {
     expect(wrapper.find('textarea').element.value).toBe('骨董品の壺')
   })
 
-  it('提交携带 reEntryOf=原件 id（服务端继承未带字段并复制图片行）', async () => {
+  it('submits with reEntryOf set to the original id (server inherits omitted fields and copies photo rows)', async () => {
     apiMocks.fetchItemImages.mockResolvedValue([])
     apiMocks.createItem.mockResolvedValue({ ...itemFixture, id: 32, itemCode: 'HTK9-A4X' })
     const wrapper = mountForm({ reEntry: voidedItem })
@@ -436,7 +436,7 @@ describe('重录（M2-6：取り取消し後に全字段预填）', () => {
     expect(payload.remark).toBe('骨董品の壺')
   })
 
-  it('继承图片只读展示（服务端复制，不进本地 Dexie）', async () => {
+  it('shows inherited photos read-only (copied server-side, never entering local Dexie)', async () => {
     apiMocks.fetchItemImages.mockResolvedValue([
       { id: 101, clientUuid: 'a', itemId: 31, url: '/img/orig/a.jpg', thumbUrl: '/img/thumb/a.jpg', imageType: 1, sortOrder: 0 },
       { id: 102, clientUuid: 'b', itemId: 31, url: '/img/orig/b.jpg', thumbUrl: '/img/thumb/b.jpg', imageType: 1, sortOrder: 1 },
@@ -452,7 +452,7 @@ describe('重录（M2-6：取り取消し後に全字段预填）', () => {
     expect(wrapper.findAll('.entry-photo-remove')).toHaveLength(0)
   })
 
-  it('继承图片读回失败 → 不阻断重录（横幅仍在、可提交）', async () => {
+  it('a failed inherited-photo fetch does not block re-entry (banner stays, submit still works)', async () => {
     apiMocks.fetchItemImages.mockRejectedValue(new ApiError(0, 'NETWORK_ERROR'))
     apiMocks.createItem.mockResolvedValue({ ...itemFixture, id: 32 })
     const wrapper = mountForm({ reEntry: voidedItem })
@@ -466,7 +466,7 @@ describe('重录（M2-6：取り取消し後に全字段预填）', () => {
     expect(apiMocks.createItem).toHaveBeenCalledTimes(1)
   })
 
-  it('やめる → emit cancelReEntry（放弃重录回普通录入）', async () => {
+  it('やめる emits cancelReEntry (abandon re-entry and return to normal entry)', async () => {
     apiMocks.fetchItemImages.mockResolvedValue([])
     const wrapper = mountForm({ reEntry: voidedItem })
     await flushPromises()
