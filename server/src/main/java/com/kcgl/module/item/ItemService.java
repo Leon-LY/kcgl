@@ -6,8 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.kcgl.common.audit.AuditRecorder;
 import com.kcgl.common.web.BizException;
 import com.kcgl.common.web.ErrorCode;
-import com.kcgl.module.image.ImageEntity;
-import com.kcgl.module.image.ImageMapper;
+import com.kcgl.module.image.FirstThumbReader;
 import com.kcgl.module.inventory.StockLedgerEntity;
 import com.kcgl.module.inventory.StockLedgerMapper;
 import com.kcgl.module.inventory.TxnType;
@@ -23,7 +22,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * 商品作废与查询（docs/01 7.1 作废重录全路径、7.2 VOID 行）。
@@ -41,16 +39,16 @@ public class ItemService {
 
     private final ItemMapper itemMapper;
     private final StockLedgerMapper ledgerMapper;
-    private final ImageMapper imageMapper;
+    private final FirstThumbReader firstThumbReader;
     private final AuditRecorder auditRecorder;
     private final TransactionTemplate txTemplate;
     private final Clock clock;
 
-    public ItemService(ItemMapper itemMapper, StockLedgerMapper ledgerMapper, ImageMapper imageMapper,
+    public ItemService(ItemMapper itemMapper, StockLedgerMapper ledgerMapper, FirstThumbReader firstThumbReader,
             AuditRecorder auditRecorder, TransactionTemplate txTemplate, Clock clock) {
         this.itemMapper = itemMapper;
         this.ledgerMapper = ledgerMapper;
-        this.imageMapper = imageMapper;
+        this.firstThumbReader = firstThumbReader;
         this.auditRecorder = auditRecorder;
         this.txTemplate = txTemplate;
         this.clock = clock;
@@ -115,27 +113,11 @@ public class ItemService {
                         .eq(ItemEntity::getDeleted, 0)
                         .orderByAsc(ItemEntity::getId));
         List<Long> itemIds = result.getRecords().stream().map(ItemEntity::getId).toList();
-        Map<Long, String> firstThumbs = firstThumbByItem(itemIds);
+        Map<Long, String> firstThumbs = firstThumbReader.byItemIds(itemIds);
         List<ItemSummaryResponse> rows = result.getRecords().stream()
                 .map(item -> ItemSummaryResponse.from(item, firstThumbs.get(item.getId())))
                 .toList();
         return new ItemListResponse(result.getTotal(), safePage, safeSize, rows);
-    }
-
-    /** 每件首图（sort_order 最小）缩略图 URL；空列表短路避免 IN ()。 */
-    private Map<Long, String> firstThumbByItem(List<Long> itemIds) {
-        if (itemIds.isEmpty()) {
-            return Map.of();
-        }
-        return imageMapper.selectList(new LambdaQueryWrapper<ImageEntity>()
-                        .in(ImageEntity::getItemId, itemIds)
-                        .orderByAsc(ImageEntity::getItemId)
-                        .orderByAsc(ImageEntity::getSortOrder))
-                .stream()
-                .collect(Collectors.toMap(
-                        ImageEntity::getItemId,
-                        image -> "/img/thumb/" + image.getThumbPath(),
-                        (first, later) -> first));
     }
 
     // ------------------------------------------------------------------ 内部
