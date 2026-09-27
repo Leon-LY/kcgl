@@ -27,9 +27,12 @@ updates:
     directory: /server
     schedule:
       interval: weekly
-    # 运行时/构建镜像锁 Java 21 LTS（docs/04 D-016）：major（JDK 22/24 线）不自动接
+    # 运行时镜像锁 Java 21 LTS（docs/04 D-016）：major（JDK 22/24 线）不自动接，
+    # 21.x 安全补丁照常接
     ignore:
       - dependency-name: "eclipse-temurin"
         update-types: ["version-update:semver-major"]
+      # 构建镜像（maven）复合标签捆绑 Maven+JDK 版本，Dependabot 的 docker 版本学
+      # 无法稳定归类 major（实测 3.9-eclipse-temurin-21→3-eclipse-temurin-24 被判非 major）；
+      # 且构建容器仅 CI 临时存在无运行时暴露面——整体不自动升，升级一律人工评审
       - dependency-name: "maven"
-        update-types: ["version-update:semver-major"]
