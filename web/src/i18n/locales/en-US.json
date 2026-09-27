@@ -51,6 +51,7 @@
     "locale": "Language",
     "quickActions": "Quick actions",
     "goEntry": "Register an item",
+    "goArrival": "Arrival check",
     "goPrint": "Label printing",
     "preparing": "This area will be implemented in upcoming milestones"
   },
@@ -141,6 +142,25 @@
       "large": "70×25 (33)"
     }
   },
+  "arrival": {
+    "title": "Arrival Check",
+    "filterAll": "All",
+    "filterLabel": "Filter by warehouse",
+    "pendingCount": "{n} awaiting stock-in",
+    "empty": "No items awaiting arrival",
+    "listEnd": "End of list",
+    "loadFailed": "Failed to load. Tap to retry",
+    "buyDate": "Purchased {date}",
+    "confirmButton": "Stock in ({n})",
+    "confirmTitle": "Stock In",
+    "confirmCount": "{n} item(s)",
+    "warehouseInDate": "Stock-in date (optional)",
+    "warehouseInDateHint": "Leave blank to record as today",
+    "confirm": "Stock In",
+    "confirming": "Processing…",
+    "done": "Stocked in {n} item(s)",
+    "viewerNote": "Confirming stock-in requires editor or admin role"
+  },
   "errors": {
     "400001": "The input is invalid",
     "400005": "Unsupported image format (JPEG / PNG only)",
@@ -166,6 +186,7 @@
     "409005": "This year or year code is already registered",
     "409006": "This item has already been voided.",
     "409007": "The source item has not been voided. Void it first.",
+    "409008": "This operation is not allowed in the item's current state. Reload the page and check again.",
     "423001": "Account locked. Please try again later",
     "429001": "Submission limit exceeded. Please try again later",
     "500000": "A system error occurred",

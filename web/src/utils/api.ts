@@ -296,3 +296,50 @@ export function uploadImage(form: FormData): Promise<ImageUploadResult> {
 export function fetchItemImages(itemId: number): Promise<ImageUploadResult[]> {
   return request(`/api/items/${itemId}/images`, { method: 'GET' })
 }
+
+// ------------------------------------------------------------------ 到货核对（M2-8a）
+
+/** 在途清单行：卡片=缩略图+管理号+落札日+预计仓库。 */
+export interface PendingArrival {
+  id: number
+  itemCode: string
+  buyDate: string
+  thumbUrl: string | null
+  warehouse: number
+}
+
+export interface PendingArrivalList {
+  total: number
+  page: number
+  size: number
+  rows: PendingArrival[]
+}
+
+/** warehouse=null 全部仓库；服务端已排除已入库/作废/软删件。 */
+export function fetchPendingArrivals(warehouse: number | null, page: number, size = 20): Promise<PendingArrivalList> {
+  const query = new URLSearchParams({ page: String(page), size: String(size) })
+  if (warehouse != null) {
+    query.set('warehouse', String(warehouse))
+  }
+  return request(`/api/inventory/arrivals/pending?${query}`, { method: 'GET' })
+}
+
+/** 确认入库行：clientReqId=行级幂等键（重试复用同键，服务端读回原结果）。 */
+export interface ConfirmArrivalLine {
+  itemId: number
+  clientReqId: string
+}
+
+export interface ConfirmArrivalResult {
+  arrivedCount: number
+  items: { itemId: number; itemCode: string; stockStatus: number; warehouse: number }[]
+}
+
+/** 批量确认入库：同批全成全败；warehouseInDate 缺省=今天 JST（录入预填件服务端不覆盖）。 */
+export function confirmArrivals(
+  items: ConfirmArrivalLine[],
+  warehouseInDate?: string,
+): Promise<ConfirmArrivalResult> {
+  const payload = warehouseInDate ? { items, warehouseInDate } : { items }
+  return request('/api/inventory/arrivals', jsonInit('POST', payload))
+}

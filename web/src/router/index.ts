@@ -39,6 +39,13 @@ const router = createRouter({
       meta: { titleKey: 'entry.title', roles: [1, 2] },
     },
     {
+      // 到货核对（M2-8a）：在途清单全员可看；确认入库按钮仅编辑者以上（服务端 403 兜底）
+      path: '/arrival',
+      name: 'arrival',
+      component: () => import('@/views/mobile/arrival/ArrivalView.vue'),
+      meta: { titleKey: 'arrival.title' },
+    },
+    {
       // 标签打印（M2-7）：桌面为主、全员可打印（录入手与贴标手常不同人）
       path: '/print',
       name: 'print',
