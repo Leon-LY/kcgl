@@ -54,7 +54,17 @@
     "goArrival": "入庫確認",
     "goToday": "本日の登録",
     "goPrint": "ラベル印刷",
-    "preparing": "この領域は今後のマイルストーンで実装されます"
+    "preparing": "この領域は今後のマイルストーンで実装されます",
+    "setup": {
+      "title": "初期セットアップ",
+      "note": "運用開始前に以下を順に完了してください。すべて完了するとこの案内は非表示になります。",
+      "stepUsers": "スタッフのアカウントを作成する",
+      "stepVenue": "会場を登録する",
+      "stepBand": "価格帯を登録する",
+      "stepItem": "商品を1件登録してみる",
+      "stepPrint": "ラベルを1枚印刷してみる",
+      "printDone": "印刷できた"
+    }
   },
   "nav": {
     "label": "ナビゲーション",
@@ -65,7 +75,8 @@
     "print": "ラベル印刷",
     "venues": "会場",
     "priceBands": "価格帯",
-    "yearCodes": "年代号"
+    "yearCodes": "年代号",
+    "users": "アカウント"
   },
   "entry": {
     "title": "商品登録",
@@ -241,6 +252,32 @@
       "codePlaceholder": "例）A",
       "codeInvalid": "年代号は半角英字1桁（A-Z）で入力してください",
       "empty": "年代号が登録されていません"
+    },
+    "user": {
+      "title": "アカウント管理",
+      "note": "アカウントは削除できません（停止のみ）。停止すると即座にログインできなくなります。",
+      "createButton": "アカウントを追加",
+      "createTitle": "アカウントの追加",
+      "editTitle": "アカウントの編集",
+      "username": "ユーザー名",
+      "usernamePlaceholder": "例）hanako",
+      "usernameInvalid": "ユーザー名は半角英数字と - _ のみ（3〜32字）で入力してください",
+      "displayName": "表示名",
+      "displayNameRequired": "表示名を入力してください",
+      "role": "権限",
+      "locale": "言語",
+      "initialPassword": "初期パスワード",
+      "passwordHint": "10文字以上。初回ログイン時に変更を求められます",
+      "passwordInvalid": "初期パスワードは10文字以上で入力してください",
+      "status": "状態",
+      "lastLogin": "最終ログイン",
+      "lockedTag": "ロック中",
+      "unlock": "ロック解除",
+      "resetPwd": "パスワード再発行",
+      "resetTitle": "パスワードの再発行",
+      "resetNote": "新しい初期パスワードはこの画面に一度だけ表示されます。利用者に伝えてください（初回ログイン時に変更が求められます）。",
+      "close": "閉じる",
+      "empty": "アカウントが登録されていません"
     }
   },
   "errors": {

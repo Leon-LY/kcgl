@@ -28,6 +28,7 @@ const NAV_ITEMS: NavItem[] = [
   { name: 'admin-venues', labelKey: 'nav.venues', roles: [1, 2] },
   { name: 'admin-price-bands', labelKey: 'nav.priceBands', roles: [1] },
   { name: 'admin-year-codes', labelKey: 'nav.yearCodes', roles: [1] },
+  { name: 'admin-users', labelKey: 'nav.users', roles: [1] },
 ]
 
 const visibleNav = computed(() =>

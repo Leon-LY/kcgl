@@ -54,7 +54,17 @@
     "goArrival": "Arrival check",
     "goToday": "Today's entries",
     "goPrint": "Label printing",
-    "preparing": "This area will be implemented in upcoming milestones"
+    "preparing": "This area will be implemented in upcoming milestones",
+    "setup": {
+      "title": "Initial setup",
+      "note": "Complete these steps in order before going live. This guide hides itself once everything is done.",
+      "stepUsers": "Create a staff account",
+      "stepVenue": "Register a venue",
+      "stepBand": "Register a price band",
+      "stepItem": "Enter one item",
+      "stepPrint": "Print one label",
+      "printDone": "Done printing"
+    }
   },
   "nav": {
     "label": "Navigation",
@@ -65,7 +75,8 @@
     "print": "Label printing",
     "venues": "Venues",
     "priceBands": "Price bands",
-    "yearCodes": "Year codes"
+    "yearCodes": "Year codes",
+    "users": "Users"
   },
   "entry": {
     "title": "Item Entry",
@@ -241,6 +252,32 @@
       "codePlaceholder": "e.g. A",
       "codeInvalid": "The code must be one uppercase letter (A-Z)",
       "empty": "No year codes registered"
+    },
+    "user": {
+      "title": "User Accounts",
+      "note": "Accounts cannot be deleted (disable only). A disabled account cannot sign in immediately.",
+      "createButton": "Add account",
+      "createTitle": "Add account",
+      "editTitle": "Edit account",
+      "username": "Username",
+      "usernamePlaceholder": "e.g. hanako",
+      "usernameInvalid": "Username: 3-32 characters, letters/digits/-/_ only",
+      "displayName": "Display name",
+      "displayNameRequired": "Display name is required",
+      "role": "Role",
+      "locale": "Language",
+      "initialPassword": "Initial password",
+      "passwordHint": "At least 10 characters; a change is required on first sign-in",
+      "passwordInvalid": "Initial password must be at least 10 characters",
+      "status": "Status",
+      "lastLogin": "Last sign-in",
+      "lockedTag": "Locked",
+      "unlock": "Unlock",
+      "resetPwd": "Reset password",
+      "resetTitle": "Password reset",
+      "resetNote": "The new initial password is shown only once on this screen. Hand it to the user (a change is required on first sign-in).",
+      "close": "Close",
+      "empty": "No accounts yet"
     }
   },
   "errors": {

@@ -54,7 +54,17 @@
     "goArrival": "到货核对",
     "goToday": "本日录入",
     "goPrint": "标签打印",
-    "preparing": "此区域将在后续里程碑中实现"
+    "preparing": "此区域将在后续里程碑中实现",
+    "setup": {
+      "title": "初始设置",
+      "note": "开始使用前请按顺序完成以下步骤，全部完成后此引导自动隐藏。",
+      "stepUsers": "创建员工账号",
+      "stepVenue": "登记会场",
+      "stepBand": "登记价格档位",
+      "stepItem": "试录一件商品",
+      "stepPrint": "试打一张标签",
+      "printDone": "已打印"
+    }
   },
   "nav": {
     "label": "导航",
@@ -65,7 +75,8 @@
     "print": "标签打印",
     "venues": "会场",
     "priceBands": "价格档位",
-    "yearCodes": "年代号"
+    "yearCodes": "年代号",
+    "users": "账号"
   },
   "entry": {
     "title": "商品录入",
@@ -241,6 +252,32 @@
       "codePlaceholder": "例）A",
       "codeInvalid": "年代号需为 1 位大写英文字母（A-Z）",
       "empty": "还没有登记年代号"
+    },
+    "user": {
+      "title": "账号管理",
+      "note": "账号不可删除（只能停用）。停用后立即无法登录。",
+      "createButton": "新增账号",
+      "createTitle": "新增账号",
+      "editTitle": "编辑账号",
+      "username": "用户名",
+      "usernamePlaceholder": "例）hanako",
+      "usernameInvalid": "用户名只能包含半角英数字与 - _（3~32 位）",
+      "displayName": "显示名",
+      "displayNameRequired": "请输入显示名",
+      "role": "权限",
+      "locale": "语言",
+      "initialPassword": "初始密码",
+      "passwordHint": "至少 10 个字符，首次登录时要求修改",
+      "passwordInvalid": "初始密码需至少 10 个字符",
+      "status": "状态",
+      "lastLogin": "最后登录",
+      "lockedTag": "已锁定",
+      "unlock": "解除锁定",
+      "resetPwd": "重置密码",
+      "resetTitle": "重置密码",
+      "resetNote": "新的初始密码仅在此页面显示一次，请转告使用者（首次登录时将要求修改）。",
+      "close": "关闭",
+      "empty": "还没有账号"
     }
   },
   "errors": {

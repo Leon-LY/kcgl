@@ -60,6 +60,13 @@ const router = createRouter({
       meta: { titleKey: 'admin.venue.title', roles: [1, 2] },
     },
     {
+      // 账号管理（M2-8b-3）：仅管理员（/api/users/** URL 级 RBAC 兜底）
+      path: '/admin/users',
+      name: 'admin-users',
+      component: () => import('@/views/desktop/admin/user/UserAdminView.vue'),
+      meta: { titleKey: 'admin.user.title', roles: [1] },
+    },
+    {
       path: '/admin/price-bands',
       name: 'admin-price-bands',
       component: () => import('@/views/desktop/admin/priceband/PriceBandAdminView.vue'),
