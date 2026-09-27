@@ -24,6 +24,11 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     include: ['src/**/*.spec.ts'],
+    // 全测试套钉死 Asia/Shanghai（docs/01 7.8）：用非 JST 本地时区跑 JST 边界用例，
+    // 本地解析类回归（dayjs(str) 误用）当场暴露而非到日本生产才「自愈」。
+    env: {
+      TZ: 'Asia/Shanghai',
+    },
     coverage: {
       // 门禁口径（docs/01 十一节）：stores/composables/utils 行覆盖 ≥80%
       include: ['src/stores/**', 'src/composables/**', 'src/utils/**'],
