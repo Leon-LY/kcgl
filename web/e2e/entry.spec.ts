@@ -93,4 +93,49 @@ test.describe('连续录入（desktop-chromium）', () => {
     await expect(page).toHaveURL(/\/$/)
     await expect(page.locator('.home-welcome')).toBeVisible()
   })
+
+  test('作废重录全链路：取り消し（理由必填）→ 全字段预填+继承图片 → 新号 ≠ 旧号', async ({ page }) => {
+    await login(page, 'editor')
+    await page.goto('/entry')
+
+    // 录一件带照片（照片须上传完成——重录的服务端复制以旧件已落库的图片行为准）
+    await page.locator('.van-field').first().click()
+    await page.locator('.van-picker__confirm').click()
+    await page.locator('input[type="file"][capture]').setInputFiles({
+      name: 'photo.jpg',
+      mimeType: 'image/jpeg',
+      buffer: TEST_JPEG,
+    })
+    await expect(page.locator('.entry-photo-count')).toHaveText('1/9')
+    await page.locator('.van-field input').nth(2).fill('1000')
+    await page.locator('button[type="submit"]').click()
+    await expect(page.locator('.entry-success-code')).toBeVisible()
+    const oldCode = await page.locator('.entry-success-code').textContent()
+    await expect(page.locator('.entry-success-upload.is-done')).toContainText(
+      '写真1枚を送信しました',
+      { timeout: 15_000 },
+    )
+
+    // 成功页取り消して再登録：理由必填（空理由被拦）→ 填写 → 确认
+    await page.getByRole('button', { name: '取り消して再登録' }).click()
+    await expect(page.locator('.entry-void')).toBeVisible()
+    await page.getByRole('button', { name: '取り消して再入力へ' }).click()
+    await expect(page.locator('.entry-void-error')).toContainText('取り消し理由を入力してください')
+
+    await page.locator('.entry-void textarea').fill('価格入力ミス')
+    await page.getByRole('button', { name: '取り消して再入力へ' }).click()
+
+    // 重录表单：横幅旧号 + 继承图片（服务端复制，无需重拍）+ 单价预填
+    await expect(page.locator('.entry-reentry')).toBeVisible()
+    await expect(page.locator('.entry-reentry')).toContainText(oldCode!)
+    await expect(page.locator('.entry-inherited-photos img')).toHaveCount(1)
+    await expect(page.locator('.van-field input').nth(2)).toHaveValue('1000')
+
+    // 改价（纠错场景）→ 保存 → 新号 ≠ 旧号、本日 2 件目
+    await page.locator('.van-field input').nth(2).fill('2000')
+    await page.locator('button[type="submit"]').click()
+    await expect(page.locator('.entry-success-code')).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('.entry-success-code')).not.toHaveText(oldCode!)
+    await expect(page.locator('.entry-success-count')).toContainText('2')
+  })
 })

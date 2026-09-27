@@ -85,7 +85,7 @@ class ItemCodeNoPriceCodeIntegrationTest {
     }
 
     private CreateItemCommand command(String clientReqId) {
-        return new CreateItemCommand(clientReqId, venueId, LocalDate.of(2026, 9, 15), null,
+        return new CreateItemCommand(clientReqId, null, venueId, LocalDate.of(2026, 9, 15), null,
                 1000L, null, null, null, 1, null, null, null, null,
                 null, null, null, null, null, null, operatorId, "早瀬");
     }

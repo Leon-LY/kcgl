@@ -351,7 +351,7 @@ class ItemCodeIntegrationTest {
 
     private ItemEntity create(String clientReqId, LocalDate buyDate, long price, long vid) {
         return itemCodeService.create(new CreateItemCommand(
-                clientReqId, vid, buyDate, null, price, null, null, null,
+                clientReqId, null, vid, buyDate, null, price, null, null, null,
                 1, null, null, null, "連続録入テスト", null, null, null, null, null, null,
                 operatorId, "早瀬"));
     }

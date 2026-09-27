@@ -159,6 +159,8 @@ export function previewItemCode(venueId: number, buyDate: string, price: number)
 export interface CreateItemPayload {
   /** 客户端幂等键：一次逻辑保存从生成到成功共用；失败重试复用同键（7.0）。 */
   clientReqId: string
+  /** 作废重录（M2-6）：指向已作废原件；请求未携带字段由服务端继承，图片行服务端复制。 */
+  reEntryOf?: number
   venueId: number
   buyDate: string
   purchasePrice: number
@@ -202,12 +204,29 @@ export interface ItemResponse {
   stockStatus: number
   saleStatus: number
   voided: boolean
+  /** 取り消し理由（作废件详情/扫旧码提示用）。 */
+  voidReason: string | null
+  /** 作废重录互链：本件为 {reEntryOf} 的再登録件。 */
+  reEntryOf: number | null
   deleted: boolean
   createdAt: string
 }
 
 export function createItem(payload: CreateItemPayload): Promise<ItemResponse> {
   return request('/api/items', jsonInit('POST', payload))
+}
+
+/** 详情（M2-6）：作废件可见（重录预填/扫旧码提示）；软删件 404。 */
+export function fetchItem(id: number): Promise<ItemResponse> {
+  return request(`/api/items/${id}`, { method: 'GET' })
+}
+
+/**
+ * 作废（M2-6，docs/01 7.1）：冻结商品并记 VOID 流水；幂等键 clientReqId。
+ * 响应为作废后的商品（voided=true），字段完整——重录预填直接可用。
+ */
+export function voidItem(id: number, clientReqId: string, reason: string): Promise<ItemResponse> {
+  return request(`/api/items/${id}/void`, jsonInit('POST', { clientReqId, reason }))
 }
 
 // ------------------------------------------------------------------ 图片上传

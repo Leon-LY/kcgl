@@ -15,6 +15,8 @@ import java.time.LocalDate;
  */
 public record CreateItemRequest(
         @Size(max = 36) String clientReqId,
+        /** 作废重录的原件 id（服务端继承未携带字段并复制图片行）。 */
+        @Positive Long reEntryOf,
         @NotNull @Positive Long venueId,
         @NotNull LocalDate buyDate,
         LocalDate photoDate,

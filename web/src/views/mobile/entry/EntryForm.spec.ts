@@ -7,6 +7,7 @@ const apiMocks = vi.hoisted(() => ({
   createItem: vi.fn(),
   previewItemCode: vi.fn(),
   uploadImage: vi.fn(),
+  fetchItemImages: vi.fn(),
 }))
 
 // ApiError/errors/format 保持真实实现（EntryForm 依赖 instanceof 与 t 双参签名），
@@ -18,6 +19,7 @@ vi.mock('@/utils/api', async (importOriginal) => {
     createItem: apiMocks.createItem,
     previewItemCode: apiMocks.previewItemCode,
     uploadImage: apiMocks.uploadImage,
+    fetchItemImages: apiMocks.fetchItemImages,
   }
 })
 vi.mock('@/utils/compress', () => ({
@@ -57,9 +59,10 @@ const itemFixture = {
   purchasePrice: 1000,
 } as const
 
-function mountForm(): VueWrapper<InstanceType<typeof EntryForm>> {
+function mountForm(props: Record<string, unknown> = {}): VueWrapper<InstanceType<typeof EntryForm>> {
   return mount(EntryForm, {
     global: { plugins: [i18n] },
+    props,
   })
 }
 
@@ -367,5 +370,108 @@ describe('照片选择（先压缩落 Dexie，保存后绑新商品续传）', (
     expect(payload.photoDate).toBeUndefined()
     expect(saved[1]).toBe(0)
     expect(apiMocks.uploadImage).not.toHaveBeenCalled()
+  })
+})
+
+describe('重录（M2-6：取り取消し後に全字段预填）', () => {
+  const voidedItem = {
+    ...itemFixture,
+    id: 31,
+    itemCode: 'HTK9-A3X',
+    buyDate: '2026-09-20',
+    purchasePrice: 1200,
+    fee: 300,
+    shippingFee: 200,
+    tax: 10,
+    shelfNo: 'S-3',
+    groupNo: 'G7',
+    remark: '骨董品の壺',
+    photoDate: '2026-09-21',
+    voided: true,
+    voidReason: '価格入力ミス',
+  } as const
+
+  it('原件全字段预填 + 横幅旧号 + 撮影日不预填（新照片取新日期，无则服务端继承）', async () => {
+    apiMocks.fetchItemImages.mockResolvedValue([])
+    const wrapper = mountForm({ reEntry: voidedItem })
+    await flushPromises()
+
+    // 横幅：旧号 + 再登録文案
+    expect(wrapper.text()).toContain('HTK9-A3X の再登録')
+    expect(wrapper.text()).toContain('新しい管理番号が発番')
+
+    const inputs = wrapper.findAll('input')
+    expect(inputs[0]!.element.value).toBe('飛騨古民具市') // venueId=7 预填
+    expect(inputs[1]!.element.value).toBe('2026/09/20') // 落札日预填
+    expect(inputs[2]!.element.value).toBe('1200') // 单价预填（错处就地改）
+    expect(inputs[3]!.element.value).toBe('') // 撮影日不预填
+    expect(wrapper.findAll('.entry-warehouse-option')[0]!.classes()).toContain('is-active')
+
+    // 折叠字段：三费用/货架/组号/备注全部预填
+    await wrapper.find('.entry-more .van-cell').trigger('click')
+    await flushPromises()
+    const more = wrapper.findAll('input')
+    expect(more[6]!.element.value).toBe('300')
+    expect(more[7]!.element.value).toBe('200')
+    expect(more[8]!.element.value).toBe('10')
+    expect(more[9]!.element.value).toBe('G7')
+    expect(more[10]!.element.value).toBe('S-3')
+    expect(wrapper.find('textarea').element.value).toBe('骨董品の壺')
+  })
+
+  it('提交携带 reEntryOf=原件 id（服务端继承未带字段并复制图片行）', async () => {
+    apiMocks.fetchItemImages.mockResolvedValue([])
+    apiMocks.createItem.mockResolvedValue({ ...itemFixture, id: 32, itemCode: 'HTK9-A4X' })
+    const wrapper = mountForm({ reEntry: voidedItem })
+    await flushPromises()
+
+    await wrapper.find('form').trigger('submit')
+    await waitFor(() => wrapper.emitted('saved')?.[0])
+
+    const payload = apiMocks.createItem.mock.calls[0]![0] as Record<string, unknown>
+    expect(payload.reEntryOf).toBe(31)
+    expect(payload.venueId).toBe(7)
+    expect(payload.purchasePrice).toBe(1200)
+    expect(payload.buyDate).toBe('2026-09-20')
+    expect(payload.remark).toBe('骨董品の壺')
+  })
+
+  it('继承图片只读展示（服务端复制，不进本地 Dexie）', async () => {
+    apiMocks.fetchItemImages.mockResolvedValue([
+      { id: 101, clientUuid: 'a', itemId: 31, url: '/img/orig/a.jpg', thumbUrl: '/img/thumb/a.jpg', imageType: 1, sortOrder: 0 },
+      { id: 102, clientUuid: 'b', itemId: 31, url: '/img/orig/b.jpg', thumbUrl: '/img/thumb/b.jpg', imageType: 1, sortOrder: 1 },
+    ])
+    const wrapper = mountForm({ reEntry: voidedItem })
+    await flushPromises()
+
+    expect(apiMocks.fetchItemImages).toHaveBeenCalledWith(31)
+    expect(wrapper.text()).toContain('引き継ぐ画像')
+    expect(wrapper.findAll('.entry-inherited-photos img')).toHaveLength(2)
+    expect(wrapper.find('.entry-inherited-photos img').attributes('src')).toBe('/img/thumb/a.jpg')
+    // 本地照片区不受影响（继承图不占 9 枚额度、无删除角标）
+    expect(wrapper.findAll('.entry-photo-remove')).toHaveLength(0)
+  })
+
+  it('继承图片读回失败 → 不阻断重录（横幅仍在、可提交）', async () => {
+    apiMocks.fetchItemImages.mockRejectedValue(new ApiError(0, 'NETWORK_ERROR'))
+    apiMocks.createItem.mockResolvedValue({ ...itemFixture, id: 32 })
+    const wrapper = mountForm({ reEntry: voidedItem })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('HTK9-A3X の再登録')
+    expect(wrapper.findAll('.entry-inherited-photos img')).toHaveLength(0)
+
+    await wrapper.find('form').trigger('submit')
+    await waitFor(() => wrapper.emitted('saved')?.[0])
+    expect(apiMocks.createItem).toHaveBeenCalledTimes(1)
+  })
+
+  it('やめる → emit cancelReEntry（放弃重录回普通录入）', async () => {
+    apiMocks.fetchItemImages.mockResolvedValue([])
+    const wrapper = mountForm({ reEntry: voidedItem })
+    await flushPromises()
+
+    await wrapper.find('.entry-reentry-cancel').trigger('click')
+    expect(wrapper.emitted('cancelReEntry')).toHaveLength(1)
   })
 })

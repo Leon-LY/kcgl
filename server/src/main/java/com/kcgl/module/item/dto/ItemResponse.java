@@ -40,6 +40,8 @@ public record ItemResponse(
         Integer stockStatus,
         Integer saleStatus,
         boolean voided,
+        String voidReason,
+        Long reEntryOf,
         boolean deleted,
         LocalDateTime createdAt) {
 
@@ -56,6 +58,8 @@ public record ItemResponse(
                 e.getWeightG(), e.getSalesChannel(),
                 e.getStockStatus(), e.getSaleStatus(),
                 e.getVoided() != null && e.getVoided() == 1,
+                e.getVoidReason(),
+                e.getReEntryOf(),
                 e.getDeleted() != null && e.getDeleted() == 1,
                 e.getCreatedAt());
     }

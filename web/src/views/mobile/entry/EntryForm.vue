@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onUnmounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useUploadQueue } from '@/composables/useUploadQueue'
 import { useDictsStore } from '@/stores/dicts'
 import { useEntrySessionStore } from '@/stores/entrySession'
-import { ApiError, createItem, previewItemCode, type ItemResponse } from '@/utils/api'
+import { ApiError, createItem, fetchItemImages, previewItemCode, type ItemResponse } from '@/utils/api'
 import { toDisplayMessage } from '@/utils/errors'
 import { JST_TZ, dayjs } from '@/utils/format'
 import { newClientId } from '@/utils/id'
@@ -19,7 +19,10 @@ import { normalizeNumericText, parseAmount, trimText } from '@/utils/normalize'
  * - 照片（7.5）：选图即压缩落 Dexie（pending_bind）；保存成功后 bindItem 绑新商品后台续传
  */
 
-const emit = defineEmits<{ saved: [item: ItemResponse, photoCount: number] }>()
+const emit = defineEmits<{ saved: [item: ItemResponse, photoCount: number]; cancelReEntry: [] }>()
+
+/** 重录源（M2-6）：已作废原件——非空时以原件预填全字段并携带 reEntryOf 提交。 */
+const props = withDefaults(defineProps<{ reEntry?: ItemResponse | null }>(), { reEntry: null })
 
 const { t } = useI18n()
 const dicts = useDictsStore()
@@ -28,17 +31,25 @@ const uploadQueue = useUploadQueue()
 
 // ------------------------------------------------------------------ 表单状态
 
-const venueId = ref<number | null>(session.venueId)
-const warehouse = ref<number>(session.warehouse)
-const buyDate = ref<string>(session.buyDate)
-const priceText = ref<string>(session.purchasePrice != null ? String(session.purchasePrice) : '')
-const feeText = ref('')
-const shippingText = ref('')
-const taxText = ref('')
-const groupNo = ref('')
-const shelfNo = ref('')
-const warehouseInDate = ref('')
-const remark = ref('')
+// 重录模式：全部字段以原件预填（用户只改错处）；普通模式沿用上一件（A13）。
+// 撮影日不预填——新拍照片取新日期，无新照片时服务端继承原件（M2-6 语义）。
+const venueId = ref<number | null>(props.reEntry?.venueId ?? session.venueId)
+const warehouse = ref<number>(props.reEntry?.warehouse ?? session.warehouse)
+const buyDate = ref<string>(props.reEntry?.buyDate ?? session.buyDate)
+const priceText = ref<string>(
+  props.reEntry != null
+    ? String(props.reEntry.purchasePrice)
+    : session.purchasePrice != null
+      ? String(session.purchasePrice)
+      : '',
+)
+const feeText = ref(props.reEntry?.fee != null ? String(props.reEntry.fee) : '')
+const shippingText = ref(props.reEntry?.shippingFee != null ? String(props.reEntry.shippingFee) : '')
+const taxText = ref(props.reEntry?.tax != null ? String(props.reEntry.tax) : '')
+const groupNo = ref(props.reEntry?.groupNo ?? '')
+const shelfNo = ref(props.reEntry?.shelfNo ?? '')
+const warehouseInDate = ref(props.reEntry?.warehouseInDate ?? '')
+const remark = ref(props.reEntry?.remark ?? '')
 const showMore = ref(false)
 
 const todayJst = (): string => dayjs().tz(JST_TZ).format('YYYY-MM-DD')
@@ -168,6 +179,23 @@ onUnmounted(() => {
   }
 })
 
+// ------------------------------------------------------------------ 重录继承图片（M2-6）
+
+/** 原件已上传图片（只读展示）：保存时由服务端复制行到新商品，不进本地 Dexie、无需重拍。 */
+const inheritedImages = ref<Array<{ id: number; thumbUrl: string }>>([])
+
+onMounted(async () => {
+  if (props.reEntry == null) {
+    return
+  }
+  try {
+    const images = await fetchItemImages(props.reEntry.id)
+    inheritedImages.value = images.map((image) => ({ id: image.id, thumbUrl: image.thumbUrl }))
+  } catch {
+    // 读回失败不阻断重录：服务端复制不依赖前端展示，新件仍会带上图片
+  }
+})
+
 const photoDateDisplay = computed(() => (photoDate.value ? photoDate.value.replaceAll('-', '/') : ''))
 
 function onPhotoDateConfirm({ selectedValues }: { selectedValues: Array<string | number> }): void {
@@ -274,6 +302,7 @@ async function onSubmit(): Promise<void> {
   try {
     const item = await createItem({
       clientReqId,
+      reEntryOf: props.reEntry?.id,
       venueId: venueId.value,
       buyDate: buyDate.value,
       purchasePrice: price,
@@ -306,6 +335,27 @@ async function onSubmit(): Promise<void> {
     class="entry-form"
     @submit="onSubmit"
   >
+    <div
+      v-if="reEntry"
+      class="kcgl-info-box entry-reentry"
+    >
+      <div class="entry-reentry-text">
+        <p class="entry-reentry-title">
+          {{ t('entry.reEntryTitle', { code: reEntry.itemCode }) }}
+        </p>
+        <p class="entry-reentry-note">
+          {{ t('entry.reEntryNote') }}
+        </p>
+      </div>
+      <button
+        type="button"
+        class="entry-reentry-cancel"
+        @click="emit('cancelReEntry')"
+      >
+        {{ t('entry.reEntryCancel') }}
+      </button>
+    </div>
+
     <van-cell-group inset>
       <van-field
         :model-value="venueDisplay"
@@ -402,6 +452,25 @@ async function onSubmit(): Promise<void> {
           </div>
         </template>
       </van-field>
+    </van-cell-group>
+
+    <van-cell-group
+      v-if="inheritedImages.length > 0"
+      inset
+      class="entry-inherited"
+    >
+      <van-cell :title="t('entry.inheritedImages')" />
+      <div class="entry-inherited-photos">
+        <img
+          v-for="image in inheritedImages"
+          :key="image.id"
+          :src="image.thumbUrl"
+          :alt="t('entry.inheritedImages')"
+        >
+      </div>
+      <p class="entry-inherited-note">
+        {{ t('entry.inheritedImagesNote') }}
+      </p>
     </van-cell-group>
 
     <van-cell-group inset>
@@ -859,5 +928,69 @@ async function onSubmit(): Promise<void> {
 
 .entry-submit {
   margin-top: 4px;
+}
+
+/* 重录横幅：作废原件信息 + 放弃链接——info-box 基底上强调标题 */
+.entry-reentry {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0 16px;
+}
+
+.entry-reentry-text {
+  flex: 1;
+  display: grid;
+  gap: 4px;
+}
+
+.entry-reentry-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--kcgl-color-text);
+}
+
+.entry-reentry-note {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--kcgl-color-text-sub);
+}
+
+.entry-reentry-cancel {
+  border: none;
+  background: none;
+  padding: 2px 4px;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--kcgl-color-primary);
+  text-decoration: underline;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* 继承图片：只读缩略图（不可删——服务端保存时整组复制到新件） */
+.entry-inherited-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 16px 8px;
+}
+
+.entry-inherited-photos img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--kcgl-color-border);
+  display: block;
+}
+
+.entry-inherited-note {
+  margin: 0 16px 12px;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--kcgl-color-text-sub);
 }
 </style>

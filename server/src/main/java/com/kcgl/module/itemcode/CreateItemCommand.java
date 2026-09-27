@@ -7,9 +7,12 @@ import java.time.LocalDate;
  * 审计操作人仍取 SecurityContext，与台账快照双轨（docs/01 5.3）。
  *
  * @param clientReqId 幂等键（可空=不启用重放读回；前端连续录入恒携带）
+ * @param reEntryOf   作废重录的原件 id（可空=普通录入；非空时原件须已作废，
+ *                    未随请求提交的可选字段由原件服务端继承，图片行复制到新件）
  */
 public record CreateItemCommand(
         String clientReqId,
+        Long reEntryOf,
         Long venueId,
         LocalDate buyDate,
         LocalDate photoDate,

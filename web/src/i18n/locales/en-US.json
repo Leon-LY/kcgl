@@ -16,7 +16,8 @@
     "warehouse": {
       "1": "Nagoya warehouse",
       "2": "Fukuoka warehouse"
-    }
+    },
+    "saving": "Processing…"
   },
   "auth": {
     "username": "Username",
@@ -103,7 +104,20 @@
       "priceRequired": "Enter the purchase price",
       "priceMin": "Purchase price must be at least 1 JPY",
       "feeMax": "Fee must be less than 99,990,000 JPY"
-    }
+    },
+    "reEntryTitle": "Re-entry of {code}",
+    "reEntryNote": "Correct the voided item and save. A new item code will be issued and photos carry over automatically.",
+    "reEntryCancel": "Cancel",
+    "inheritedImages": "Carried-over photos",
+    "inheritedImagesNote": "Photos from the voided item carry over on save (no need to retake).",
+    "voidButton": "Void and re-enter",
+    "voidTitle": "Void and re-enter",
+    "voidNote": "Void this item and re-enter it under a new item code. The voided item will appear as voided in search and scans.",
+    "voidReasonLabel": "Reason",
+    "voidReasonPlaceholder": "e.g. price entered incorrectly",
+    "voidReasonRequired": "Enter a reason for voiding",
+    "voidLabelWarn": "* Remove the old label of the voided item, or cross it out with a permanent marker.",
+    "voidConfirm": "Void and re-enter"
   },
   "errors": {
     "NETWORK_ERROR": "Cannot reach the server. Please check your network",
@@ -131,6 +145,9 @@
     "400005": "Unsupported image format (JPEG / PNG only)",
     "400006": "Image exceeds the 5MB size limit",
     "400007": "Image resolution exceeds the 8000×8000 limit",
-    "400008": "Up to 9 photos per item"
+    "400008": "Up to 9 photos per item",
+    "409000": "This item was updated by someone else. Reload the page and try again.",
+    "409006": "This item has already been voided.",
+    "409007": "The source item has not been voided. Void it first."
   }
 }

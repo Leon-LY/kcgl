@@ -13,6 +13,8 @@ import com.kcgl.module.dict.YearCodeMapper;
 import com.kcgl.module.inventory.StockLedgerEntity;
 import com.kcgl.module.inventory.StockLedgerMapper;
 import com.kcgl.module.inventory.TxnType;
+import com.kcgl.module.image.ImageEntity;
+import com.kcgl.module.image.ImageMapper;
 import com.kcgl.module.item.ItemEntity;
 import com.kcgl.module.item.ItemMapper;
 import org.springframework.dao.DuplicateKeyException;
@@ -22,7 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * 管理号引擎·事务体（docs/01 7.1 唯一定义）。每次调用=一个独立事务，由外层
@@ -44,6 +48,7 @@ public class ItemCodeTxService {
     private final SeqItemCodeMapper seqMapper;
     private final ItemMapper itemMapper;
     private final StockLedgerMapper ledgerMapper;
+    private final ImageMapper imageMapper;
     private final VenueMapper venueMapper;
     private final YearCodeMapper yearCodeMapper;
     private final PriceBandService priceBandService;
@@ -52,12 +57,13 @@ public class ItemCodeTxService {
     private final Clock clock;
 
     public ItemCodeTxService(SeqItemCodeMapper seqMapper, ItemMapper itemMapper,
-            StockLedgerMapper ledgerMapper, VenueMapper venueMapper, YearCodeMapper yearCodeMapper,
-            PriceBandService priceBandService, AuditRecorder auditRecorder,
-            ItemCodeProperties properties, Clock clock) {
+            StockLedgerMapper ledgerMapper, ImageMapper imageMapper, VenueMapper venueMapper,
+            YearCodeMapper yearCodeMapper, PriceBandService priceBandService,
+            AuditRecorder auditRecorder, ItemCodeProperties properties, Clock clock) {
         this.seqMapper = seqMapper;
         this.itemMapper = itemMapper;
         this.ledgerMapper = ledgerMapper;
+        this.imageMapper = imageMapper;
         this.venueMapper = venueMapper;
         this.yearCodeMapper = yearCodeMapper;
         this.priceBandService = priceBandService;
@@ -71,6 +77,13 @@ public class ItemCodeTxService {
         ItemEntity replayed = findReplayedCreate(cmd.clientReqId());
         if (replayed != null) {
             return replayed;
+        }
+
+        // 作废重录：原件须已作废；请求未携带的可选字段由原件继承（表单外字段不可丢，7.1）
+        ItemEntity source = null;
+        if (cmd.reEntryOf() != null) {
+            source = requireVoidedSource(cmd.reEntryOf());
+            cmd = inheritFromSource(cmd, source);
         }
 
         VenueEntity venue = requireVenue(cmd.venueId());
@@ -127,6 +140,9 @@ public class ItemCodeTxService {
                 "priceBand", band.code(),
                 "purchasePrice", cmd.purchasePrice(),
                 "skips", skips));
+        if (source != null) {
+            linkReEntry(source, item, cmd.operatorId());
+        }
         // 生成列（total_cost/profit）由 DB 计算，重读回填——响应携带真实成本而非 null
         return itemMapper.selectById(item.getId());
     }
@@ -160,6 +176,94 @@ public class ItemCodeTxService {
     }
 
     // ------------------------------------------------------------------ 内部
+
+    /** remark 列宽（V1 DDL item.remark VARCHAR(500)）。 */
+    static final int REMARK_MAX = 500;
+
+    /** 重录原件须存在且已作废（软删件按不存在处理；未作废件走 409007 引导先作废）。 */
+    private ItemEntity requireVoidedSource(long id) {
+        ItemEntity source = itemMapper.selectById(id);
+        if (source == null || (source.getDeleted() != null && source.getDeleted() == 1)) {
+            throw new BizException(ErrorCode.NOT_FOUND);
+        }
+        if (source.getVoided() == null || source.getVoided() != 1) {
+            throw new BizException(ErrorCode.ITEM_NOT_VOIDED);
+        }
+        return source;
+    }
+
+    /**
+     * 服务端字段继承：请求未携带的可选字段（撮影日/三费用/货架/入库日/组号/备注/扩展五字段）
+     * 全部取原件——重录是纠错路径，「携带原商品全部字段」由服务端兜底而非依赖前端表单完备。
+     * venueId/buyDate/purchasePrice/warehouse 必填字段不继承（前端预填后用户可改）。
+     */
+    private CreateItemCommand inheritFromSource(CreateItemCommand cmd, ItemEntity source) {
+        String remark = cmd.remark() != null ? cmd.remark() : source.getRemark();
+        return new CreateItemCommand(
+                cmd.clientReqId(), cmd.reEntryOf(), cmd.venueId(), cmd.buyDate(),
+                cmd.photoDate() != null ? cmd.photoDate() : source.getPhotoDate(),
+                cmd.purchasePrice(),
+                cmd.fee() != null ? cmd.fee() : source.getFee(),
+                cmd.shippingFee() != null ? cmd.shippingFee() : source.getShippingFee(),
+                cmd.tax() != null ? cmd.tax() : source.getTax(),
+                cmd.warehouse(),
+                cmd.shelfNo() != null ? cmd.shelfNo() : source.getShelfNo(),
+                cmd.warehouseInDate() != null ? cmd.warehouseInDate() : source.getWarehouseInDate(),
+                cmd.groupNo() != null ? cmd.groupNo() : source.getGroupNo(),
+                appendMarker(remark, "再登録元: " + source.getItemCode()),
+                cmd.itemName() != null ? cmd.itemName() : source.getItemName(),
+                cmd.category() != null ? cmd.category() : source.getCategory(),
+                cmd.authorKiln() != null ? cmd.authorKiln() : source.getAuthorKiln(),
+                cmd.sizeText() != null ? cmd.sizeText() : source.getSizeText(),
+                cmd.weightG() != null ? cmd.weightG() : source.getWeightG(),
+                cmd.salesChannel() != null ? cmd.salesChannel() : source.getSalesChannel(),
+                cmd.operatorId(), cmd.operatorName());
+    }
+
+    /**
+     * 互链落库（同事务）：新件 re_entry_of 已随 INSERT 写入；此处补旧件冗余反链
+     * void_re_entry（主链在新件，反链供扫旧码快速定位新号）、remark 双向互写、
+     * 图片行复制（同 stored_path/thumb_path 零重传，新 client_uuid——幂等键不复用）。
+     */
+    private void linkReEntry(ItemEntity source, ItemEntity reEntered, Long operatorId) {
+        List<ImageEntity> images = imageMapper.selectList(new LambdaQueryWrapper<ImageEntity>()
+                .eq(ImageEntity::getItemId, source.getId())
+                .orderByAsc(ImageEntity::getSortOrder));
+        LocalDateTime now = LocalDateTime.now(clock);
+        for (ImageEntity image : images) {
+            ImageEntity copy = new ImageEntity();
+            copy.setItemId(reEntered.getId());
+            copy.setClientUuid(UUID.randomUUID().toString());
+            copy.setStoredPath(image.getStoredPath());
+            copy.setThumbPath(image.getThumbPath());
+            copy.setImageType(image.getImageType());
+            copy.setSortOrder(image.getSortOrder());
+            copy.setCreatedBy(operatorId);
+            copy.setCreatedAt(now);
+            imageMapper.insert(copy);
+        }
+        source.setVoidReEntry(reEntered.getId());
+        source.setRemark(appendMarker(source.getRemark(), "再登録先: " + reEntered.getItemCode()));
+        source.setUpdatedBy(operatorId);
+        source.setUpdatedAt(now);
+        itemMapper.updateById(source);
+        auditRecorder.record("ITEM_RE_ENTRY", "item", reEntered.getId(), Map.of(
+                "sourceItemId", source.getId(),
+                "sourceItemCode", source.getItemCode(),
+                "inheritedImages", images.size()));
+    }
+
+    /** 互链标记追加；超列宽时标记优先保留（互链是审计链路，比原备注尾巴重要）。 */
+    private String appendMarker(String base, String marker) {
+        String keep = base == null ? "" : base;
+        String joined = keep.isBlank() ? marker : keep + "／" + marker;
+        if (joined.length() <= REMARK_MAX) {
+            return joined;
+        }
+        int room = REMARK_MAX - marker.length() - 1;
+        return room <= 0 ? marker.substring(0, REMARK_MAX)
+                : marker + "／" + keep.substring(0, Math.min(keep.length(), room));
+    }
 
     /**
      * 幂等读回：同 clientReqId 的 CREATE 流水已存在=网络超时重放，返回原商品不再取号。
@@ -253,6 +357,7 @@ public class ItemCodeTxService {
         item.setSizeText(cmd.sizeText());
         item.setWeightG(cmd.weightG());
         item.setSalesChannel(cmd.salesChannel());
+        item.setReEntryOf(cmd.reEntryOf());
         item.setStockStatus(0);
         item.setSaleStatus(0);
         item.setVoided(0);
