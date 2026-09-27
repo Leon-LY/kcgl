@@ -41,6 +41,9 @@ uploads/
 *.local.*
 project.data.json
 
+# 内部文档（需求/方案/决策/验收记录仅本地维护，不入库）
+docs/
+
 # ===== 系统文件 =====
 .DS_Store
 Thumbs.db
