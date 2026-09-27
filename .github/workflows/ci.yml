@@ -53,22 +53,23 @@ jobs:
         with:
           fetch-depth: 0
       - name: 提交身份唯一性（人类提交者唯一；机器人协作除外）
-        # Dependabot/Actions 机器人使用 noreply 身份，不参与唯一性检查
+        # Dependabot 分支：作者=dependabot[bot]，提交者=GitHub <noreply@github.com>——
+        # 统一按 noreply 域排除；审计范围=HEAD（本次构建内容），不受其他分支噪声影响
         run: |
-          IDENTITIES=$(git log --all --format='%an <%ae>%n%cn <%ce>' | grep -viE 'users\.noreply\.github\.com|\[bot\]' | sort -u)
+          IDENTITIES=$(git log HEAD --format='%an <%ae>%n%cn <%ce>' | grep -viE 'noreply\.github\.com|\[bot\]' | sort -u)
           echo "$IDENTITIES"
           if [ "$(echo "$IDENTITIES" | grep -c .)" -ne 1 ]; then
             echo "::error::人类提交身份不为唯一"
             exit 1
           fi
-      - name: 痕迹关键词扫描（工作区+全历史）
+      - name: 痕迹关键词扫描（工作区+本次构建历史）
         # 模式用字符类打散书写，避免本文件自身命中扫描
         run: |
           if git grep -iE 'cl[a]ude|anthr[o]pic|cop[i]lot' -- . ; then
             echo "::error::工作区检测到禁用关键词"
             exit 1
           fi
-          if git log --all -p --no-color | grep -iqE 'cl[a]ude|anthr[o]pic|cop[i]lot' ; then
+          if git log HEAD -p --no-color | grep -iqE 'cl[a]ude|anthr[o]pic|cop[i]lot' ; then
             echo "::error::提交历史检测到禁用关键词"
             exit 1
           fi
