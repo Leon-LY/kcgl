@@ -1,0 +1,59 @@
+# 本地开发全栈（MySQL 8.4 + app）。
+# - 前端本地开发走 `npm run dev`（Vite 代理 /api → 8080），不入容器。
+# - 测试/生产部署 compose 在 deploy/ 目录另行交付（M7），生产以独立迁移账号+最小 GRANT 落实
+#   DB 账号分离（docs/01 八节）；本地开发为求简复用同一账号。
+# - 数据库名称/卷/容器均带 kcgl- 前缀，防与其他项目冲突。
+name: kcgl
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: kcgl-mysql
+    # 8.4 默认 utf8mb4/0900_ai_ci，显式声明防上游变更；服务器默认时区 JST
+    # （mysqld 参数为 --default-time-zone，数字偏移无需时区表）；
+    # 关 performance-schema + 384M buffer pool 与生产容器口径一致（docs/04 D-008）
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --default-time-zone=+09:00
+      - --performance-schema=OFF
+      - --innodb-buffer-pool-size=384M
+    environment:
+      MYSQL_DATABASE: kcgl
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请在 .env 配置 MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${DB_USER:-kcgl}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?请在 .env 配置 DB_PASSWORD}
+      TZ: Asia/Tokyo
+    ports:
+      # 仅本机调试直连用（Testcontainers 测试不依赖此端口）；
+      # 本机 3306/8080 被其他项目占用时经 .env 改 DB_PORT/APP_PORT
+      - "127.0.0.1:${DB_PORT:-3306}:3306"
+    volumes:
+      - kcgl-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  app:
+    build: ./server
+    container_name: kcgl-app
+    environment:
+      TZ: Asia/Tokyo
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_NAME: kcgl
+      DB_USER: ${DB_USER:-kcgl}
+      DB_PASSWORD: ${DB_PASSWORD:?请在 .env 配置 DB_PASSWORD}
+    ports:
+      - "127.0.0.1:${APP_PORT:-8080}:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+    # healthcheck 由镜像内置（server/Dockerfile）
+
+volumes:
+  kcgl-mysql-data:

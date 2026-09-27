@@ -1,0 +1,8 @@
+{
+  "common": {
+    "appTitle": "库存管理系统"
+  },
+  "home": {
+    "preparing": "系统准备中"
+  }
+}

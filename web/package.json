@@ -1,0 +1,36 @@
+{
+  "name": "kcgl-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Second-hand goods inventory management system - web client",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "dayjs": "^1.11.23",
+    "pinia": "^4.0.3",
+    "vue": "^3.5.43",
+    "vue-i18n": "^11.4.12",
+    "vue-router": "^5.3.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.20.0",
+    "@types/node": "^22.10.0",
+    "@vitejs/plugin-vue": "^6.0.9",
+    "@vue/test-utils": "^2.5.1",
+    "@vue/tsconfig": "^0.9.1",
+    "eslint": "^9.20.0",
+    "eslint-plugin-vue": "^10.11.1",
+    "jsdom": "^30.1.1",
+    "typescript": "~5.9.0",
+    "typescript-eslint": "^8.70.1",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2",
+    "vue-tsc": "^3.3.11"
+  }
+}

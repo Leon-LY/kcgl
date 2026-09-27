@@ -1,0 +1,8 @@
+{
+  "common": {
+    "appTitle": "Inventory Management"
+  },
+  "home": {
+    "preparing": "System is being prepared"
+  }
+}

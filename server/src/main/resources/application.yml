@@ -1,0 +1,57 @@
+# kcgl-server 基线配置（全环境共用；环境差异全部走环境变量注入，见 docker-compose 与部署文档）
+spring:
+  application:
+    name: kcgl-server
+  datasource:
+    # 时区链路（docs/01 7.8）：connectionTimeZone=Asia/Tokyo + forceConnectionTimeZoneToSession，
+    # 实体一律 LocalDateTime，DATETIME 存 JST；rewriteBatchedStatements 为批量导入提速。
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:kcgl}?connectionTimeZone=Asia/Tokyo&forceConnectionTimeZoneToSession=true&rewriteBatchedStatements=true&useSSL=${DB_SSL:false}&allowPublicKeyRetrieval=true
+    username: ${DB_USER:kcgl}
+    password: ${DB_PASSWORD:kcgl_dev_password}
+    hikari:
+      maximum-pool-size: 16          # 10 并发录入压测余量（docs/01 7.6）
+      connection-timeout: 5000
+      max-lifetime: 1740000
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # 生产部署以环境变量注入独立迁移账号（SPRING_FLYWAY_USER/SPRING_FLYWAY_PASSWORD，
+    # 与业务账号分离，见 docs/01 八节 DB 账号分离）；本地开发与测试复用数据源账号。
+  jackson:
+    time-zone: Asia/Tokyo
+  threads:
+    virtual:
+      enabled: true
+  mvc:
+    async:
+      request-timeout: 12h           # SSE 长连接（docs/01 7.6），不依赖容器默认 30s
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+server:
+  port: 8080
+  shutdown: graceful
+  servlet:
+    session:
+      timeout: 12h
+      cookie:
+        http-only: true
+        same-site: strict
+        secure: ${COOKIE_SECURE:false}   # 生产 HTTPS 环境注入 true
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never              # 生产收敛（docs/01 八节）
+
+logging:
+  level:
+    root: INFO
