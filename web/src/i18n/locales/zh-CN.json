@@ -11,7 +11,12 @@
     "shellMobile": "移动版视图",
     "shellDesktop": "桌面版视图",
     "cancel": "取消",
-    "save": "保存"
+    "save": "保存",
+    "reload": "重新加载",
+    "warehouse": {
+      "1": "名古屋仓库",
+      "2": "福冈仓库"
+    }
   },
   "auth": {
     "username": "用户名",
@@ -43,7 +48,50 @@
     "displayName": "显示名",
     "role": "权限",
     "locale": "语言设置",
+    "quickActions": "常用操作",
+    "goEntry": "商品录入",
     "preparing": "此区域将在后续里程碑中实现"
+  },
+  "entry": {
+    "title": "商品录入",
+    "venue": "拍卖会场",
+    "venuePlaceholder": "请选择会场",
+    "buyDate": "落札日期",
+    "purchasePrice": "进货单价",
+    "purchasePriceUnit": "日元",
+    "warehouse": "预计入库仓库",
+    "moreFields": "更多字段",
+    "lessFields": "收起",
+    "fee": "手续费",
+    "shippingFee": "运费",
+    "tax": "税金",
+    "groupNo": "同组编号",
+    "groupNoPlaceholder": "例如同时落札的一批",
+    "shelfNo": "货架号",
+    "warehouseInDate": "入库日期",
+    "warehouseInDateHint": "留空也可登记；预先填写后到仓扫码时不会被覆盖",
+    "remark": "备注",
+    "remarkPlaceholder": "品相、注意事项等",
+    "nextCode": "下一个管理号（预估）",
+    "nextCodeNote": "最终管理号以保存时为准",
+    "band": "价格档位 {code}",
+    "noBand": "没有匹配的价格档位",
+    "carryPrevDay": "前一日日期",
+    "save": "保存",
+    "saving": "保存中…",
+    "retrySame": "按原内容重试",
+    "savedTitle": "登记完成",
+    "itemCodeLabel": "管理号",
+    "todayCount": "今日第 {count} 件",
+    "penGuide": "请用油性笔把管理号抄写到吊牌或收纳袋上，回公司后再统一换成打印标签",
+    "continueEntry": "继续录入",
+    "dictLoadFailed": "会场与价格档位加载失败，请重新加载",
+    "validation": {
+      "venueRequired": "请选择会场",
+      "priceRequired": "请输入进货单价",
+      "priceMin": "进货单价需为 1 日元以上",
+      "feeMax": "手续费需小于 9,999 万日元"
+    }
   },
   "errors": {
     "NETWORK_ERROR": "无法连接服务器，请检查网络",

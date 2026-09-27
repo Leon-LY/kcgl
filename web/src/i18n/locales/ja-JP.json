@@ -11,7 +11,12 @@
     "shellMobile": "モバイル表示",
     "shellDesktop": "デスクトップ表示",
     "cancel": "キャンセル",
-    "save": "保存"
+    "save": "保存",
+    "reload": "再読み込み",
+    "warehouse": {
+      "1": "名古屋倉庫",
+      "2": "福岡倉庫"
+    }
   },
   "auth": {
     "username": "ユーザー名",
@@ -43,7 +48,50 @@
     "displayName": "表示名",
     "role": "権限",
     "locale": "言語設定",
+    "quickActions": "よく使う操作",
+    "goEntry": "商品の登録",
     "preparing": "この領域は今後のマイルストーンで実装されます"
+  },
+  "entry": {
+    "title": "商品登録",
+    "venue": "会場",
+    "venuePlaceholder": "会場を選択",
+    "buyDate": "落札日",
+    "purchasePrice": "仕入単価",
+    "purchasePriceUnit": "円",
+    "warehouse": "入庫予定倉庫",
+    "moreFields": "その他の項目",
+    "lessFields": "閉じる",
+    "fee": "手数料",
+    "shippingFee": "送料",
+    "tax": "消費税",
+    "groupNo": "グループ番号",
+    "groupNoPlaceholder": "例）同時落札のまとまり",
+    "shelfNo": "棚番号",
+    "warehouseInDate": "入庫日",
+    "warehouseInDateHint": "空欄でも登録できます。入力した場合は入庫スキャンで上書きされません",
+    "remark": "備考",
+    "remarkPlaceholder": "品物の状態・注意点など",
+    "nextCode": "次の管理番号（目安）",
+    "nextCodeNote": "確定番号は保存時に発行されます",
+    "band": "価格帯 {code}",
+    "noBand": "該当する価格帯がありません",
+    "carryPrevDay": "前日の日付",
+    "save": "登録する",
+    "saving": "登録中…",
+    "retrySame": "同じ内容で再送信",
+    "savedTitle": "登録しました",
+    "itemCodeLabel": "管理番号",
+    "todayCount": "本日 {count} 件目",
+    "penGuide": "油性ペンで管理番号を荷札・収納袋にお書きください。事務所に戻ってからラベルに貼り替えます",
+    "continueEntry": "続けて登録する",
+    "dictLoadFailed": "会場・価格帯の取得に失敗しました。再読み込みしてください",
+    "validation": {
+      "venueRequired": "会場を選択してください",
+      "priceRequired": "仕入単価を入力してください",
+      "priceMin": "仕入単価は1円以上で入力してください",
+      "feeMax": "手数料は9,999万円未満で入力してください"
+    }
   },
   "errors": {
     "NETWORK_ERROR": "サーバーに接続できません。ネットワークを確認してください",

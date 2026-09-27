@@ -109,3 +109,101 @@ export const api = {
     return request('/api/client-errors', jsonInit('POST', payload))
   },
 }
+
+// ------------------------------------------------------------------ 字典
+
+export interface Venue {
+  id: number
+  code: string
+  name: string
+  enabled: boolean
+}
+
+export interface PriceBand {
+  id: number
+  code: string
+  lowerBound: number | null
+  upperBound: number | null
+  enabled: boolean
+}
+
+/** 录入页只用启用会场（停用会场仍可补录属后端语义，前端下拉不给入口）。 */
+export function fetchVenues(enabledOnly: boolean): Promise<Venue[]> {
+  const query = enabledOnly ? '?enabled=true' : ''
+  return request(`/api/venues${query}`, { method: 'GET' })
+}
+
+export function fetchPriceBands(): Promise<PriceBand[]> {
+  return request('/api/price-bands', { method: 'GET' })
+}
+
+// ------------------------------------------------------------------ 商品录入
+
+/** 管理号预览（无锁推算，≠保留；文案必须明示以保存时为准）。 */
+export interface ItemCodePreview {
+  code: string
+  bandCode: string
+  seqPrefix: string
+  seqNo: number
+}
+
+export function previewItemCode(venueId: number, buyDate: string, price: number): Promise<ItemCodePreview> {
+  const query = new URLSearchParams({
+    venueId: String(venueId),
+    buyDate,
+    price: String(price),
+  })
+  return request(`/api/item-codes/preview?${query}`, { method: 'GET' })
+}
+
+export interface CreateItemPayload {
+  /** 客户端幂等键：一次逻辑保存从生成到成功共用；失败重试复用同键（7.0）。 */
+  clientReqId: string
+  venueId: number
+  buyDate: string
+  purchasePrice: number
+  warehouse: number
+  fee?: number
+  shippingFee?: number
+  tax?: number
+  shelfNo?: string
+  warehouseInDate?: string
+  groupNo?: string
+  remark?: string
+}
+
+/** 录入成功响应（生成列 totalCost 已回填；未售时 profit 为 null 不出现）。 */
+export interface ItemResponse {
+  id: number
+  itemCode: string
+  venueId: number
+  venueCode: string
+  year: number
+  yearCode: string
+  buyMonth: number
+  seqPrefix: string
+  seqNo: number
+  buyDate: string
+  photoDate: string | null
+  purchasePrice: number
+  fee: number | null
+  shippingFee: number | null
+  tax: number | null
+  soldPrice: number | null
+  totalCost: number
+  priceBandCode: string
+  warehouse: number
+  shelfNo: string | null
+  warehouseInDate: string | null
+  groupNo: string | null
+  remark: string | null
+  stockStatus: number
+  saleStatus: number
+  voided: boolean
+  deleted: boolean
+  createdAt: string
+}
+
+export function createItem(payload: CreateItemPayload): Promise<ItemResponse> {
+  return request('/api/items', jsonInit('POST', payload))
+}

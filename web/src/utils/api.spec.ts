@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { api, ApiError, setUnauthorizedHandler } from './api'
+import {
+  api,
+  ApiError,
+  createItem,
+  fetchPriceBands,
+  fetchVenues,
+  previewItemCode,
+  setUnauthorizedHandler,
+} from './api'
 
 /** 仅实现包装层用到的 status/json 两个成员的最小 Response 替身。 */
 function jsonResponse(body: unknown, status = 200): Response {
@@ -149,5 +157,80 @@ describe('api 其余端点契约', () => {
     expect(path).toBe('/api/client-errors')
     expect(init.method).toBe('POST')
     expect(JSON.parse(init.body as string)).toEqual({ message: 'boom', errorId: 'a1b2c3d4', queuePending: 3 })
+  })
+})
+
+describe('字典与商品录入端点契约', () => {
+  function lastCall(fetchMock: ReturnType<typeof vi.fn>): [string, RequestInit] {
+    return fetchMock.mock.calls[0] as [string, RequestInit]
+  }
+
+  it('fetchVenues(true) → GET /api/venues?enabled=true', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ code: 0, message: 'ok', data: [{ id: 1, code: 'HT', name: '飛騨古民具市', enabled: true }] }))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(fetchVenues(true)).resolves.toHaveLength(1)
+    const [path, init] = lastCall(fetchMock)
+    expect(path).toBe('/api/venues?enabled=true')
+    expect(init.method).toBe('GET')
+  })
+
+  it('fetchVenues(false) → GET /api/venues（无查询串）', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ code: 0, message: 'ok', data: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+    await fetchVenues(false)
+    expect(lastCall(fetchMock)[0]).toBe('/api/venues')
+  })
+
+  it('fetchPriceBands → GET /api/price-bands', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ code: 0, message: 'ok', data: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+    await fetchPriceBands()
+    const [path, init] = lastCall(fetchMock)
+    expect(path).toBe('/api/price-bands')
+    expect(init.method).toBe('GET')
+  })
+
+  it('previewItemCode → GET 预览查询参数拼装', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ code: 0, message: 'ok', data: { code: 'HTK9-A1X', bandCode: 'X', seqPrefix: 'A', seqNo: 1 } }))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(previewItemCode(7, '2026-09-15', 1000)).resolves.toEqual({
+      code: 'HTK9-A1X',
+      bandCode: 'X',
+      seqPrefix: 'A',
+      seqNo: 1,
+    })
+    const [path, init] = lastCall(fetchMock)
+    expect(path).toBe('/api/item-codes/preview?venueId=7&buyDate=2026-09-15&price=1000')
+    expect(init.method).toBe('GET')
+  })
+
+  it('createItem → POST JSON 载荷（clientReqId 幂等键透传）', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ code: 0, message: 'ok', data: { id: 1, itemCode: 'HTK9-A1X' } }))
+    vi.stubGlobal('fetch', fetchMock)
+    await createItem({
+      clientReqId: 'req-abc',
+      venueId: 7,
+      buyDate: '2026-09-15',
+      purchasePrice: 1000,
+      warehouse: 1,
+      fee: 300,
+    })
+    const [path, init] = lastCall(fetchMock)
+    expect(path).toBe('/api/items')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body as string)).toEqual({
+      clientReqId: 'req-abc',
+      venueId: 7,
+      buyDate: '2026-09-15',
+      purchasePrice: 1000,
+      warehouse: 1,
+      fee: 300,
+    })
   })
 })

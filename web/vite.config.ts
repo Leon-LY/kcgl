@@ -2,11 +2,19 @@
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import Components from 'unplugin-vue-components/vite'
+import { VantResolver } from '@vant/auto-import-resolver'
 
-// 构建配置：双 shell 路由级分包在 M1 落地（vant/element-plus 按需引入）；
-// PWA（vite-plugin-pwa）在 M6 接入。
+// 构建配置：Vant 按需引入随 M2 录入页接入（D-027：Vant 随 M2 首个消费页引入）；
+// element-plus 桌面壳按需引入随后续桌面页接入；PWA（vite-plugin-pwa）在 M6 接入。
+// vitest 的 SSR 管道不处理 node_modules 的 css 导入（"Unknown file extension .css"），
+// 测试模式下关掉按需样式注入——单测不依赖视觉样式。
+const isVitest = Boolean(process.env.VITEST)
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [
+    vue(),
+    Components({ resolvers: [VantResolver({ importStyle: !isVitest })] }),
+  ],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

@@ -11,7 +11,12 @@
     "shellMobile": "Mobile view",
     "shellDesktop": "Desktop view",
     "cancel": "Cancel",
-    "save": "Save"
+    "save": "Save",
+    "reload": "Reload",
+    "warehouse": {
+      "1": "Nagoya warehouse",
+      "2": "Fukuoka warehouse"
+    }
   },
   "auth": {
     "username": "Username",
@@ -43,7 +48,50 @@
     "displayName": "Display name",
     "role": "Role",
     "locale": "Language",
+    "quickActions": "Quick actions",
+    "goEntry": "Register an item",
     "preparing": "This area will be implemented in upcoming milestones"
+  },
+  "entry": {
+    "title": "Item Entry",
+    "venue": "Venue",
+    "venuePlaceholder": "Select a venue",
+    "buyDate": "Purchase date",
+    "purchasePrice": "Purchase price",
+    "purchasePriceUnit": "JPY",
+    "warehouse": "Destination warehouse",
+    "moreFields": "More fields",
+    "lessFields": "Close",
+    "fee": "Fee",
+    "shippingFee": "Shipping",
+    "tax": "Tax",
+    "groupNo": "Group number",
+    "groupNoPlaceholder": "e.g. items won together",
+    "shelfNo": "Shelf number",
+    "warehouseInDate": "Warehouse-in date",
+    "warehouseInDateHint": "Optional. If filled in, it will not be overwritten by the warehouse-in scan",
+    "remark": "Notes",
+    "remarkPlaceholder": "Condition, cautions, etc.",
+    "nextCode": "Next item code (estimate)",
+    "nextCodeNote": "The final code is issued when you save",
+    "band": "Price band {code}",
+    "noBand": "No price band matches this price",
+    "carryPrevDay": "Previous day",
+    "save": "Save",
+    "saving": "Saving…",
+    "retrySame": "Retry with the same input",
+    "savedTitle": "Saved",
+    "itemCodeLabel": "Item code",
+    "todayCount": "Item {count} today",
+    "penGuide": "Write the item code on the tag or storage bag with an oil-based pen. Replace it with a printed label back at the office",
+    "continueEntry": "Register the next item",
+    "dictLoadFailed": "Failed to load venues and price bands. Please reload",
+    "validation": {
+      "venueRequired": "Select a venue",
+      "priceRequired": "Enter the purchase price",
+      "priceMin": "Purchase price must be at least 1 JPY",
+      "feeMax": "Fee must be less than 99,990,000 JPY"
+    }
   },
   "errors": {
     "NETWORK_ERROR": "Cannot reach the server. Please check your network",

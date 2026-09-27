@@ -7,6 +7,8 @@ declare module 'vue-router' {
   interface RouteMeta {
     /** 文档标题文案 key（App.vue 与语言联动渲染）；缺省为 common.appTitle（仅系统名） */
     titleKey?: string
+    /** 可访问角色（1管理员/2编辑者/3查看者）；缺省=登录即可 */
+    roles?: number[]
   }
 }
 
@@ -29,6 +31,12 @@ const router = createRouter({
       path: '/',
       name: 'home',
       component: () => import('@/views/HomeView.vue'),
+    },
+    {
+      path: '/entry',
+      name: 'entry',
+      component: () => import('@/views/mobile/entry/EntryView.vue'),
+      meta: { titleKey: 'entry.title', roles: [1, 2] },
     },
     {
       path: '/:pathMatch(.*)*',
@@ -56,6 +64,11 @@ router.beforeEach(async (to) => {
   }
   if (auth.me?.mustChangePwd && to.name !== 'change-password') {
     return { name: 'change-password' }
+  }
+  // 角色受限页（meta.roles）：越权访问回首页（viewer 点「商品录入」入口被入口隐藏，
+  // 直敲 URL 由此拦截；403 语义由服务端端点二次兜底）
+  if (to.meta.roles && auth.me && !to.meta.roles.includes(auth.me.role)) {
+    return { name: 'home' }
   }
   return true
 })
