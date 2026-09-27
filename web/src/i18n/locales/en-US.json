@@ -1,6 +1,7 @@
 {
   "common": {
     "appTitle": "Inventory Management",
+    "titleWithPage": "{page} {'|'} {app}",
     "loading": "Loading…",
     "error": "An error occurred",
     "errorWithId": "An error occurred (ID: {id}). Please contact your administrator",

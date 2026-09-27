@@ -3,6 +3,13 @@ import { useAuthStore } from '@/stores/auth'
 import { setUnauthorizedHandler } from '@/utils/api'
 
 // M1 起路由按 meta.shell 双壳组织（mobile/desktop，UA 自动选择+手动切换，见 composables/useShell）。
+declare module 'vue-router' {
+  interface RouteMeta {
+    /** 文档标题文案 key（App.vue 与语言联动渲染）；缺省为 common.appTitle（仅系统名） */
+    titleKey?: string
+  }
+}
+
 const router = createRouter({
   history: createWebHistory(),
   routes: [
@@ -10,11 +17,13 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: () => import('@/views/login/LoginView.vue'),
+      meta: { titleKey: 'auth.login' },
     },
     {
       path: '/change-password',
       name: 'change-password',
       component: () => import('@/views/account/ChangePasswordView.vue'),
+      meta: { titleKey: 'changePwd.title' },
     },
     {
       path: '/',

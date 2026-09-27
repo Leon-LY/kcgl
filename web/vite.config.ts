@@ -14,9 +14,12 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // 钉 IPv4：默认 localhost 在部分环境仅绑 ::1，导致 127.0.0.1 探活/访问失败
+    host: '127.0.0.1',
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8080',
+        // 默认本地 compose app（8080）；E2E 由 Playwright 注入 KCGL_API_TARGET 指向一次性栈
+        target: process.env.KCGL_API_TARGET ?? 'http://127.0.0.1:8080',
         changeOrigin: false,
       },
     },

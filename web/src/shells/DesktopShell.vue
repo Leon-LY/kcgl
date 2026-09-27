@@ -19,7 +19,7 @@ async function onLogout(): Promise<void> {
 </script>
 
 <template>
-  <div class="shell">
+  <div class="shell shell-desktop">
     <header class="shell-header">
       <span class="shell-title">{{ t('common.appTitle') }}</span>
       <span class="shell-actions">

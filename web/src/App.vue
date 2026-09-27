@@ -1,11 +1,26 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watchEffect } from 'vue'
+import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import MobileShell from './shells/MobileShell.vue'
 import DesktopShell from './shells/DesktopShell.vue'
 import { useShell } from '@/composables/useShell'
 
 const { shell } = useShell()
 const activeShell = computed(() => (shell.value === 'mobile' ? MobileShell : DesktopShell))
+
+// 三语联动：切换语言时，除组件文案外，文档标题与 <html lang> 同步切换。
+// 标题规则：子页面「页面名｜系统名」（titleWithPage，分隔符按语言习惯），首页仅系统名。
+const { t, locale } = useI18n()
+const route = useRoute()
+watchEffect(() => {
+  document.documentElement.lang = locale.value
+  const titleKey = route.meta.titleKey ?? 'common.appTitle'
+  document.title =
+    titleKey === 'common.appTitle'
+      ? t('common.appTitle')
+      : t('common.titleWithPage', { page: t(titleKey), app: t('common.appTitle') })
+})
 </script>
 
 <template>

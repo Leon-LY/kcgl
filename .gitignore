@@ -45,3 +45,11 @@ project.data.json
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# ===== Playwright E2E 产物 =====
+web/test-results/
+web/playwright-report/
+web/.playwright/
+
+# ===== 覆盖率产物 =====
+web/coverage/

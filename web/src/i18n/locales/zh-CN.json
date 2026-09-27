@@ -1,6 +1,7 @@
 {
   "common": {
     "appTitle": "库存管理系统",
+    "titleWithPage": "{page}｜{app}",
     "loading": "加载中…",
     "error": "发生错误",
     "errorWithId": "发生错误（ID: {id}），请联系管理员",
