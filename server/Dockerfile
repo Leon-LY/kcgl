@@ -1,5 +1,5 @@
 # kcgl-server 多阶段构建：构建层用 Maven+JDK21，运行层仅 JRE（生产镜像 kcgl-app）
-FROM maven:3.9-eclipse-temurin-21 AS build
+FROM maven:3-eclipse-temurin-24 AS build
 WORKDIR /build
 # 先单独拷贝 pom 拉依赖，利用层缓存
 COPY pom.xml ./
