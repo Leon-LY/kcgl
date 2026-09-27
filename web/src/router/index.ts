@@ -46,6 +46,13 @@ const router = createRouter({
       meta: { titleKey: 'arrival.title' },
     },
     {
+      // 本日录入会话（M2-8b）：个人当天清单（含作废），现场誊写与收工对数，全员可看
+      path: '/today',
+      name: 'today',
+      component: () => import('@/views/mobile/today/TodayView.vue'),
+      meta: { titleKey: 'today.title' },
+    },
+    {
       // 标签打印（M2-7）：桌面为主、全员可打印（录入手与贴标手常不同人）
       path: '/print',
       name: 'print',

@@ -7,6 +7,7 @@ import com.kcgl.module.auth.KcglUserDetails;
 import com.kcgl.module.item.dto.CreateItemRequest;
 import com.kcgl.module.item.dto.ItemListResponse;
 import com.kcgl.module.item.dto.ItemResponse;
+import com.kcgl.module.item.dto.TodaySessionResponse;
 import com.kcgl.module.item.dto.VoidItemRequest;
 import com.kcgl.module.itemcode.CreateItemCommand;
 import com.kcgl.module.itemcode.ItemCodeService;
@@ -81,6 +82,14 @@ public class ItemController {
             @RequestParam(defaultValue = "100") int size) {
         return ApiResponse.ok(
                 itemService.listForPrint(createdFrom, createdTo, venueId, page, size));
+    }
+
+    /** 本日录入会话（M2-8b）：我的当天录入（含作废），现场誊写与收工对数。 */
+    @GetMapping("/today-session")
+    @PreAuthorize("hasAnyRole('ADMIN','EDITOR','VIEWER')")
+    public ApiResponse<TodaySessionResponse> todaySession(
+            @AuthenticationPrincipal KcglUserDetails operator) {
+        return ApiResponse.ok(itemService.todaySession(operator.getUserId()));
     }
 
     /** 作废（冻结，禁一切变动；重录走 POST /api/items + reEntryOf）。 */

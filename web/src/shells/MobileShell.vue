@@ -1,17 +1,27 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import LangSwitch from '@/components/LangSwitch.vue'
 
 /**
- * 移动壳（M1 骨架）：顶栏 = 标题 + 语言切换；M2 接入 Vant 后补
- * van-tabbar 导航与安全区适配。无 UI 库（D-027：登录/骨架页自绘，
- * Vant 随 M2 首个消费页引入）。
+ * 移动壳：顶栏 = 标题 + 语言切换；底栏 = van-tabbar 四页导航
+ * （M2-8b：首页/商品登録/入庫確認/本日；录入页仅编辑者以上显示，
+ * 路由守卫与服务端 403 双兜底）。登录/改密页不显示底栏。
  */
 const { t } = useI18n()
+const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+
+const showTabbar = computed(
+  () =>
+    auth.me !== null &&
+    route.name !== 'login' &&
+    route.name !== 'change-password',
+)
+const canEntry = computed(() => auth.me !== null && auth.me.role <= 2)
 
 async function onLogout(): Promise<void> {
   await auth.logout()
@@ -35,9 +45,44 @@ async function onLogout(): Promise<void> {
         </button>
       </span>
     </header>
-    <main class="shell-main">
+    <main
+      class="shell-main"
+      :class="{ 'has-tabbar': showTabbar }"
+    >
       <RouterView />
     </main>
+    <van-tabbar
+      v-if="showTabbar"
+      route
+      :placeholder="false"
+      :safe-area-inset-bottom="true"
+    >
+      <van-tabbar-item
+        to="/"
+        icon="home-o"
+      >
+        {{ t('nav.home') }}
+      </van-tabbar-item>
+      <van-tabbar-item
+        v-if="canEntry"
+        to="/entry"
+        icon="edit"
+      >
+        {{ t('nav.entry') }}
+      </van-tabbar-item>
+      <van-tabbar-item
+        to="/arrival"
+        icon="logistics"
+      >
+        {{ t('nav.arrival') }}
+      </van-tabbar-item>
+      <van-tabbar-item
+        to="/today"
+        icon="notes-o"
+      >
+        {{ t('nav.today') }}
+      </van-tabbar-item>
+    </van-tabbar>
   </div>
 </template>
 
@@ -94,5 +139,10 @@ async function onLogout(): Promise<void> {
   width: 100%;
   padding: 16px;
   padding-bottom: calc(16px + env(safe-area-inset-bottom));
+}
+
+/* 底栏固定悬浮：内容区让出 tabbar 高度 + 安全区，防最后一屏被遮 */
+.shell-main.has-tabbar {
+  padding-bottom: calc(66px + env(safe-area-inset-bottom));
 }
 </style>

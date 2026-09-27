@@ -52,8 +52,15 @@
     "quickActions": "Quick actions",
     "goEntry": "Register an item",
     "goArrival": "Arrival check",
+    "goToday": "Today's entries",
     "goPrint": "Label printing",
     "preparing": "This area will be implemented in upcoming milestones"
+  },
+  "nav": {
+    "home": "Home",
+    "entry": "Entry",
+    "arrival": "Arrivals",
+    "today": "Today"
   },
   "entry": {
     "title": "Item Entry",
@@ -160,6 +167,14 @@
     "confirming": "Processing…",
     "done": "Stocked in {n} item(s)",
     "viewerNote": "Confirming stock-in requires editor or admin role"
+  },
+  "today": {
+    "title": "Today's Entries",
+    "dateLabel": "Entries on {date}",
+    "countSummary": "Today {active} items · cancelled {voided}",
+    "voidedTag": "Cancelled",
+    "empty": "No entries yet today",
+    "loadFailed": "Failed to load"
   },
   "errors": {
     "400001": "The input is invalid",

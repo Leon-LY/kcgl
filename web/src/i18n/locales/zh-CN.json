@@ -52,8 +52,15 @@
     "quickActions": "常用操作",
     "goEntry": "商品录入",
     "goArrival": "到货核对",
+    "goToday": "本日录入",
     "goPrint": "标签打印",
     "preparing": "此区域将在后续里程碑中实现"
+  },
+  "nav": {
+    "home": "首页",
+    "entry": "商品录入",
+    "arrival": "到货核对",
+    "today": "本日"
   },
   "entry": {
     "title": "商品录入",
@@ -160,6 +167,14 @@
     "confirming": "处理中…",
     "done": "已入库 {n} 件",
     "viewerNote": "入库确认操作需要编辑者及以上权限"
+  },
+  "today": {
+    "title": "本日录入",
+    "dateLabel": "{date} 的录入记录",
+    "countSummary": "本日 {active} 件・作废 {voided} 件",
+    "voidedTag": "已作废",
+    "empty": "今日还没有录入记录",
+    "loadFailed": "加载失败"
   },
   "errors": {
     "400001": "输入内容有误",

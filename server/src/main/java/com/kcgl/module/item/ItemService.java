@@ -12,6 +12,7 @@ import com.kcgl.module.inventory.StockLedgerMapper;
 import com.kcgl.module.inventory.TxnType;
 import com.kcgl.module.item.dto.ItemListResponse;
 import com.kcgl.module.item.dto.ItemSummaryResponse;
+import com.kcgl.module.item.dto.TodaySessionResponse;
 import com.kcgl.module.item.dto.VoidItemRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -61,6 +62,29 @@ public class ItemService {
             throw new BizException(ErrorCode.NOT_FOUND);
         }
         return item;
+    }
+
+    /**
+     * 本日录入会话（M2-8b）：created_by=me + 当天 JST（[今日 00:00, 明日 00:00)），
+     * 含作废件（收工对数口径——写错作废重录的件也数进「取り消し」）。
+     * 不分页：对数为个人日清单，现实量级为每日数十件。
+     */
+    public TodaySessionResponse todaySession(long userId) {
+        LocalDate today = LocalDate.now(clock);
+        List<ItemEntity> items = itemMapper.selectList(new LambdaQueryWrapper<ItemEntity>()
+                .eq(ItemEntity::getCreatedBy, userId)
+                .ge(ItemEntity::getCreatedAt, LocalDateTime.of(today, LocalTime.MIN))
+                .lt(ItemEntity::getCreatedAt, LocalDateTime.of(today.plusDays(1), LocalTime.MIN))
+                .orderByAsc(ItemEntity::getId));
+        long voidedCount = items.stream()
+                .filter(item -> item.getVoided() != null && item.getVoided() == 1)
+                .count();
+        Map<Long, String> thumbs = firstThumbReader.byItemIds(
+                items.stream().map(ItemEntity::getId).toList());
+        List<TodaySessionResponse.Row> rows = items.stream()
+                .map(item -> TodaySessionResponse.Row.from(item, thumbs.get(item.getId())))
+                .toList();
+        return new TodaySessionResponse(today, items.size() - voidedCount, voidedCount, rows);
     }
 
     public ItemEntity voidItem(long itemId, VoidItemRequest req, long operatorId, String operatorName) {

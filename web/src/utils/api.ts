@@ -343,3 +343,28 @@ export function confirmArrivals(
   const payload = warehouseInDate ? { items, warehouseInDate } : { items }
   return request('/api/inventory/arrivals', jsonInit('POST', payload))
 }
+
+// ------------------------------------------------------------------ 本日录入会话（M2-8b）
+
+/** 会话行：大字管理号+缩略图+作废标记（对数口径含作废件）。 */
+export interface TodaySessionRow {
+  id: number
+  itemCode: string
+  voided: boolean
+  voidReason: string | null
+  /** 录入时刻 HH:mm（JST） */
+  createdAt: string
+  thumbUrl: string | null
+}
+
+export interface TodaySession {
+  date: string
+  activeCount: number
+  voidedCount: number
+  rows: TodaySessionRow[]
+}
+
+/** 我的当天录入会话（收工对数）：不分页，个人日清单量级为数十件。 */
+export function fetchTodaySession(): Promise<TodaySession> {
+  return request('/api/items/today-session', { method: 'GET' })
+}

@@ -52,8 +52,15 @@
     "quickActions": "よく使う操作",
     "goEntry": "商品の登録",
     "goArrival": "入庫確認",
+    "goToday": "本日の登録",
     "goPrint": "ラベル印刷",
     "preparing": "この領域は今後のマイルストーンで実装されます"
+  },
+  "nav": {
+    "home": "ホーム",
+    "entry": "商品登録",
+    "arrival": "入庫確認",
+    "today": "本日"
   },
   "entry": {
     "title": "商品登録",
@@ -160,6 +167,14 @@
     "confirming": "処理中…",
     "done": "{n}件を入庫しました",
     "viewerNote": "入庫確認の操作には編集者以上の権限が必要です"
+  },
+  "today": {
+    "title": "本日の登録",
+    "dateLabel": "{date} の登録分",
+    "countSummary": "本日 {active} 件・取り消し {voided} 件",
+    "voidedTag": "取り消し",
+    "empty": "本日の登録はまだありません",
+    "loadFailed": "読み込みに失敗しました"
   },
   "errors": {
     "400001": "入力内容に誤りがあります",
