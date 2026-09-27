@@ -52,12 +52,13 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: 提交身份唯一性
+      - name: 提交身份唯一性（人类提交者唯一；机器人协作除外）
+        # Dependabot/Actions 机器人使用 noreply 身份，不参与唯一性检查
         run: |
-          IDENTITIES=$(git log --format='%an <%ae>%n%cn <%ce>' | sort -u)
+          IDENTITIES=$(git log --all --format='%an <%ae>%n%cn <%ce>' | grep -viE 'users\.noreply\.github\.com|\[bot\]' | sort -u)
           echo "$IDENTITIES"
-          if [ "$(echo "$IDENTITIES" | wc -l)" -ne 1 ]; then
-            echo "::error::仓库内出现多个提交身份"
+          if [ "$(echo "$IDENTITIES" | grep -c .)" -ne 1 ]; then
+            echo "::error::人类提交身份不为唯一"
             exit 1
           fi
       - name: 痕迹关键词扫描（工作区+全历史）

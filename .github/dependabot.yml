@@ -10,6 +10,10 @@ updates:
         update-types: [minor, patch]
   - package-ecosystem: npm
     directory: /web
+    # 仅更新 lockfile（package.json 声明范围内）：typescript ~5.9 / eslint ^9 等
+    # 核心工具链的大版本升级必须人工评审后手动改范围（如 TS7 为无 JS API 的不兼容重写版），
+    # Dependabot 不代为改写 package.json
+    versioning-strategy: lockfile-only
     schedule:
       interval: weekly
     groups:
@@ -23,3 +27,9 @@ updates:
     directory: /server
     schedule:
       interval: weekly
+    # 运行时/构建镜像锁 Java 21 LTS（docs/04 D-016）：major（JDK 22/24 线）不自动接
+    ignore:
+      - dependency-name: "eclipse-temurin"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "maven"
+        update-types: ["version-update:semver-major"]
