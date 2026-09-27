@@ -1,8 +1,64 @@
 {
   "common": {
-    "appTitle": "Inventory Management"
+    "appTitle": "Inventory Management",
+    "loading": "Loading…",
+    "error": "An error occurred",
+    "errorWithId": "An error occurred (ID: {id}). Please contact your administrator",
+    "logout": "Sign out",
+    "language": "Language",
+    "shellSwitch": "Switch view",
+    "shellMobile": "Mobile view",
+    "shellDesktop": "Desktop view",
+    "cancel": "Cancel",
+    "save": "Save"
+  },
+  "auth": {
+    "username": "Username",
+    "password": "Password",
+    "login": "Sign in",
+    "loginTitle": "Sign in to Inventory Management",
+    "lockedMinutes": "Account locked. Please try again in about {minutes} minutes",
+    "mustChangePwd": "First sign-in: password change required",
+    "role": {
+      "1": "Administrator",
+      "2": "Editor",
+      "3": "Viewer"
+    }
+  },
+  "changePwd": {
+    "title": "Change Password",
+    "current": "Current password",
+    "new": "New password",
+    "confirm": "Confirm new password",
+    "submit": "Change",
+    "policyHint": "New password must be at least 10 characters",
+    "mismatch": "New passwords do not match",
+    "changed": "Password changed"
   },
   "home": {
-    "preparing": "System is being prepared"
+    "welcome": "Welcome, {name}",
+    "accountInfo": "Account",
+    "username": "Username",
+    "displayName": "Display name",
+    "role": "Role",
+    "locale": "Language",
+    "preparing": "This area will be implemented in upcoming milestones"
+  },
+  "errors": {
+    "NETWORK_ERROR": "Cannot reach the server. Please check your network",
+    "INVALID_RESPONSE": "Received an invalid response from the server",
+    "400001": "The input is invalid",
+    "400101": "Current password is incorrect",
+    "400102": "New password does not meet the requirements",
+    "404001": "Not found",
+    "409001": "This username already exists",
+    "401001": "Sign-in required",
+    "401002": "Incorrect username or password",
+    "401003": "This account has been disabled",
+    "403001": "You do not have permission to perform this action",
+    "403002": "Access from this origin is not allowed",
+    "423001": "Account locked. Please try again later",
+    "429001": "Submission limit exceeded. Please try again later",
+    "500000": "A system error occurred"
   }
 }

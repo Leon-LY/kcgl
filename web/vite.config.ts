@@ -24,5 +24,10 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     include: ['src/**/*.spec.ts'],
+    coverage: {
+      // 门禁口径（docs/01 十一节）：stores/composables/utils 行覆盖 ≥80%
+      include: ['src/stores/**', 'src/composables/**', 'src/utils/**'],
+      thresholds: { lines: 80 },
+    },
   },
 })
