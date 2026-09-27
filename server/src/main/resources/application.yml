@@ -60,3 +60,7 @@ management:
 logging:
   level:
     root: INFO
+  structured:
+    format:
+      # 单行 JSON（ECS）——docker logs/日志检索友好；MDC 的 traceId 自动随行输出
+      console: ecs

@@ -25,6 +25,8 @@ public enum ErrorCode {
 
     USER_EXISTS(409001, "同じユーザー名が既に存在します"),
 
+    RATE_LIMITED(429001, "送信回数が上限を超えました。しばらくしてからもう一度お試しください"),
+
     INTERNAL(500000, "システムエラーが発生しました");
 
     private final int code;

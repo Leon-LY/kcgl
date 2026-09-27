@@ -10,6 +10,7 @@ import com.kcgl.module.user.SysUserMapper;
 import com.kcgl.module.user.UserRole;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -74,6 +75,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/login", "/api/auth/logout").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/api/users/**").hasRole(UserRole.ADMIN.name())
+                        // 告警与错误上报查询仅管理员；client-errors 的 POST 走 anyRequest（登录用户均可）
+                        .requestMatchers(HttpMethod.GET, "/api/client-errors").hasRole(UserRole.ADMIN.name())
+                        .requestMatchers(HttpMethod.GET, "/api/alerts").hasRole(UserRole.ADMIN.name())
+                        .requestMatchers(HttpMethod.PATCH, "/api/alerts/*/read").hasRole(UserRole.ADMIN.name())
                         .anyRequest().authenticated())
                 .addFilterAfter(new AccountStatusFilter(userMapper, clock, objectMapper),
                         SecurityContextHolderFilter.class)

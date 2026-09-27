@@ -64,9 +64,14 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> onUnhandled(Exception ex) {
-        byte[] bytes = new byte[4];
-        RANDOM.nextBytes(bytes);
-        String errorId = HexFormat.of().formatHex(bytes);
+        // errorId 复用当次请求 traceId（TraceIdFilter 已入 MDC）——用户报 errorId 即可检索
+        // 该请求全部日志行；MDC 无值时兜底自生成（理论不可达，防御性）
+        String errorId = org.slf4j.MDC.get("traceId");
+        if (errorId == null || errorId.isBlank()) {
+            byte[] bytes = new byte[4];
+            RANDOM.nextBytes(bytes);
+            errorId = HexFormat.of().formatHex(bytes);
+        }
         log.error("[errorId={}] 未处理异常", errorId, ex);
         return ResponseEntity.internalServerError().body(ApiResponse.internal(errorId));
     }
