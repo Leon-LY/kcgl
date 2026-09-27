@@ -255,4 +255,20 @@ class AuthIntegrationTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value(403001));
     }
+
+    // ------------------------------------------------------------------ 全局契约
+
+    @Test
+    @org.junit.jupiter.api.Tag("regression")
+    void regression_未知路径_404统一信封而非500() throws Exception {
+        // 复现：onUnhandled(Exception.class) 曾把无 handler 路径的 NoResourceFoundException
+        // 吞成 500+errorId——打错的 URL 全变系统错误并污染 ERROR 日志（UserIntegrationTest RED 阶段逮住）。
+        // 必须登录后访问：未认证请求在 authorizeHttpRequests 就 401，到不了 handler 层
+        insertUser("taro", 1, 1);
+        MockHttpSession session = loginForSession("taro", RAW_PWD);
+        mockMvc.perform(get("/api/no-such-path").session(session))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(404001))
+                .andExpect(jsonPath("$.errorId").doesNotExist());
+    }
 }

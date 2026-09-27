@@ -6,6 +6,7 @@ import com.kcgl.common.web.ErrorCode;
 import com.kcgl.module.auth.LoginJsonHandlers;
 import com.kcgl.module.auth.LoginLockService;
 import com.kcgl.module.auth.LoginThrottleFilter;
+import com.kcgl.module.user.SysUserMapper;
 import com.kcgl.module.user.UserRole;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,11 +21,13 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.security.web.session.SessionInformationExpiredEvent;
 import org.springframework.security.web.session.SessionInformationExpiredStrategy;
 
 import java.io.IOException;
+import java.time.Clock;
 import java.util.HashSet;
 
 /**
@@ -62,7 +65,9 @@ public class SecurityConfig {
             LoginLockService lockService,
             SecurityProperties properties,
             ObjectMapper objectMapper,
-            SessionRegistry sessionRegistry) throws Exception {
+            SessionRegistry sessionRegistry,
+            SysUserMapper userMapper,
+            Clock clock) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
@@ -70,6 +75,8 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/api/users/**").hasRole(UserRole.ADMIN.name())
                         .anyRequest().authenticated())
+                .addFilterAfter(new AccountStatusFilter(userMapper, clock, objectMapper),
+                        SecurityContextHolderFilter.class)
                 .addFilterBefore(new OriginCheckFilter(
                                 new HashSet<>(properties.allowedOrigins()), objectMapper),
                         UsernamePasswordAuthenticationFilter.class)

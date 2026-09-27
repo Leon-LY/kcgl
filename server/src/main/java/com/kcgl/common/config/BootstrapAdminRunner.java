@@ -1,5 +1,6 @@
 package com.kcgl.common.config;
 
+import com.kcgl.common.util.PasswordGenerator;
 import com.kcgl.module.user.SysUserEntity;
 import com.kcgl.module.user.SysUserMapper;
 import org.slf4j.Logger;
@@ -9,7 +10,6 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.LocalDateTime;
 
@@ -23,14 +23,9 @@ public class BootstrapAdminRunner implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(BootstrapAdminRunner.class);
 
-    /** 去掉易混淆字符（0/O/1/l/I）的无歧义字母表 */
-    private static final String PASSWORD_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-    private static final int PASSWORD_LENGTH = 16;
-
     private final SysUserMapper mapper;
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
-    private final SecureRandom random = new SecureRandom();
 
     public BootstrapAdminRunner(SysUserMapper mapper, PasswordEncoder passwordEncoder, Clock clock) {
         this.mapper = mapper;
@@ -43,13 +38,10 @@ public class BootstrapAdminRunner implements ApplicationRunner {
         if (mapper.selectCount(null) > 0) {
             return;
         }
-        StringBuilder password = new StringBuilder(PASSWORD_LENGTH);
-        for (int i = 0; i < PASSWORD_LENGTH; i++) {
-            password.append(PASSWORD_ALPHABET.charAt(random.nextInt(PASSWORD_ALPHABET.length())));
-        }
+        String password = PasswordGenerator.generate();
         SysUserEntity admin = new SysUserEntity();
         admin.setUsername("admin");
-        admin.setPasswordHash(passwordEncoder.encode(password.toString()));
+        admin.setPasswordHash(passwordEncoder.encode(password));
         admin.setDisplayName("管理者");
         admin.setRole(1);
         admin.setLocale("ja-JP");
