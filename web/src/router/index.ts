@@ -61,6 +61,26 @@ const router = createRouter({
       meta: { titleKey: 'scan.title' },
     },
     {
+      // 盘点（M3-⑥）：列表/会话/差异确认全员可看（发起与裁决仅编辑者以上，
+      // 服务端 403 兜底）
+      path: '/stocktake',
+      name: 'stocktake',
+      component: () => import('@/views/mobile/stocktake/StocktakeListView.vue'),
+      meta: { titleKey: 'stocktake.title' },
+    },
+    {
+      path: '/stocktake/:id',
+      name: 'stocktake-session',
+      component: () => import('@/views/mobile/stocktake/StocktakeScanView.vue'),
+      meta: { titleKey: 'stocktake.scan.title' },
+    },
+    {
+      path: '/stocktake/:id/diffs',
+      name: 'stocktake-diffs',
+      component: () => import('@/views/mobile/stocktake/StocktakeDiffView.vue'),
+      meta: { titleKey: 'stocktake.diff.title' },
+    },
+    {
       // 字典管理（M2-8b-2）：会场 E+（创建/改名现场自救，停用=管理员按钮内再收敛）
       path: '/admin/venues',
       name: 'admin-venues',

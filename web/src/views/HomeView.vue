@@ -206,6 +206,13 @@ const shellOptions = [
       >
         {{ t('home.goPrint') }}
       </button>
+      <button
+        type="button"
+        class="home-entry-link"
+        @click="router.push({ name: 'stocktake' })"
+      >
+        {{ t('home.goStocktake') }}
+      </button>
     </div>
 
     <p class="home-preparing">
