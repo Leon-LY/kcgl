@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 
 const apiMocks = vi.hoisted(() => ({
   fetchTodaySession: vi.fn(),
@@ -75,6 +76,8 @@ enableAutoUnmount(afterEach)
 
 beforeEach(() => {
   vi.resetAllMocks()
+  // 视图经 useSyncInvalidation 订阅 sync store（他端失效重取）——store 需 pinia
+  setActivePinia(createPinia())
   i18n.global.locale.value = 'ja-JP'
 })
 

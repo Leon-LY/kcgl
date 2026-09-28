@@ -2,6 +2,8 @@ package com.kcgl.module.image;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.kcgl.common.audit.AuditRecorder;
+import com.kcgl.common.sse.SseHub;
+import com.kcgl.common.sse.SyncEvent;
 import com.kcgl.common.web.BizException;
 import com.kcgl.common.web.ErrorCode;
 import com.kcgl.module.image.dto.ImageResponse;
@@ -60,15 +62,17 @@ public class ImageService {
     private final ImageProperties properties;
     private final Clock clock;
     private final TransactionTemplate txTemplate;
+    private final SseHub sseHub;
 
     public ImageService(ImageMapper imageMapper, ItemMapper itemMapper, AuditRecorder auditRecorder,
-            ImageProperties properties, Clock clock, TransactionTemplate txTemplate) {
+            ImageProperties properties, Clock clock, TransactionTemplate txTemplate, SseHub sseHub) {
         this.imageMapper = imageMapper;
         this.itemMapper = itemMapper;
         this.auditRecorder = auditRecorder;
         this.properties = properties;
         this.clock = clock;
         this.txTemplate = txTemplate;
+        this.sseHub = sseHub;
     }
 
     public ImageResponse upload(MultipartFile file, String clientUuid, long itemId, int imageType) {
@@ -93,7 +97,13 @@ public class ImageService {
         Path thumbFile = properties.thumbRoot().resolve(relative);
         try {
             writeFiles(flattened, origFile, thumbFile);
-            return insertRow(uuid, itemId, imageType, relative);
+            ImageResponse response = insertRow(uuid, itemId, imageType, relative);
+            // 提交后广播（insertRow 的 txTemplate 已返回=已提交）：他端在途/本日清单
+            // 的缩略图靠 IMAGE 失效重取——照片在商品创建后数秒异步补传，无此事件
+            // 他端将长期显示无图卡。重放读回早退于上方，不产生第二条
+            sseHub.broadcast(SyncEvent.TYPE_IMAGE, String.valueOf(itemId),
+                    currentUserId());
+            return response;
         } catch (DuplicateKeyException e) {
             // 并发同键双写：uk 兜底，读回胜者（两方文件内容一致，同路径无冲突）
             ImageEntity winner = imageMapper.selectOne(new LambdaQueryWrapper<ImageEntity>()

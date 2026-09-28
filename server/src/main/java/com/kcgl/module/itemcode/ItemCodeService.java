@@ -1,6 +1,8 @@
 package com.kcgl.module.itemcode;
 
 import com.kcgl.common.obs.AlertService;
+import com.kcgl.common.sse.SseHub;
+import com.kcgl.common.sse.SyncEvent;
 import com.kcgl.common.web.BizException;
 import com.kcgl.common.web.ErrorCode;
 import com.kcgl.module.item.ItemEntity;
@@ -28,16 +30,23 @@ public class ItemCodeService {
 
     private final ItemCodeTxService txService;
     private final AlertService alertService;
+    private final SseHub sseHub;
 
-    public ItemCodeService(ItemCodeTxService txService, AlertService alertService) {
+    public ItemCodeService(ItemCodeTxService txService, AlertService alertService, SseHub sseHub) {
         this.txService = txService;
         this.alertService = alertService;
+        this.sseHub = sseHub;
     }
 
     public ItemEntity create(CreateItemCommand cmd) {
         for (int attempt = 1; ; attempt++) {
             try {
-                return txService.allocateAndInsert(cmd);
+                ItemEntity item = txService.allocateAndInsert(cmd);
+                // 提交后广播（事务边界之外，同 InventoryActionService 模式）：他端的
+                // 在途清单/本日会话按 ITEM 域失效重取。重放读回同样走到这里——
+                // 多一次广播=他端多一次无害重取，不为省它给事务体加签名
+                sseHub.broadcast(SyncEvent.TYPE_ITEM, item.getItemCode(), cmd.operatorId());
+                return item;
             } catch (DuplicateKeyException | CannotAcquireLockException
                     | DeadlockLoserDataAccessException e) {
                 if (attempt >= MAX_ATTEMPTS) {

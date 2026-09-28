@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useSyncInvalidation } from '@/composables/useSyncInvalidation'
 import { fetchTodaySession } from '@/utils/api'
 import type { TodaySession } from '@/utils/api'
 
@@ -31,6 +32,10 @@ async function load(): Promise<void> {
 onMounted(() => {
   void load()
 })
+
+// 他端失效重取（SSE）：ITEM 事件=本人清单可能已变（他端录入/管理员作废）；
+// IMAGE=照片异步补传后缩略图补齐
+useSyncInvalidation(['ITEM', 'IMAGE'], () => void load())
 </script>
 
 <template>

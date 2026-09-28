@@ -1,5 +1,7 @@
 package com.kcgl.module.dict;
 
+import com.kcgl.common.sse.SseHub;
+import com.kcgl.common.sse.SyncEvent;
 import com.kcgl.common.web.ApiResponse;
 import com.kcgl.module.dict.dto.PriceBandResponse;
 import com.kcgl.module.dict.dto.PriceBandUpsertRequest;
@@ -20,16 +22,18 @@ import java.util.List;
 
 /**
  * 价格档位端点（docs/01 六节）：查询与匹配全员；增改停用=管理员。
- * match 供录入页档位字母预览与校验。
+ * match 供录入页档位字母预览与校验。变更后广播 DICT（提交后，同 VenueController）。
  */
 @RestController
 @RequestMapping("/api/price-bands")
 public class PriceBandController {
 
     private final PriceBandService priceBandService;
+    private final SseHub sseHub;
 
-    public PriceBandController(PriceBandService priceBandService) {
+    public PriceBandController(PriceBandService priceBandService, SseHub sseHub) {
         this.priceBandService = priceBandService;
+        this.sseHub = sseHub;
     }
 
     @GetMapping
@@ -45,18 +49,24 @@ public class PriceBandController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<PriceBandResponse> create(@Valid @RequestBody PriceBandUpsertRequest req) {
-        return ApiResponse.ok(priceBandService.create(req));
+        PriceBandResponse band = priceBandService.create(req);
+        sseHub.broadcast(SyncEvent.TYPE_DICT, "band:" + band.code(), null);
+        return ApiResponse.ok(band);
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<PriceBandResponse> update(@PathVariable Long id, @Valid @RequestBody PriceBandUpsertRequest req) {
-        return ApiResponse.ok(priceBandService.update(id, req));
+        PriceBandResponse band = priceBandService.update(id, req);
+        sseHub.broadcast(SyncEvent.TYPE_DICT, "band:" + band.code(), null);
+        return ApiResponse.ok(band);
     }
 
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<PriceBandResponse> updateStatus(@PathVariable Long id, @Valid @RequestBody StatusRequest req) {
-        return ApiResponse.ok(priceBandService.updateStatus(id, req.enabled() == 1));
+        PriceBandResponse band = priceBandService.updateStatus(id, req.enabled() == 1);
+        sseHub.broadcast(SyncEvent.TYPE_DICT, "band:" + band.code(), null);
+        return ApiResponse.ok(band);
     }
 }

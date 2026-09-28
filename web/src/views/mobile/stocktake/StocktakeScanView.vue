@@ -6,6 +6,7 @@ import { QrcodeStream } from 'vue-qrcode-reader'
 import type { BarcodeFormat, DetectedBarcode } from 'vue-qrcode-reader'
 import { useAuthStore } from '@/stores/auth'
 import { beep, createScanGate, vibrate } from '@/composables/useScan'
+import { useSyncInvalidation } from '@/composables/useSyncInvalidation'
 import { formatJstDate } from '@/utils/format'
 import { toDisplayMessage } from '@/utils/errors'
 import { normalizeItemCode } from '@/utils/normalize'
@@ -55,6 +56,16 @@ async function loadSummary(): Promise<void> {
 const isActive = computed(() => summary.value?.status === 0)
 const isClosed = computed(() => summary.value?.status === 1)
 const canScan = computed(() => canAct.value && isActive.value)
+
+/**
+ * 他端失效重取（SSE）：他人扫同一单（STOCKTAKE）计数+1、他人 close 后
+ * 本页转只读摘要（close 导航仅发起端收到）。扫码请求在途时跳过——响应
+ * 到达时本就刷新计数，避免乐观写入被重取竞态回卷。
+ */
+useSyncInvalidation(['STOCKTAKE', 'INVENTORY'], () => {
+  if (scanning.value) return
+  void loadSummary()
+})
 
 // ------------------------------------------------------------- 摄像头（QR 连续取流，同 ScanView）
 

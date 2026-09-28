@@ -1,5 +1,7 @@
 package com.kcgl.module.dict;
 
+import com.kcgl.common.sse.SseHub;
+import com.kcgl.common.sse.SyncEvent;
 import com.kcgl.common.web.ApiResponse;
 import com.kcgl.module.dict.dto.YearCodeResponse;
 import com.kcgl.module.dict.dto.YearCodeUpsertRequest;
@@ -15,15 +17,17 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/** 年代号端点（docs/01 六节）：查询全员（录入页年代号展示）；增改=管理员。 */
+/** 年代号端点（docs/01 六节）：查询全员（录入页年代号展示）；增改=管理员；变更后广播 DICT（提交后）。 */
 @RestController
 @RequestMapping("/api/year-codes")
 public class YearCodeController {
 
     private final YearCodeService yearCodeService;
+    private final SseHub sseHub;
 
-    public YearCodeController(YearCodeService yearCodeService) {
+    public YearCodeController(YearCodeService yearCodeService, SseHub sseHub) {
         this.yearCodeService = yearCodeService;
+        this.sseHub = sseHub;
     }
 
     @GetMapping
@@ -34,12 +38,16 @@ public class YearCodeController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<YearCodeResponse> create(@Valid @RequestBody YearCodeUpsertRequest req) {
-        return ApiResponse.ok(yearCodeService.create(req));
+        YearCodeResponse yearCode = yearCodeService.create(req);
+        sseHub.broadcast(SyncEvent.TYPE_DICT, "year:" + yearCode.year(), null);
+        return ApiResponse.ok(yearCode);
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<YearCodeResponse> update(@PathVariable Long id, @Valid @RequestBody YearCodeUpsertRequest req) {
-        return ApiResponse.ok(yearCodeService.update(id, req));
+        YearCodeResponse yearCode = yearCodeService.update(id, req);
+        sseHub.broadcast(SyncEvent.TYPE_DICT, "year:" + yearCode.year(), null);
+        return ApiResponse.ok(yearCode);
     }
 }

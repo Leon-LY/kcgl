@@ -16,10 +16,13 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.mysql.MySQLContainer;
 
+import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
 import java.net.CookieManager;
 import java.net.HttpCookie;
 import java.net.URI;
@@ -33,6 +36,8 @@ import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
+
+import javax.imageio.ImageIO;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -81,6 +86,7 @@ class SseIntegrationTest {
         base = "http://127.0.0.1:" + port;
         jdbcTemplate.update("DELETE FROM operation_log");
         jdbcTemplate.update("DELETE FROM stock_ledger");
+        jdbcTemplate.update("DELETE FROM item_image");
         jdbcTemplate.update("DELETE FROM item");
         jdbcTemplate.update("DELETE FROM seq_item_code");
         jdbcTemplate.update("DELETE FROM sys_user WHERE username IN ('eichi')");
@@ -187,6 +193,55 @@ class SseIntegrationTest {
                 .contains("\"entity\":\"" + itemCode + "\"");
     }
 
+    /**
+     * 商品/图片域广播（M3-③ 补全）：录入/作废=ITEM、照片绑定=IMAGE——他端在途
+     * 清单/本日会话的失效重取依赖这些事件（前端 sync.spec E2E 的后端锚点）。
+     * 经真实端点证明「提交后字节真的流到另一会话」；同 clientReqId 重放作废
+     * 读回原结果 200 但不再广播（读回早退先于广播）。
+     */
+    @Test
+    void itemLifecycle_fullChain_broadcastsItemAndImageEventsToOpenStream() throws Exception {
+        Session actor = login();
+        Session watcher = login();
+        LinkedBlockingQueue<String> lines = openStream(watcher);
+        awaitDataLine(lines, "HELLO");
+
+        String body = postJson(actor, "/api/items",
+                "{\"clientReqId\":\"sse-item-create\",\"venueId\":" + venueId
+                        + ",\"buyDate\":\"2026-09-15\",\"purchasePrice\":1000,\"warehouse\":1}");
+        long itemId = Long.parseLong(body.replaceAll(".*\"id\":(\\d+).*", "$1"));
+        String itemCode = body.replaceAll(".*\"itemCode\":\"([^\"]+)\".*", "$1");
+
+        assertThat(awaitDataLine(lines, itemCode))
+                .as("录入提交后应广播 ITEM 事件（entity=管理号）")
+                .contains("\"type\":\"ITEM\"")
+                .contains("\"entity\":\"" + itemCode + "\"");
+
+        // 照片补传（multipart）→ IMAGE 事件（entity=itemId）：他端缩略图刷新的依据
+        postMultipartImage(actor, itemId, "5f0f2b1a-1111-4222-8333-444455556666");
+        assertThat(awaitDataLine(lines, "IMAGE"))
+                .as("照片上传提交后应广播 IMAGE 事件（entity=itemId）")
+                .contains("\"type\":\"IMAGE\"")
+                .contains("\"entity\":\"" + itemId + "\"");
+
+        postJson(actor, "/api/items/" + itemId + "/void",
+                "{\"clientReqId\":\"sse-item-void\",\"reason\":\"SSEITEM\"}");
+        assertThat(awaitDataLine(lines, itemCode))
+                .as("作废提交后应广播 ITEM 事件")
+                .contains("\"type\":\"ITEM\"")
+                .contains("\"entity\":\"" + itemCode + "\"");
+
+        // 重放（同 clientReqId 二发作废）读回原结果 200，但不再广播——2s 内不应
+        // 出现新 data 行（空行是 SSE 事件分隔符，跳过不算）
+        postJson(actor, "/api/items/" + itemId + "/void",
+                "{\"clientReqId\":\"sse-item-void\",\"reason\":\"SSEITEM\"}");
+        String stale = lines.poll(2, TimeUnit.SECONDS);
+        while (stale != null && !stale.startsWith("data:")) {
+            stale = lines.poll(2, TimeUnit.SECONDS);
+        }
+        assertThat(stale).as("重放不应产生新广播 data 行，实际收到: %s", stale).isNull();
+    }
+
     // ------------------------------------------------------------- 夹具与助手
 
     /** 登录后的客户端与其 cookie 存储（会话 id 就藏在 JSESSIONID 里）。 */
@@ -279,6 +334,42 @@ class SseIntegrationTest {
                 .build();
         HttpResponse<String> response = session.client().send(request, HttpResponse.BodyHandlers.ofString());
         assertThat(response.statusCode()).as("POST %s 应成功: %s", path, response.body()).isEqualTo(200);
+        return response.body();
+    }
+
+    /** 最小 JPEG 夹具（图片上传 magic/解码校验的前提）。 */
+    private static byte[] jpeg(int width, int height) {
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+            ImageIO.write(image, "jpg", out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** multipart 图片上传（原始 HttpClient 无 multipart 助手，手工拼边界体）。 */
+    private String postMultipartImage(Session session, long itemId, String clientUuid) throws Exception {
+        String boundary = "kcgl-sse-" + System.nanoTime();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        out.writeBytes(("--" + boundary + "\r\n"
+                + "Content-Disposition: form-data; name=\"clientUuid\"\r\n\r\n"
+                + clientUuid + "\r\n"
+                + "--" + boundary + "\r\n"
+                + "Content-Disposition: form-data; name=\"itemId\"\r\n\r\n"
+                + itemId + "\r\n"
+                + "--" + boundary + "\r\n"
+                + "Content-Disposition: form-data; name=\"file\"; filename=\"photo.jpg\"\r\n"
+                + "Content-Type: image/jpeg\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+        out.writeBytes(jpeg(64, 48));
+        out.writeBytes(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+        HttpRequest request = HttpRequest.newBuilder(URI.create(base + "/api/images"))
+                .timeout(Duration.ofSeconds(10))
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .POST(HttpRequest.BodyPublishers.ofByteArray(out.toByteArray()))
+                .build();
+        HttpResponse<String> response = session.client().send(request, HttpResponse.BodyHandlers.ofString());
+        assertThat(response.statusCode()).as("图片上传应成功: %s", response.body()).isEqualTo(200);
         return response.body();
     }
 

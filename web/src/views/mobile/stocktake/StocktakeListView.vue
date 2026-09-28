@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useSyncInvalidation } from '@/composables/useSyncInvalidation'
 import { toDisplayMessage } from '@/utils/errors'
 import { createStocktake, fetchStocktakes } from '@/utils/api'
 import type { StocktakeSummary } from '@/utils/api'
@@ -95,6 +96,21 @@ async function onLoad(): Promise<void> {
 function openSession(id: number): void {
   void router.push({ name: 'stocktake-session', params: { id } })
 }
+
+/** 重置回第 1 页（他端失效重取用；发起成功本就离开本页）。 */
+function resetList(): void {
+  rows.value = []
+  total.value = 0
+  page.value = 1
+  finished.value = false
+  loadError.value = false
+  loading.value = true
+  void onLoad()
+}
+
+// 他端失效重取（SSE）：STOCKTAKE/INVENTORY 事件=他人发起/close 盘点或
+// 商品变动（countText 的期望/差异计数随之变化）
+useSyncInvalidation(['STOCKTAKE', 'INVENTORY'], resetList)
 
 /** 行内计数：进行中=扫描数；close 后=期望/扫描 + 待确认差异。 */
 function countText(row: StocktakeSummary): string {

@@ -194,7 +194,12 @@ describe('stocktake difference review (M3-6)', () => {
   })
 
   it('confirms a diff through the two-step flow and updates the row in place', async () => {
-    apiMocks.fetchStocktake.mockResolvedValue(summary({ pendingDiffCount: 1 }))
+    // 首次载入=1 条待确认；最后一条处理完视图重读摘要，此时服务端已自动转已确认
+    // （status 2/pendingDiffCount 0）——第二次取回终态驱动 allDone 横幅（全链路
+    // 行为，非纯本地扣减）
+    apiMocks.fetchStocktake
+      .mockResolvedValueOnce(summary({ pendingDiffCount: 1 }))
+      .mockResolvedValueOnce(summary({ status: 2, pendingDiffCount: 0 }))
     apiMocks.fetchStocktakeDiffs.mockResolvedValue(diffList([diffRow({ id: 11 })]))
     apiMocks.resolveStocktakeDiff.mockResolvedValue({
       diff: diffRow({ id: 11, confirmStatus: 1 }),
@@ -220,7 +225,9 @@ describe('stocktake difference review (M3-6)', () => {
     expect([stocktakeId, diffId, action]).toEqual([5, 11, 'CONFIRM'])
     expect(row.text()).toContain('調整済み')
     expect(rowButton(row, '調整する')).toBeUndefined()
+    expect(apiMocks.fetchStocktake).toHaveBeenCalledTimes(2)
     expect(wrapper.text()).toContain('未確認 0 件')
+    expect(wrapper.find('.diff-alldone').exists()).toBe(true)
   })
 
   it('retries a failed confirm with the same clientReqId (7.0 replay)', async () => {

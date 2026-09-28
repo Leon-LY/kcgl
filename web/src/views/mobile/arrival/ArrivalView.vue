@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
+import { useSyncInvalidation } from '@/composables/useSyncInvalidation'
 import { dayjs, formatJstDate, JST_TZ } from '@/utils/format'
 import { toDisplayMessage } from '@/utils/errors'
 import { newClientId } from '@/utils/id'
@@ -165,6 +166,18 @@ async function onConfirm(): Promise<void> {
     confirming.value = false
   }
 }
+
+/**
+ * 他端失效重取（SSE）：ITEM/INVENTORY 事件=在途集合可能已变（他人录入/
+ * 他端入库）。选择一并清空——被他人先入库的已选项会让本批确认整体 409，
+ * 与其报错不如基于新清单重点一次。IMAGE=他人照片数秒后异步补传，重取后
+ * 无图卡补上缩略图。
+ */
+useSyncInvalidation(['ITEM', 'INVENTORY', 'IMAGE'], () => {
+  if (confirming.value) return // 确认请求在途时不打断（响应后本就 resetList）
+  selectedIds.value = []
+  resetList()
+})
 
 // ------------------------------------------------------------- 成功横幅与键盘收尾
 

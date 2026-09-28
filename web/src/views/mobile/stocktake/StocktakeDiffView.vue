@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useSyncInvalidation } from '@/composables/useSyncInvalidation'
 import { toDisplayMessage } from '@/utils/errors'
 import { newClientId } from '@/utils/id'
 import { fetchStocktake, fetchStocktakeDiffs, resolveStocktakeDiff } from '@/utils/api'
@@ -135,12 +136,18 @@ function ignoreKeyFor(diffId: number): string {
   return key
 }
 
-/** 响应行就地替换（不可变更新）+ 待确认计数联动。 */
+/** 响应行就地替换（不可变更新）+ 待确认计数联动；清零后重读摘要取回自动确认终态。 */
 function applyRow(next: StocktakeDiffRow): void {
   rows.value = rows.value.map((row) => (row.id === next.id ? next : row))
   const current = summary.value
   if (current != null && current.pendingDiffCount != null && current.pendingDiffCount > 0) {
-    summary.value = { ...current, pendingDiffCount: current.pendingDiffCount - 1 }
+    const pendingDiffCount = current.pendingDiffCount - 1
+    summary.value = { ...current, pendingDiffCount }
+    if (pendingDiffCount === 0) {
+      // 最后一条处理完：服务端已把单据自动转已确认——重读摘要驱动 allDone 横幅，
+      // 否则本地 status 停在「確認待ち」、终态提示永不出现
+      void loadSummary()
+    }
   }
 }
 
@@ -178,6 +185,17 @@ function warehouseLabel(value: number | null): string {
 
 /** 会话摘要先行载入；差异列表由 van-list 首次 check() 触发（同 ArrivalView 模式）。 */
 void loadSummary()
+
+/**
+ * 他端失效重取（SSE）：他人处理差异（STOCKTAKE）→ 待确认数与行状态同步；
+ * 差异请求在途时跳过（applyRow 就地更新，重取竞态会回卷行内两步确认）。
+ */
+useSyncInvalidation(['STOCKTAKE'], () => {
+  if (busyId.value != null) return
+  armedId.value = null
+  void loadSummary()
+  resetList()
+})
 </script>
 
 <template>

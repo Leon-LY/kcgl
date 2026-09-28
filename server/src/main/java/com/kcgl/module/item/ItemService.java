@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.kcgl.common.audit.AuditRecorder;
+import com.kcgl.common.sse.SseHub;
+import com.kcgl.common.sse.SyncEvent;
 import com.kcgl.common.web.BizException;
 import com.kcgl.common.web.ErrorCode;
 import com.kcgl.module.image.FirstThumbReader;
@@ -50,15 +52,17 @@ public class ItemService {
     private final AuditRecorder auditRecorder;
     private final TransactionTemplate txTemplate;
     private final Clock clock;
+    private final SseHub sseHub;
 
     public ItemService(ItemMapper itemMapper, StockLedgerMapper ledgerMapper, FirstThumbReader firstThumbReader,
-            AuditRecorder auditRecorder, TransactionTemplate txTemplate, Clock clock) {
+            AuditRecorder auditRecorder, TransactionTemplate txTemplate, Clock clock, SseHub sseHub) {
         this.itemMapper = itemMapper;
         this.ledgerMapper = ledgerMapper;
         this.firstThumbReader = firstThumbReader;
         this.auditRecorder = auditRecorder;
         this.txTemplate = txTemplate;
         this.clock = clock;
+        this.sseHub = sseHub;
     }
 
     /** 详情：作废件可见（重录预填/扫旧码提示前提）；软删件按不存在处理（回收站 M5）。 */
@@ -138,7 +142,7 @@ public class ItemService {
         if (replayed != null) {
             return replayed;
         }
-        return txTemplate.execute(status -> {
+        ItemEntity voided = txTemplate.execute(status -> {
             ItemEntity item = requireLiveItem(itemId);
             LocalDateTime now = LocalDateTime.now(clock);
             int rows = itemMapper.update(null, new LambdaUpdateWrapper<ItemEntity>()
@@ -160,6 +164,10 @@ public class ItemService {
                     "stockStatus", item.getStockStatus()));
             return itemMapper.selectById(itemId);
         });
+        // 提交后广播：作废冻结对他端可见（在途清单出清、本日会话「取り消し」计数变化）。
+        // 重放读回早退于上方——原作废已广播过，重放不再发第二条
+        sseHub.broadcast(SyncEvent.TYPE_ITEM, voided.getItemCode(), operatorId);
+        return voided;
     }
 
     /**
