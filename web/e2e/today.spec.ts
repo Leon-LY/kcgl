@@ -149,26 +149,27 @@ test.describe('today session page (desktop-chromium)', () => {
 test.describe('mobile tabbar navigation (mobile-chromium)', () => {
   onlyOn('mobile-chromium')
 
-  test('editor sees four tabs and the today tab navigates to /today', async ({ page }) => {
+  test('editor sees five tabs and the today tab navigates to /today', async ({ page }) => {
     await login(page, 'editor')
 
     const tabs = page.locator('.van-tabbar-item')
-    await expect(tabs).toHaveCount(4)
+    await expect(tabs).toHaveCount(5)
     await expect(page.locator('.van-tabbar-item').nth(0)).toHaveText('ホーム')
     await expect(page.locator('.van-tabbar-item').nth(1)).toHaveText('商品登録')
     await expect(page.locator('.van-tabbar-item').nth(2)).toHaveText('入庫確認')
-    await expect(page.locator('.van-tabbar-item').nth(3)).toHaveText('本日')
+    await expect(page.locator('.van-tabbar-item').nth(3)).toHaveText('スキャン')
+    await expect(page.locator('.van-tabbar-item').nth(4)).toHaveText('本日')
 
-    await page.locator('.van-tabbar-item').nth(3).click()
+    await page.locator('.van-tabbar-item').nth(4).click()
     await expect(page).toHaveURL(/\/today$/)
     await expect(page.locator('.today-title')).toHaveText('本日の登録')
   })
 
-  test('viewer has no entry tab (three tabs only)', async ({ page }) => {
+  test('viewer has no entry tab (four tabs only)', async ({ page }) => {
     await login(page, 'viewer')
 
     const tabs = page.locator('.van-tabbar-item')
-    await expect(tabs).toHaveCount(3)
+    await expect(tabs).toHaveCount(4)
     await expect(page.locator('.van-tabbar-item').filter({ hasText: '商品登録' })).toHaveCount(0)
   })
 })
