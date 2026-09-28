@@ -48,6 +48,7 @@ export default defineConfig({
       'element-plus/es/components/switch/style/css',
       'element-plus/es/components/table-column/style/css',
       'element-plus/es/components/table/style/css',
+      'element-plus/es/components/tabs/style/css',
       'vant/es',
       'vant/es/button/style/index',
       'vant/es/cell-group/style/index',
