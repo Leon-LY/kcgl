@@ -188,6 +188,13 @@ const shellOptions = [
       <button
         type="button"
         class="home-entry-link"
+        @click="router.push({ name: 'scan' })"
+      >
+        {{ t('home.goScan') }}
+      </button>
+      <button
+        type="button"
+        class="home-entry-link"
         @click="router.push({ name: 'today' })"
       >
         {{ t('home.goToday') }}

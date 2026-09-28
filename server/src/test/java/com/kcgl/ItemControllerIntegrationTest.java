@@ -530,11 +530,17 @@ class ItemControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.reEntry.itemId").value(idC))
                 .andExpect(jsonPath("$.data.reEntry.itemCode").value(codeC));
 
-        // 活件：无 reEntry
+        // 活件：无 reEntry；首图缩略图随响应直出（扫码确认卡单次往返，M3-④）
+        jdbcTemplate.update("""
+                INSERT INTO item_image(item_id, client_uuid, stored_path, thumb_path, sort_order, created_by)
+                VALUES (?, '22222222-2222-2222-2222-222222222221', '2026/09/c.jpg', '2026/09/c_t.jpg', 1, ?),
+                       (?, '22222222-2222-2222-2222-222222222222', '2026/09/d.jpg', '2026/09/d_t.jpg', 2, ?)
+                """, idC, idC, idC, idC);
         mockMvc.perform(get("/api/items/by-code/" + codeC).session(editor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.item.id").value(idC))
                 .andExpect(jsonPath("$.data.item.voided").value(false))
+                .andExpect(jsonPath("$.data.thumbUrl").value("/img/thumb/2026/09/c_t.jpg"))
                 .andExpect(jsonPath("$.data.reEntry").doesNotExist());
 
         // 已作废未重录：reEntry 空（提示撕标签/划掉，docs/01 7.1）

@@ -52,6 +52,7 @@
     "quickActions": "よく使う操作",
     "goEntry": "商品の登録",
     "goArrival": "入庫確認",
+    "goScan": "スキャン",
     "goToday": "本日の登録",
     "goPrint": "ラベル印刷",
     "preparing": "この領域は今後のマイルストーンで実装されます",
@@ -71,6 +72,7 @@
     "home": "ホーム",
     "entry": "商品登録",
     "arrival": "入庫確認",
+    "scan": "スキャン",
     "today": "本日",
     "print": "ラベル印刷",
     "venues": "会場",
@@ -194,6 +196,85 @@
     "voidedTag": "取り消し",
     "empty": "本日の登録はまだありません",
     "loadFailed": "読み込みに失敗しました"
+  },
+  "scan": {
+    "title": "スキャン",
+    "cameraGuide": "管理番号のQRコードをカメラにかざしてください",
+    "torch": "ライト",
+    "cameraDenied": "カメラが使えません。手入力で検索するか、ブラウザの設定でカメラを許可してください",
+    "cameraInsecure": "カメラを使うには HTTPS での接続が必要です。手入力をご利用ください",
+    "cameraFailed": "カメラを起動できませんでした。手入力で検索してください",
+    "manualLabel": "管理番号を手入力して検索",
+    "manualPlaceholder": "例）HTK9-A12X",
+    "manualSubmit": "検索",
+    "notFound": "この管理番号の商品は見つかりません",
+    "buyDate": "落札日 {date}",
+    "stock": {
+      "0": "移動中",
+      "1": "在庫",
+      "2": "出庫済み"
+    },
+    "sale": {
+      "0": "未出品",
+      "1": "出品中",
+      "2": "落札済み",
+      "3": "キャンセル"
+    },
+    "voidedTag": "取り消し済み",
+    "deletedTag": "削除済み",
+    "voidedWithReEntry": "取り消し済みの商品です。再登録後の管理番号は {code} です",
+    "voidedNoReEntry": "取り消し済みの商品です（再登録されていません）。古いラベルは剥がすか、油性ペンで二重線を引いて無効にしてください",
+    "deletedNote": "削除済みの商品です。この画面では操作できません",
+    "viewerNote": "在庫操作には編集者以上の権限が必要です",
+    "noActions": "現在の状態では操作できません",
+    "action": {
+      "sell": "売却",
+      "scrap": "廃棄",
+      "transfer": "移動",
+      "markListed": "出品済みにする",
+      "returnCustomer": "返品を受け取る",
+      "returnVenue": "会場へ返す"
+    },
+    "sell": {
+      "title": "売却",
+      "price": "落札価格（任意）",
+      "pricePlaceholder": "例）15000",
+      "priceHint": "未入力の場合は後でヤフオク!の落札結果から反映されます",
+      "priceInvalid": "落札価格は1円以上9,999万円未満で入力してください",
+      "confirm": "売却する"
+    },
+    "scrap": {
+      "title": "廃棄",
+      "reason": "廃棄理由",
+      "reasonPlaceholder": "例）破損のため",
+      "reasonRequired": "廃棄理由を入力してください",
+      "confirm": "廃棄する"
+    },
+    "transfer": {
+      "title": "倉庫間の移動",
+      "to": "移動先の倉庫",
+      "confirm": "移動する"
+    },
+    "return": {
+      "title": "返品",
+      "note": "メモ（任意）",
+      "customerHint": "お客様からの返品を受け取り、元の倉庫の在庫に戻します",
+      "venueHint": "会場への返品として出庫扱いにします",
+      "confirm": "返品を記録する"
+    },
+    "listed": {
+      "title": "出品済みにする",
+      "note": "ヤフオク!に手動で出品した場合に押してください。CSV取込を待たずに「出品中」として記録します。",
+      "confirm": "出品中として記録する"
+    },
+    "done": {
+      "sell": "売却を記録しました",
+      "scrap": "廃棄を記録しました",
+      "transfer": "倉庫を移動しました",
+      "markListed": "出品中として記録しました",
+      "returnCustomer": "返品を受け取りました",
+      "returnVenue": "会場への返品を記録しました"
+    }
   },
   "admin": {
     "status": "状態",

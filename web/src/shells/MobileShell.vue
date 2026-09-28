@@ -6,8 +6,8 @@ import { useAuthStore } from '@/stores/auth'
 import LangSwitch from '@/components/LangSwitch.vue'
 
 /**
- * 移动壳：顶栏 = 标题 + 语言切换；底栏 = van-tabbar 四页导航
- * （M2-8b：首页/商品登録/入庫確認/本日；录入页仅编辑者以上显示，
+ * 移动壳：顶栏 = 标题 + 语言切换；底栏 = van-tabbar 五页导航
+ * （首页/商品登録/入庫確認/スキャン/本日；录入页仅编辑者以上显示，
  * 路由守卫与服务端 403 双兜底）。登录/改密页不显示底栏。
  */
 const { t } = useI18n()
@@ -75,6 +75,12 @@ async function onLogout(): Promise<void> {
         icon="logistics"
       >
         {{ t('nav.arrival') }}
+      </van-tabbar-item>
+      <van-tabbar-item
+        to="/scan"
+        icon="scan"
+      >
+        {{ t('nav.scan') }}
       </van-tabbar-item>
       <van-tabbar-item
         to="/today"

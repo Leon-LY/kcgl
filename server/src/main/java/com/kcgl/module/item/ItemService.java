@@ -85,7 +85,8 @@ public class ItemService {
         if (item == null) {
             throw new BizException(ErrorCode.NOT_FOUND);
         }
-        return new ItemByCodeResponse(ItemResponse.from(item), followReEntry(item));
+        String thumbUrl = firstThumbReader.byItemIds(List.of(item.getId())).get(item.getId());
+        return new ItemByCodeResponse(ItemResponse.from(item), thumbUrl, followReEntry(item));
     }
 
     /**

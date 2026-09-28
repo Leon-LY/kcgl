@@ -1,0 +1,976 @@
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { QrcodeStream } from 'vue-qrcode-reader'
+import type { BarcodeFormat, DetectedBarcode } from 'vue-qrcode-reader'
+import { useAuthStore } from '@/stores/auth'
+import { beep, createScanGate, vibrate } from '@/composables/useScan'
+import { availableActions } from '@/utils/inventoryActions'
+import type { ScanAction } from '@/utils/inventoryActions'
+import { formatJstDate } from '@/utils/format'
+import { toDisplayMessage } from '@/utils/errors'
+import { newClientId } from '@/utils/id'
+import { normalizeItemCode, parseAmount } from '@/utils/normalize'
+import {
+  fetchItemByCode,
+  markListedItem,
+  returnItem,
+  scrapItem,
+  sellItem,
+  transferItem,
+} from '@/utils/api'
+import type { ActionResult, ItemByCode } from '@/utils/api'
+import { ApiError } from '@/utils/api'
+
+/**
+ * 扫码操作页（/scan，M3-④，docs/01 4.3）：后置摄像头扫管理号 QR → 定位卡
+ * （缩略图/仓库/状态/备注一次往返直出，by-code 带 thumbUrl）→ 按当前状态只渲染
+ * 合法动作（inventoryActions=后端边表前端镜像）→ 动作弹层（卖出=落札价选填/
+ * 报废=理由必填/调拨=仓选择/退货=说明选填/上架标记=仅确认）。
+ * 幂等契约（docs/01 7.0）：动作×商品幂等键生成后保留到成功为止，失败重试复用
+ * 同键（服务端读回原结果 200 出清）。手动输入兜底（NFKC 归一仅在提交时——
+ * 输入中转换会打断日文 IME）。作废件提示重录新号（docs/01 7.1）。
+ */
+
+const DONE_BANNER_MS = 4000
+const CAMERA_CONSTRAINTS = { facingMode: 'environment' }
+const FORMATS: BarcodeFormat[] = ['qr_code']
+const MAX_UNIT_PRICE = 99_999_999
+
+const { t } = useI18n()
+const auth = useAuthStore()
+
+const canAct = computed(() => auth.me != null && auth.me.role <= 2)
+
+// ------------------------------------------------------------- 摄像头（QR 连续取流）
+
+const cameraReady = ref(false)
+const torchOn = ref(false)
+const torchSupported = ref(false)
+const cameraErrorName = ref('')
+
+/**
+ * camera-on 载荷为 Partial<MediaTrackCapabilities>；TS DOM lib 未收录非标准的
+ * torch 能力位，且 .vue script 下 no-undef 不识别纯类型名——按 object 收参
+ * （对组件事件签名逆变兼容）后结构化收窄读取（真机由 vue-qrcode-reader 回填）。
+ */
+function onCameraOn(capabilities: object): void {
+  cameraReady.value = true
+  torchSupported.value = (capabilities as { torch?: boolean }).torch === true
+  cameraErrorName.value = ''
+}
+
+function onCameraOff(): void {
+  cameraReady.value = false
+  torchSupported.value = false
+  torchOn.value = false
+}
+
+function onCameraError(error: Error): void {
+  cameraReady.value = false
+  cameraErrorName.value = error.name
+}
+
+const cameraErrorMessage = computed(() => {
+  switch (cameraErrorName.value) {
+    case '':
+      return ''
+    case 'NotAllowedError':
+    case 'PermissionDeniedError':
+      return t('scan.cameraDenied')
+    case 'InsecureContextError':
+      return t('scan.cameraInsecure')
+    default:
+      return t('scan.cameraFailed')
+  }
+})
+
+// ------------------------------------------------------------- 定位（扫码 + 手输兜底）
+
+const gate = createScanGate()
+const item = ref<ItemByCode | null>(null)
+const locating = ref(false)
+const locateError = ref('')
+
+async function locate(code: string): Promise<void> {
+  if (locating.value) {
+    return
+  }
+  locating.value = true
+  locateError.value = ''
+  try {
+    item.value = await fetchItemByCode(code)
+  } catch (error) {
+    item.value = null
+    locateError.value =
+      error instanceof ApiError && error.code === 404001
+        ? t('scan.notFound')
+        : toDisplayMessage(error, t)
+  } finally {
+    locating.value = false
+  }
+}
+
+function onDetect(detectedCodes: DetectedBarcode[]): void {
+  const code = normalizeItemCode(detectedCodes[0]?.rawValue ?? '')
+  if (code === '' || !gate.accept(code)) {
+    return
+  }
+  beep()
+  vibrate()
+  void locate(code)
+}
+
+const manualInput = ref('')
+
+async function onManualSubmit(): Promise<void> {
+  const code = normalizeItemCode(manualInput.value)
+  if (code === '' || locating.value) {
+    return
+  }
+  await locate(code)
+  if (locateError.value === '') {
+    manualInput.value = ''
+  }
+}
+
+// ------------------------------------------------------------- 动作菜单与弹层
+
+const actions = computed(() => {
+  const current = item.value
+  if (current == null || current.item.voided || current.item.deleted || !canAct.value) {
+    return []
+  }
+  return availableActions(current.item.stockStatus, current.item.saleStatus)
+})
+
+function actionLabel(action: ScanAction): string {
+  return t(`scan.action.${action}`)
+}
+
+const activeAction = ref<ScanAction | null>(null)
+const actionBusy = ref(false)
+/** 弹层打开时暂停取流：对话框操作中不换目标件。 */
+const cameraPaused = computed(() => activeAction.value != null)
+const actionError = ref('')
+const soldPriceInput = ref('')
+const scrapReason = ref('')
+const transferTo = ref(0)
+const returnNote = ref('')
+
+const dialogTitleKey = computed(() =>
+  activeAction.value === 'returnCustomer' || activeAction.value === 'returnVenue'
+    ? 'scan.return.title'
+    : `scan.${activeAction.value ?? ''}.title`,
+)
+
+const dialogConfirmKey = computed(() =>
+  activeAction.value === 'returnCustomer' || activeAction.value === 'returnVenue'
+    ? 'scan.return.confirm'
+    : `scan.${activeAction.value ?? ''}.confirm`,
+)
+
+function openAction(action: ScanAction): void {
+  const current = item.value
+  if (current == null) {
+    return
+  }
+  actionError.value = ''
+  soldPriceInput.value = ''
+  scrapReason.value = ''
+  returnNote.value = ''
+  if (action === 'transfer') {
+    transferTo.value = current.item.warehouse === 1 ? 2 : 1
+  }
+  activeAction.value = action
+}
+
+function closeAction(): void {
+  if (actionBusy.value) {
+    return
+  }
+  activeAction.value = null
+}
+
+/** 动作×商品幂等键：生成后保留到成功为止（失败重试复用同键，7.0）。 */
+const idempotencyKeys = new Map<string, string>()
+
+function clientKeyFor(action: ScanAction, itemId: number): string {
+  const mapKey = `${action}:${itemId}`
+  const existing = idempotencyKeys.get(mapKey)
+  if (existing != null) {
+    return existing
+  }
+  const key = newClientId()
+  idempotencyKeys.set(mapKey, key)
+  return key
+}
+
+async function onActionConfirm(): Promise<void> {
+  const action = activeAction.value
+  const current = item.value
+  if (action == null || current == null || actionBusy.value) {
+    return
+  }
+  const itemId = current.item.id
+  const clientReqId = clientKeyFor(action, itemId)
+
+  if (action === 'scrap' && scrapReason.value.trim() === '') {
+    actionError.value = t('scan.scrap.reasonRequired')
+    return
+  }
+  let soldPrice: number | undefined
+  if (action === 'sell' && soldPriceInput.value.trim() !== '') {
+    const parsed = parseAmount(soldPriceInput.value)
+    if (parsed == null || parsed < 1 || parsed > MAX_UNIT_PRICE) {
+      actionError.value = t('scan.sell.priceInvalid')
+      return
+    }
+    soldPrice = parsed
+  }
+
+  actionBusy.value = true
+  actionError.value = ''
+  try {
+    let result: ActionResult
+    if (action === 'sell') {
+      result = await sellItem(itemId, clientReqId, soldPrice)
+    } else if (action === 'scrap') {
+      result = await scrapItem(itemId, clientReqId, scrapReason.value.trim())
+    } else if (action === 'transfer') {
+      result = await transferItem(itemId, clientReqId, transferTo.value)
+    } else if (action === 'markListed') {
+      result = await markListedItem(itemId, clientReqId)
+    } else {
+      const direction = action === 'returnCustomer' ? 1 : 2
+      const note = returnNote.value.trim()
+      result =
+        note === ''
+          ? await returnItem(itemId, clientReqId, direction)
+          : await returnItem(itemId, clientReqId, direction, note)
+    }
+    idempotencyKeys.delete(`${action}:${itemId}`)
+    activeAction.value = null
+    showDone(action)
+    await refreshCard(result.itemCode)
+  } catch (error) {
+    // 弹层保持打开：直接重试同键即可安全重放（7.0），不需要重新开始
+    actionError.value = toDisplayMessage(error, t)
+  } finally {
+    actionBusy.value = false
+  }
+}
+
+/** 动作成功后重读定位卡（现态+动作菜单随之刷新）；重读失败保留旧卡不打断操作流。 */
+async function refreshCard(code: string): Promise<void> {
+  try {
+    item.value = await fetchItemByCode(code)
+  } catch {
+    // 下次扫码/动作会重见真实态；此处静默降级
+  }
+  gate.reset()
+}
+
+// ------------------------------------------------------------- 成功横幅与键盘收尾
+
+const doneBanner = ref('')
+let doneTimer = 0
+
+function showDone(action: ScanAction): void {
+  doneBanner.value = t(`scan.done.${action}`)
+  if (doneTimer !== 0) {
+    window.clearTimeout(doneTimer)
+  }
+  doneTimer = window.setTimeout(() => {
+    doneBanner.value = ''
+  }, DONE_BANNER_MS)
+}
+
+function onKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape' && activeAction.value != null) {
+    closeAction()
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown)
+  if (doneTimer !== 0) {
+    window.clearTimeout(doneTimer)
+  }
+})
+</script>
+
+<template>
+  <section class="scan-view">
+    <h1 class="scan-title">
+      {{ t('scan.title') }}
+    </h1>
+
+    <div class="scan-camera">
+      <QrcodeStream
+        :constraints="CAMERA_CONSTRAINTS"
+        :formats="FORMATS"
+        :paused="cameraPaused"
+        :torch="torchOn"
+        @detect="onDetect"
+        @camera-on="onCameraOn"
+        @camera-off="onCameraOff"
+        @error="onCameraError"
+      />
+      <button
+        v-if="torchSupported"
+        type="button"
+        class="scan-torch"
+        :class="{ 'is-on': torchOn }"
+        :aria-pressed="torchOn"
+        @click="torchOn = !torchOn"
+      >
+        {{ t('scan.torch') }}
+      </button>
+      <p
+        v-if="cameraReady && item == null && cameraErrorMessage === ''"
+        class="scan-guide"
+      >
+        {{ t('scan.cameraGuide') }}
+      </p>
+    </div>
+
+    <p
+      v-if="cameraErrorMessage"
+      class="kcgl-info-box"
+    >
+      {{ cameraErrorMessage }}
+    </p>
+
+    <form
+      class="kcgl-card scan-manual"
+      @submit.prevent="onManualSubmit"
+    >
+      <label
+        class="kcgl-label"
+        for="scan-manual-input"
+      >
+        {{ t('scan.manualLabel') }}
+      </label>
+      <div class="scan-manual-row">
+        <input
+          id="scan-manual-input"
+          v-model="manualInput"
+          class="kcgl-input"
+          type="text"
+          :placeholder="t('scan.manualPlaceholder')"
+          autocomplete="off"
+          :disabled="locating"
+        >
+        <button
+          type="submit"
+          class="kcgl-btn kcgl-btn-primary"
+          :disabled="locating || normalizeItemCode(manualInput) === ''"
+        >
+          {{ locating ? t('common.loading') : t('scan.manualSubmit') }}
+        </button>
+      </div>
+    </form>
+
+    <p
+      v-if="locateError"
+      class="scan-error"
+      role="alert"
+    >
+      {{ locateError }}
+    </p>
+
+    <div
+      v-if="doneBanner"
+      class="scan-done"
+      role="status"
+    >
+      {{ doneBanner }}
+    </div>
+
+    <div
+      v-if="item"
+      class="kcgl-card scan-card"
+    >
+      <div class="scan-card-head">
+        <span class="scan-thumb">
+          <img
+            v-if="item.thumbUrl"
+            :src="item.thumbUrl"
+            alt=""
+          >
+        </span>
+        <div class="scan-card-main">
+          <p class="scan-code">
+            {{ item.item.itemCode }}
+          </p>
+          <p class="scan-meta">
+            {{ t(`common.warehouse.${item.item.warehouse}`) }}
+            <span class="scan-meta-sep">｜</span>
+            {{ t('scan.buyDate', { date: formatJstDate(item.item.buyDate) }) }}
+          </p>
+          <p class="scan-tags">
+            <span class="scan-tag">{{ t(`scan.stock.${item.item.stockStatus}`) }}</span>
+            <span class="scan-tag">{{ t(`scan.sale.${item.item.saleStatus}`) }}</span>
+            <span
+              v-if="item.item.voided"
+              class="scan-tag is-danger"
+            >{{ t('scan.voidedTag') }}</span>
+            <span
+              v-if="item.item.deleted"
+              class="scan-tag is-danger"
+            >{{ t('scan.deletedTag') }}</span>
+          </p>
+        </div>
+      </div>
+      <p
+        v-if="item.item.remark"
+        class="scan-remark"
+      >
+        {{ item.item.remark }}
+      </p>
+      <p
+        v-if="item.item.voided"
+        class="kcgl-info-box scan-warn"
+      >
+        {{
+          item.reEntry
+            ? t('scan.voidedWithReEntry', { code: item.reEntry.itemCode })
+            : t('scan.voidedNoReEntry')
+        }}
+      </p>
+      <p
+        v-if="item.item.deleted"
+        class="kcgl-info-box scan-warn"
+      >
+        {{ t('scan.deletedNote') }}
+      </p>
+      <p
+        v-if="!canAct"
+        class="kcgl-info-box"
+      >
+        {{ t('scan.viewerNote') }}
+      </p>
+    </div>
+
+    <div
+      v-if="actions.length > 0"
+      class="scan-actions"
+    >
+      <button
+        v-for="action in actions"
+        :key="action"
+        type="button"
+        class="scan-action"
+        @click="openAction(action)"
+      >
+        {{ actionLabel(action) }}
+      </button>
+    </div>
+    <p
+      v-else-if="item && canAct && !item.item.voided && !item.item.deleted"
+      class="scan-no-actions"
+    >
+      {{ t('scan.noActions') }}
+    </p>
+
+    <Transition name="scan-fade">
+      <div
+        v-if="activeAction"
+        class="scan-overlay"
+      >
+        <div
+          class="kcgl-card scan-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="scan-dialog-title"
+        >
+          <h2
+            id="scan-dialog-title"
+            class="scan-dialog-title"
+          >
+            {{ t(dialogTitleKey) }}
+          </h2>
+          <p class="scan-dialog-target">
+            {{ item?.item.itemCode }}
+          </p>
+
+          <div
+            v-if="activeAction === 'sell'"
+            class="kcgl-field"
+          >
+            <label
+              class="kcgl-label"
+              for="scan-sold-price"
+            >
+              {{ t('scan.sell.price') }}
+            </label>
+            <input
+              id="scan-sold-price"
+              v-model="soldPriceInput"
+              class="kcgl-input"
+              type="text"
+              inputmode="numeric"
+              :placeholder="t('scan.sell.pricePlaceholder')"
+              :disabled="actionBusy"
+            >
+            <p class="scan-dialog-hint">
+              {{ t('scan.sell.priceHint') }}
+            </p>
+          </div>
+
+          <div
+            v-if="activeAction === 'scrap'"
+            class="kcgl-field"
+          >
+            <label
+              class="kcgl-label"
+              for="scan-scrap-reason"
+            >
+              {{ t('scan.scrap.reason') }}
+            </label>
+            <input
+              id="scan-scrap-reason"
+              v-model="scrapReason"
+              class="kcgl-input"
+              type="text"
+              maxlength="255"
+              :placeholder="t('scan.scrap.reasonPlaceholder')"
+              :disabled="actionBusy"
+            >
+          </div>
+
+          <div
+            v-if="activeAction === 'transfer'"
+            class="kcgl-field"
+          >
+            <span class="kcgl-label">{{ t('scan.transfer.to') }}</span>
+            <div class="scan-wh-options">
+              <label
+                v-for="warehouse in [1, 2]"
+                :key="warehouse"
+                class="scan-wh-option"
+                :class="{ 'is-active': transferTo === warehouse }"
+              >
+                <input
+                  v-model="transferTo"
+                  type="radio"
+                  name="scan-transfer-to"
+                  :value="warehouse"
+                  :disabled="actionBusy"
+                >
+                {{ t(`common.warehouse.${warehouse}`) }}
+              </label>
+            </div>
+          </div>
+
+          <div
+            v-if="activeAction === 'returnCustomer' || activeAction === 'returnVenue'"
+            class="kcgl-field"
+          >
+            <label
+              class="kcgl-label"
+              for="scan-return-note"
+            >
+              {{ t('scan.return.note') }}
+            </label>
+            <input
+              id="scan-return-note"
+              v-model="returnNote"
+              class="kcgl-input"
+              type="text"
+              maxlength="255"
+              :disabled="actionBusy"
+            >
+            <p class="scan-dialog-hint">
+              {{
+                activeAction === 'returnCustomer'
+                  ? t('scan.return.customerHint')
+                  : t('scan.return.venueHint')
+              }}
+            </p>
+          </div>
+
+          <p
+            v-if="activeAction === 'markListed'"
+            class="scan-dialog-hint"
+          >
+            {{ t('scan.listed.note') }}
+          </p>
+
+          <p
+            v-if="actionError"
+            class="scan-dialog-error"
+            role="alert"
+          >
+            {{ actionError }}
+          </p>
+
+          <div class="scan-dialog-actions">
+            <button
+              type="button"
+              class="kcgl-btn scan-dialog-cancel"
+              :disabled="actionBusy"
+              @click="closeAction"
+            >
+              {{ t('common.cancel') }}
+            </button>
+            <button
+              type="button"
+              class="kcgl-btn kcgl-btn-primary scan-dialog-ok"
+              :disabled="actionBusy"
+              @click="onActionConfirm"
+            >
+              {{ actionBusy ? t('common.saving') : t(dialogConfirmKey) }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </section>
+</template>
+
+<style scoped>
+.scan-view {
+  max-width: 560px;
+  margin: 0 auto;
+  display: grid;
+  gap: 12px;
+}
+
+.scan-title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.scan-camera {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  max-height: 46vh;
+  border: 1px solid var(--kcgl-color-border);
+  border-radius: var(--kcgl-radius-m);
+  background: var(--kcgl-color-bg);
+  overflow: hidden;
+}
+
+.scan-camera :deep(video) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.scan-torch {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--kcgl-color-border);
+  border-radius: var(--kcgl-radius-s);
+  background: rgba(31, 35, 41, 0.55);
+  color: #fff;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.scan-torch.is-on {
+  background: var(--kcgl-color-primary);
+  border-color: var(--kcgl-color-primary);
+}
+
+.scan-guide {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 12px;
+  margin: 0;
+  padding: 6px 12px;
+  text-align: center;
+  color: #fff;
+  font-size: 0.85rem;
+  text-shadow: 0 0 4px rgba(31, 35, 41, 0.7);
+  pointer-events: none;
+}
+
+.scan-manual {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+}
+
+.scan-manual-row {
+  display: flex;
+  gap: 8px;
+}
+
+.scan-manual-row .kcgl-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.scan-error {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--kcgl-color-danger-border);
+  border-radius: var(--kcgl-radius-s);
+  background: var(--kcgl-color-danger-bg);
+  color: var(--kcgl-color-danger);
+  font-size: 0.85rem;
+}
+
+.scan-done {
+  padding: 10px 12px;
+  border: 1px solid var(--kcgl-color-success-border);
+  border-radius: var(--kcgl-radius-s);
+  background: var(--kcgl-color-success-bg);
+  color: var(--kcgl-color-success);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.scan-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.scan-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.scan-thumb {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border: 1px solid var(--kcgl-color-border);
+  border-radius: var(--kcgl-radius-s);
+  background: var(--kcgl-color-bg);
+  overflow: hidden;
+}
+
+.scan-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.scan-card-main {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.scan-code {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  word-break: break-all;
+}
+
+.scan-meta {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--kcgl-color-text-sub);
+}
+
+.scan-meta-sep {
+  color: var(--kcgl-color-text-faint);
+}
+
+.scan-tags {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.scan-tag {
+  padding: 2px 8px;
+  border: 1px solid var(--kcgl-color-border);
+  border-radius: var(--kcgl-radius-s);
+  font-size: 0.75rem;
+  color: var(--kcgl-color-text-sub);
+  white-space: nowrap;
+}
+
+.scan-tag.is-danger {
+  border-color: var(--kcgl-color-danger-border);
+  color: var(--kcgl-color-danger);
+}
+
+.scan-remark {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--kcgl-color-text-sub);
+  word-break: break-all;
+}
+
+.scan-warn {
+  font-size: 0.85rem;
+}
+
+.scan-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.scan-action {
+  min-height: 48px;
+  padding: 6px 10px;
+  border: 1px solid var(--kcgl-color-border);
+  border-radius: var(--kcgl-radius-m);
+  background: var(--kcgl-color-card);
+  box-shadow: var(--kcgl-shadow-card);
+  color: var(--kcgl-color-text);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.scan-action:hover {
+  border-color: var(--kcgl-color-primary);
+  color: var(--kcgl-color-primary);
+}
+
+.scan-no-actions {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--kcgl-color-border);
+  border-radius: var(--kcgl-radius-s);
+  color: var(--kcgl-color-text-faint);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.scan-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(31, 35, 41, 0.45);
+}
+
+.scan-dialog {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  max-width: 360px;
+  padding: 20px;
+}
+
+.scan-dialog-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.scan-dialog-target {
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--kcgl-color-border);
+  border-radius: var(--kcgl-radius-s);
+  background: var(--kcgl-color-bg);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.scan-dialog-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--kcgl-color-text-faint);
+}
+
+.scan-dialog-error {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--kcgl-color-danger-border);
+  border-radius: var(--kcgl-radius-s);
+  background: var(--kcgl-color-danger-bg);
+  color: var(--kcgl-color-danger);
+  font-size: 0.85rem;
+}
+
+.scan-wh-options {
+  display: flex;
+  gap: 8px;
+}
+
+.scan-wh-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 4px 8px;
+  border: 1px solid var(--kcgl-color-border);
+  border-radius: var(--kcgl-radius-s);
+  background: var(--kcgl-color-card);
+  font-size: 0.85rem;
+  color: var(--kcgl-color-text-sub);
+  cursor: pointer;
+}
+
+.scan-wh-option.is-active {
+  border-color: var(--kcgl-color-primary);
+  background: var(--kcgl-color-primary-bg);
+  color: var(--kcgl-color-primary);
+  font-weight: 600;
+}
+
+.scan-wh-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.scan-dialog-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.scan-dialog-cancel {
+  flex: 1;
+  border: 1px solid var(--kcgl-color-border);
+  background: var(--kcgl-color-card);
+  color: var(--kcgl-color-text-sub);
+  font-weight: 500;
+}
+
+.scan-dialog-ok {
+  flex: 2;
+}
+
+.scan-fade-enter-active,
+.scan-fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.scan-fade-enter-from,
+.scan-fade-leave-to {
+  opacity: 0;
+}
+</style>

@@ -20,6 +20,14 @@ export function trimText(input: string): string {
   return input.trim()
 }
 
+/**
+ * 管理号（扫码页手输兜底）：NFKC 全角→半角 + 去空白 + 大写化。
+ * 与后端 by-code 同一规则（docs/01 7.8）；不去数字以外字符——管理号格式由服务端正则兜底。
+ */
+export function normalizeItemCode(input: string): string {
+  return input.normalize('NFKC').replace(/\s+/g, '').toUpperCase()
+}
+
 /** 解析金额输入（先归一化）；空/非法 → null（不静默吞成 0）；0 为合法值（费用可 0）。 */
 export function parseAmount(input: string): number | null {
   const normalized = normalizeNumericText(input)

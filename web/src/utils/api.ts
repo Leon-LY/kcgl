@@ -506,3 +506,58 @@ export function fetchChecklist(): Promise<Checklist> {
 export function markChecklistPrintDone(): Promise<Checklist> {
   return request('/api/checklist/print-done', jsonInit('POST', {}))
 }
+
+// ------------------------------------------------------------------ 扫码定位与库存动作（M3-④/⑤）
+
+/** 扫码定位响应：item 含作废/软删件（前端按标志呈现禁操作态）；reEntry 未重录为 null。 */
+export interface ItemByCode {
+  item: ItemResponse
+  /** 首图缩略图（确认卡单次往返即得，无图为 null）。 */
+  thumbUrl: string | null
+  /** 作废重录链终点（扫旧码提示「重录后的新号」）；未重录为 null。 */
+  reEntry: { itemId: number; itemCode: string } | null
+}
+
+/** 管理号定位（NFKC+大写化由后端兜底，前端手输已先归一）。404=号不存在。 */
+export function fetchItemByCode(code: string): Promise<ItemByCode> {
+  return request(`/api/items/by-code/${encodeURIComponent(code)}`, { method: 'GET' })
+}
+
+/** 动作端点统一结果（动作后现态快照，确认卡据此刷新）。 */
+export interface ActionResult {
+  itemId: number
+  itemCode: string
+  stockStatus: number
+  saleStatus: number
+  warehouse: number
+}
+
+/** 五动作幂等键语义（docs/01 7.0）：失败重试复用同键，成功后才生成新键。 */
+export function sellItem(itemId: number, clientReqId: string, soldPrice?: number): Promise<ActionResult> {
+  const payload = soldPrice == null ? { itemId, clientReqId } : { itemId, clientReqId, soldPrice }
+  return request('/api/inventory/sell', jsonInit('POST', payload))
+}
+
+export function scrapItem(itemId: number, clientReqId: string, reason: string): Promise<ActionResult> {
+  return request('/api/inventory/scrap', jsonInit('POST', { itemId, clientReqId, reason }))
+}
+
+export function transferItem(itemId: number, clientReqId: string, toWarehouse: number): Promise<ActionResult> {
+  return request('/api/inventory/transfer', jsonInit('POST', { itemId, clientReqId, toWarehouse }))
+}
+
+/** direction：1=顾客退回（已出库→在库） 2=退回拍卖场（在途/在库→已出库）。 */
+export function returnItem(
+  itemId: number,
+  clientReqId: string,
+  direction: number,
+  note?: string,
+): Promise<ActionResult> {
+  const payload = note == null || note === '' ? { itemId, clientReqId, direction } : { itemId, clientReqId, direction, note }
+  return request('/api/inventory/return', jsonInit('POST', payload))
+}
+
+/** 手动上架标记（雅虎手工出品后即时登记，消除 CSV 回传窗口的滞销误报）。 */
+export function markListedItem(itemId: number, clientReqId: string): Promise<ActionResult> {
+  return request('/api/inventory/mark-listed', jsonInit('POST', { itemId, clientReqId }))
+}

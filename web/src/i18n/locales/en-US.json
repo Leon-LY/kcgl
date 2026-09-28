@@ -52,6 +52,7 @@
     "quickActions": "Quick actions",
     "goEntry": "Register an item",
     "goArrival": "Arrival check",
+    "goScan": "Scan",
     "goToday": "Today's entries",
     "goPrint": "Label printing",
     "preparing": "This area will be implemented in upcoming milestones",
@@ -71,6 +72,7 @@
     "home": "Home",
     "entry": "Entry",
     "arrival": "Arrivals",
+    "scan": "Scan",
     "today": "Today",
     "print": "Label printing",
     "venues": "Venues",
@@ -194,6 +196,85 @@
     "voidedTag": "Cancelled",
     "empty": "No entries yet today",
     "loadFailed": "Failed to load"
+  },
+  "scan": {
+    "title": "Scan",
+    "cameraGuide": "Hold the item's QR code up to the camera",
+    "torch": "Light",
+    "cameraDenied": "Camera unavailable. Search by typing the code, or allow camera access in browser settings",
+    "cameraInsecure": "Camera requires an HTTPS connection. Please use manual entry",
+    "cameraFailed": "Could not start the camera. Please search by typing the code",
+    "manualLabel": "Search by item code",
+    "manualPlaceholder": "e.g. HTK9-A12X",
+    "manualSubmit": "Search",
+    "notFound": "No item found for this code",
+    "buyDate": "Purchased {date}",
+    "stock": {
+      "0": "In transit",
+      "1": "In stock",
+      "2": "Shipped out"
+    },
+    "sale": {
+      "0": "Not listed",
+      "1": "Listed",
+      "2": "Sold",
+      "3": "Cancelled"
+    },
+    "voidedTag": "Voided",
+    "deletedTag": "Deleted",
+    "voidedWithReEntry": "This item was voided. Its new code after re-entry is {code}",
+    "voidedNoReEntry": "This item was voided (not re-entered yet). Remove the old label or cross it out with an oil-based pen",
+    "deletedNote": "This item is deleted and cannot be operated on here",
+    "viewerNote": "Inventory operations require editor permission or higher",
+    "noActions": "No actions available in the current state",
+    "action": {
+      "sell": "Sell",
+      "scrap": "Scrap",
+      "transfer": "Transfer",
+      "markListed": "Mark as listed",
+      "returnCustomer": "Accept return",
+      "returnVenue": "Return to venue"
+    },
+    "sell": {
+      "title": "Sell",
+      "price": "Sale price (optional)",
+      "pricePlaceholder": "e.g. 15000",
+      "priceHint": "If left blank, the price will be filled in later from the Yahoo Auction result",
+      "priceInvalid": "Enter a sale price between 1 and 99,999,999 yen",
+      "confirm": "Sell"
+    },
+    "scrap": {
+      "title": "Scrap",
+      "reason": "Reason",
+      "reasonPlaceholder": "e.g. Damaged",
+      "reasonRequired": "Enter the reason for scrapping",
+      "confirm": "Scrap"
+    },
+    "transfer": {
+      "title": "Transfer between warehouses",
+      "to": "Destination warehouse",
+      "confirm": "Transfer"
+    },
+    "return": {
+      "title": "Return",
+      "note": "Note (optional)",
+      "customerHint": "Accept a customer return and put the item back into stock",
+      "venueHint": "Record a return to the auction venue (shipped out)",
+      "confirm": "Record return"
+    },
+    "listed": {
+      "title": "Mark as listed",
+      "note": "Press this after manually listing the item on Yahoo Auction. It is recorded as listed without waiting for the CSV import.",
+      "confirm": "Mark as listed"
+    },
+    "done": {
+      "sell": "Sale recorded",
+      "scrap": "Scrap recorded",
+      "transfer": "Warehouse transferred",
+      "markListed": "Marked as listed",
+      "returnCustomer": "Return accepted",
+      "returnVenue": "Return to venue recorded"
+    }
   },
   "admin": {
     "status": "Status",

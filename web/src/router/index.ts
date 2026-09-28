@@ -53,6 +53,14 @@ const router = createRouter({
       meta: { titleKey: 'today.title' },
     },
     {
+      // 扫码操作（M3-④）：QR 定位+按状态渲染动作菜单，全员可看（操作仅编辑者以上，
+      // 服务端 403 兜底）
+      path: '/scan',
+      name: 'scan',
+      component: () => import('@/views/mobile/scan/ScanView.vue'),
+      meta: { titleKey: 'scan.title' },
+    },
+    {
       // 字典管理（M2-8b-2）：会场 E+（创建/改名现场自救，停用=管理员按钮内再收敛）
       path: '/admin/venues',
       name: 'admin-venues',
