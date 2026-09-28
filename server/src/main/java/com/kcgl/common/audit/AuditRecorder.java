@@ -53,18 +53,33 @@ public class AuditRecorder {
         if (authentication == null || !(authentication.getPrincipal() instanceof KcglUserDetails operator)) {
             throw new IllegalStateException("审计记录缺少认证上下文: action=" + action);
         }
+        insert(action, entityType, entityId, detail, operator.getUserId(), operator.getUsername(),
+                currentIp(), currentUa());
+    }
+
+    /**
+     * 后台线程版（无会话/请求上下文）：异步任务在提交线程捕获操作人显式传参
+     * （docs/01 5.3 operator 快照——异步线程不读 SecurityContext）；ip/ua 留 NULL。
+     */
+    public void record(String action, String entityType, Long entityId, Map<String, Object> detail,
+            long operatorId, String operatorName) {
+        insert(action, entityType, entityId, detail, operatorId, operatorName, null, null);
+    }
+
+    private void insert(String action, String entityType, Long entityId, Map<String, Object> detail,
+            long operatorId, String operatorName, String ip, String ua) {
         OperationLogEntity entry = new OperationLogEntity();
         entry.setAction(action);
         entry.setEntityType(entityType);
         entry.setEntityId(entityId);
         entry.setDetail(detail == null ? null : objectMapper.writeValueAsString(detail));
-        entry.setOperatorId(operator.getUserId());
-        entry.setOperatorName(operator.getUsername());
-        entry.setIp(currentIp());
-        entry.setUa(currentUa());
+        entry.setOperatorId(operatorId);
+        entry.setOperatorName(operatorName);
+        entry.setIp(ip);
+        entry.setUa(ua);
         entry.setCreatedAt(LocalDateTime.now(clock));
         mapper.insert(entry);
-        log.debug("审计 action={} entity={}/{} operator={}", action, entityType, entityId, operator.getUsername());
+        log.debug("审计 action={} entity={}/{} operator={}", action, entityType, entityId, operatorName);
     }
 
     /** 反代拓扑下取 X-Forwarded-For 首值，直连取 remoteAddr。 */

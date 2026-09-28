@@ -29,6 +29,11 @@ public enum ErrorCode {
     IMAGE_PIXEL_LIMIT(400007, "画像の解像度が上限（8000×8000）を超えています"),
     IMAGE_COUNT_LIMIT(400008, "商品画像は1件につき9枚までです"),
 
+    YAHOO_FILE_TOO_LARGE(400009, "CSVファイルは50MB以内にしてください"),
+    YAHOO_FILE_EMPTY(400010, "CSVファイルが空です"),
+    YAHOO_ROW_LIMIT(400011, "CSVの行数が上限（20万行）を超えています"),
+    YAHOO_ENCODING_UNDETECTABLE(400012, "CSVファイルの文字コードを判定できませんでした"),
+
     ACCOUNT_LOCKED(423001, "アカウントがロックされました。しばらくしてからもう一度お試しください"),
 
     USER_EXISTS(409001, "同じユーザー名が既に存在します"),
@@ -41,6 +46,7 @@ public enum ErrorCode {
     INVALID_TRANSITION(409008, "商品の現在の状態ではこの操作はできません。画面を再読み込みして確認してください"),
     STOCKTAKE_ACTIVE_EXISTS(409009, "この倉庫では実行中の棚卸があります。既存の棚卸を続けてください"),
     STOCKTAKE_STATUS_INVALID(409010, "この棚卸は現在の状態では操作できません。画面を再読み込みして確認してください"),
+    YAHOO_BATCH_DUPLICATE(409011, "同じ内容のCSVファイルは既にインポート済みです"),
     /** 乐观锁 version 冲突（通用：对象在操作窗口内被他人变更）。 */
     CONFLICT(409000, "操作対象が更新されています。画面を再読み込みしてもう一度お試しください"),
 

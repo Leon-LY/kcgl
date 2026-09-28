@@ -42,8 +42,11 @@ public final class InventoryStateMachine {
             new Transition(InventoryAction.RETURN_VENUE, 1, 2, null, 3),
             // 上架标记：在库（实物未动），未上架→在售
             new Transition(InventoryAction.LIST_UP, 1, 1, 0, 1),
-            // 成交标记（CSV）：在库，在售→成交
+            // 成交标记（CSV）：在库，在售→成交；未上架→成交（CSV 直报成交——
+            // 首次导入晚于出品导出窗口时系统从未记录 LIST_UP，跳过上架标记，
+            // 语义同 SELL 的 A10 未上架直卖；不补此边则 item 永不进 出荷待ち 且三视图不可见）
             new Transition(InventoryAction.SOLD_MARK, 1, 1, 1, 2),
+            new Transition(InventoryAction.SOLD_MARK, 1, 1, 0, 2),
             // 取消标记（CSV）：在库，在售→取消；取消→在售（重新出品，状态单调只前进的例外）
             new Transition(InventoryAction.CANCEL_MARK, 1, 1, 1, 3),
             new Transition(InventoryAction.CANCEL_MARK, 1, 1, 3, 1),

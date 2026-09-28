@@ -16,6 +16,11 @@ public final class ItemCodeFormatter {
     static final Pattern CODE_PATTERN = Pattern.compile(
             "^([A-Z]{2})([A-Z])(1[0-2]|[1-9])-([A-Z]{1,3})([1-9][0-9]?)([A-Z])?$");
 
+    /** 管理号形态校验（CSV 清洗/搜索快路径共用）：完整正则锚定匹配。 */
+    public static boolean matches(String code) {
+        return CODE_PATTERN.matcher(code).matches();
+    }
+
     private ItemCodeFormatter() {
     }
 
