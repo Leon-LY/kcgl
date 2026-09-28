@@ -189,6 +189,19 @@ describe('yahoo view (M4)', () => {
     )
   })
 
+  // 回归：el-table-column 以 {row:{}} 探测嵌套列时逐列调用默认插槽
+  // （element-plus table-column TableColumnRenderer），动态 i18n key 必须
+  // 空值兜底，否则空数据页也刷 common.warehouse.undefined 告警（E2E 实录）。
+  it('renders warehouse cells without missing-key warnings on the column probe pass', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { wrapper } = await mountView(3)
+    expect(wrapper.exists()).toBe(true)
+    // mockRestore 会清空 mock.calls——先快照再还原
+    const warnings = warnSpy.mock.calls.map((call) => String(call[0]))
+    warnSpy.mockRestore()
+    expect(warnings.filter((message) => message.includes('common.warehouse'))).toHaveLength(0)
+  })
+
   it('uploads the chosen CSV and refreshes the history', async () => {
     const { wrapper } = await mountView()
     expect(apiMocks.fetchYahooBatches).toHaveBeenCalledTimes(1)

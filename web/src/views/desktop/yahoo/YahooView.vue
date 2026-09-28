@@ -162,8 +162,10 @@ async function loadReconcile(): Promise<void> {
   }
 }
 
-function warehouseOf(row: YahooReconcileRow): string {
-  return t(`common.warehouse.${row.warehouse}`)
+// el-table-column 渲染列时以 {row:{}} 探测嵌套列（TableColumnRenderer），
+// 动态 i18n key 必须空值兜底——否则空数据页也刷 missing-key 告警
+function warehouseOf(warehouse: number | null | undefined): string {
+  return warehouse == null ? '—' : t(`common.warehouse.${warehouse}`)
 }
 
 // ------------------------------------------------------------- 装配
@@ -444,7 +446,7 @@ onBeforeUnmount(() => {
                 width="120"
               >
                 <template #default="{ row }">
-                  {{ t(`common.warehouse.${(row as YahooPendingShipment).warehouse}`) }}
+                  {{ warehouseOf((row as YahooPendingShipment).warehouse) }}
                 </template>
               </el-table-column>
               <el-table-column
@@ -551,7 +553,7 @@ onBeforeUnmount(() => {
                 width="140"
               >
                 <template #default="{ row }">
-                  {{ warehouseOf(row as YahooReconcileRow) }}
+                  {{ warehouseOf((row as YahooReconcileRow).warehouse) }}
                 </template>
               </el-table-column>
               <el-table-column
@@ -623,7 +625,7 @@ onBeforeUnmount(() => {
                 width="140"
               >
                 <template #default="{ row }">
-                  {{ warehouseOf(row as YahooReconcileRow) }}
+                  {{ warehouseOf((row as YahooReconcileRow).warehouse) }}
                 </template>
               </el-table-column>
               <el-table-column
@@ -686,7 +688,7 @@ onBeforeUnmount(() => {
                 width="140"
               >
                 <template #default="{ row }">
-                  {{ warehouseOf(row as YahooReconcileRow) }}
+                  {{ warehouseOf((row as YahooReconcileRow).warehouse) }}
                 </template>
               </el-table-column>
               <el-table-column
