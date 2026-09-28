@@ -25,6 +25,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { name: 'home', labelKey: 'nav.home', roles: null },
   { name: 'yahoo', labelKey: 'nav.yahoo', roles: null },
+  { name: 'excel', labelKey: 'nav.excel', roles: null },
   { name: 'print', labelKey: 'nav.print', roles: null },
   { name: 'admin-venues', labelKey: 'nav.venues', roles: [1, 2] },
   { name: 'admin-price-bands', labelKey: 'nav.priceBands', roles: [1] },

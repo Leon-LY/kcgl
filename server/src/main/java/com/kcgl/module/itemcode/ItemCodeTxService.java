@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.kcgl.common.audit.AuditRecorder;
 import com.kcgl.common.web.BizException;
 import com.kcgl.common.web.ErrorCode;
+import com.kcgl.common.util.CodeNormalizer;
+import com.kcgl.module.auth.KcglUserDetails;
 import com.kcgl.module.dict.PriceBandService;
 import com.kcgl.module.dict.dto.PriceBandResponse;
 import com.kcgl.module.dict.VenueEntity;
@@ -18,12 +20,15 @@ import com.kcgl.module.image.ImageMapper;
 import com.kcgl.module.item.ItemEntity;
 import com.kcgl.module.item.ItemMapper;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -115,11 +120,11 @@ public class ItemCodeTxService {
                 throw new BizException(ErrorCode.INTERNAL,
                         "管理号候补が連続して" + SKIP_LIMIT + "件使用済みのため、採番を中止しました");
             }
-            auditRecorder.record("ITEM_CODE_SKIP", "item_code", null, Map.of(
+            audit("ITEM_CODE_SKIP", "item_code", null, Map.of(
                     "code", candidate,
                     "venueId", cmd.venueId(),
                     "bucket", cmd.buyDate().getYear() + "-" + month,
-                    "reason", "uk_item_code_conflict"));
+                    "reason", "uk_item_code_conflict"), cmd);
         }
 
         bucket.setCurPrefix(prefix);
@@ -130,7 +135,7 @@ public class ItemCodeTxService {
         ItemEntity item = buildItem(cmd, venue, yearCode, band, code, prefix, seq, month);
         itemMapper.insert(item);
         ledgerMapper.insert(buildCreateLedger(cmd, item));
-        auditRecorder.record("ITEM_CREATE", "item", item.getId(), Map.of(
+        audit("ITEM_CREATE", "item", item.getId(), Map.of(
                 "itemCode", code,
                 "venueCode", venue.getCode(),
                 "year", cmd.buyDate().getYear(),
@@ -139,12 +144,88 @@ public class ItemCodeTxService {
                 "seqNo", seq,
                 "priceBand", band.code(),
                 "purchasePrice", cmd.purchasePrice(),
-                "skips", skips));
+                "skips", skips), cmd);
         if (source != null) {
             linkReEntry(source, item, cmd.operatorId());
         }
         // 生成列（total_cost/profit）由 DB 计算，重读回填——响应携带真实成本而非 null
         return itemMapper.selectById(item.getId());
+    }
+
+    /** 旧号导入结果：落库商品（生成列已回读）+ 计数器跳变说明（null=未推进）。 */
+    public record ImportedCode(ItemEntity item, String counterJumpNote) {
+    }
+
+    /**
+     * Excel 旧号导入（D-058 C/D）：管理号取自文件而非生成。与 {@link #allocateAndInsert}
+     * 共用校验/落库/流水/审计内部件，差异在取号段——不搜候选号，而是校验号与行数据
+     * 一致（会场段=会場コード列、年代号/月=落札日）后按位置序推进计数器。行级错误
+     * 抛 VALIDATION（调用方逐行捕获记错误行，坏行不连坐全批）。
+     * 不支持 reEntryOf：Excel 无该列，结构上不可达（linkReEntry 审计仍走会话版）。
+     * 价格码不回验（档位快照语义同生成路径，D-001）：号的末位字母按行单价重新匹配
+     * 档位后存储，与号内字母分歧时详情页由快照徽标呈现。
+     */
+    @Transactional
+    public ImportedCode insertImportedCode(CreateItemCommand cmd, String itemCode, String rowVenueCode) {
+        ItemEntity replayed = findReplayedCreate(cmd.clientReqId());
+        if (replayed != null) {
+            return new ImportedCode(replayed, null);
+        }
+
+        String normalized = CodeNormalizer.normalize(itemCode);
+        ItemCodeFormatter.ParsedCode parsed;
+        try {
+            parsed = ItemCodeFormatter.parse(normalized);
+        } catch (IllegalArgumentException e) {
+            throw new BizException(ErrorCode.VALIDATION, e.getMessage());
+        }
+        String rowCode = CodeNormalizer.normalize(rowVenueCode);
+        if (!parsed.venueCode().equals(rowCode)) {
+            throw new BizException(ErrorCode.VALIDATION, "管理番号の会場コード（" + parsed.venueCode()
+                    + "）と会場コード列（" + rowCode + "）が一致しません");
+        }
+
+        VenueEntity venue = requireVenueByCode(parsed.venueCode());
+        YearCodeEntity yearCode = requireYearCode(cmd.buyDate().getYear());
+        if (!yearCode.getCode().equals(parsed.yearCode())) {
+            throw new BizException(ErrorCode.VALIDATION,
+                    "管理番号の年代号（" + parsed.yearCode() + "）が落札日と一致しません");
+        }
+        if (parsed.month() != cmd.buyDate().getMonthValue()) {
+            throw new BizException(ErrorCode.VALIDATION,
+                    "管理番号の月（" + parsed.month() + "）が落札日と一致しません");
+        }
+        PriceBandResponse band = priceBandService.match(cmd.purchasePrice());
+
+        SeqItemCodeEntity bucket = lockOrCreateBucket(venue.getId(),
+                cmd.buyDate().getYear(), parsed.month());
+        if (!codeIsFree(normalized)) {
+            throw new BizException(ErrorCode.VALIDATION, "管理番号は既に使用されています: " + normalized);
+        }
+        String transition = advanceCounterForImport(bucket, parsed.prefix(), parsed.seq());
+        String jumpNote = transition == null ? null
+                : venue.getCode() + cmd.buyDate().getYear() + "-" + parsed.month() + " " + transition;
+
+        ItemEntity item = buildItem(cmd, venue, yearCode, band, normalized,
+                parsed.prefix(), parsed.seq(), parsed.month());
+        itemMapper.insert(item);
+        ledgerMapper.insert(buildCreateLedger(cmd, item));
+        Map<String, Object> detail = new HashMap<>();
+        detail.put("itemCode", normalized);
+        detail.put("venueCode", venue.getCode());
+        detail.put("year", cmd.buyDate().getYear());
+        detail.put("buyMonth", parsed.month());
+        detail.put("seqPrefix", parsed.prefix());
+        detail.put("seqNo", parsed.seq());
+        detail.put("priceBand", band.code());
+        detail.put("purchasePrice", cmd.purchasePrice());
+        detail.put("clientReqId", cmd.clientReqId());
+        if (jumpNote != null) {
+            detail.put("counterJump", jumpNote);
+        }
+        audit("ITEM_IMPORT", "item", item.getId(), detail, cmd);
+        // 生成列（total_cost/profit）由 DB 计算，重读回填
+        return new ImportedCode(itemMapper.selectById(item.getId()), jumpNote);
     }
 
     /**
@@ -292,6 +373,16 @@ public class ItemCodeTxService {
         return venue;
     }
 
+    /** 按会场码查会场（旧号导入路径：号内段为权威来源）；停用仍允许（补录语义同上）。 */
+    private VenueEntity requireVenueByCode(String code) {
+        VenueEntity venue = venueMapper.selectOne(
+                new LambdaQueryWrapper<VenueEntity>().eq(VenueEntity::getCode, code));
+        if (venue == null) {
+            throw new BizException(ErrorCode.VENUE_NOT_FOUND);
+        }
+        return venue;
+    }
+
     private YearCodeEntity requireYearCode(int year) {
         YearCodeEntity yearCode = yearCodeMapper.selectOne(
                 new LambdaQueryWrapper<YearCodeEntity>().eq(YearCodeEntity::getYear, year));
@@ -326,6 +417,47 @@ public class ItemCodeTxService {
         Long count = itemMapper.selectCount(
                 new LambdaQueryWrapper<ItemEntity>().eq(ItemEntity::getItemCode, code));
         return count == null || count == 0;
+    }
+
+    /**
+     * 旧号导入的计数器推进（D-058 D 位置序）：导入号在当前前缀内超前→推进 cur_seq；
+     * 前缀位置超前→整桶跳变 cur_prefix/cur_seq；号在计数器后方（历史旧号）→不动——
+     * 位置序只进不退，后续生成号永不与已导入号顶撞（uk 之外的前置保证）。前缀大小
+     * 用 {@link ItemCodeFormatter#prefixRank}（字符串比较方向错误，见其 javadoc）。
+     * 返回位置迁移说明（null=未推进）；调用方装饰桶上下文后入批次 note。
+     */
+    private String advanceCounterForImport(SeqItemCodeEntity bucket, String prefix, int seq) {
+        int curRank = ItemCodeFormatter.prefixRank(bucket.getCurPrefix());
+        int importRank = ItemCodeFormatter.prefixRank(prefix);
+        if (importRank < curRank) {
+            return null;
+        }
+        if (importRank == curRank && seq <= bucket.getCurSeq()) {
+            return null;
+        }
+        String from = bucket.getCurPrefix() + bucket.getCurSeq();
+        bucket.setCurPrefix(prefix);
+        bucket.setCurSeq(seq);
+        bucket.setUpdatedAt(LocalDateTime.now(clock));
+        seqMapper.updateById(bucket);
+        return from + "→" + prefix + seq;
+    }
+
+    /**
+     * 审计操作人解析：请求线程走会话快照（带 ip/ua）；Excel 导入等后台线程无
+     * SecurityContext，回落指令携带的操作人（与台账 operator 快照同源，ip/ua 留
+     * NULL——同 {@link AuditRecorder} 后台线程版契约，docs/01 5.3）。
+     */
+    private void audit(String action, String entityType, Long entityId,
+            Map<String, Object> detail, CreateItemCommand cmd) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null
+                && authentication.getPrincipal() instanceof KcglUserDetails) {
+            auditRecorder.record(action, entityType, entityId, detail);
+            return;
+        }
+        auditRecorder.record(action, entityType, entityId, detail,
+                cmd.operatorId(), cmd.operatorName());
     }
 
     private ItemEntity buildItem(CreateItemCommand cmd, VenueEntity venue, YearCodeEntity yearCode,

@@ -38,7 +38,7 @@ class YahooCsvTest {
 
     @BeforeEach
     void setUp() {
-        props = new YahooProperties();
+        props = YahooProperties.defaults();
         parser = new YahooRowParser(props);
     }
 

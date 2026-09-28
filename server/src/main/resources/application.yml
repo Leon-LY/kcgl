@@ -29,9 +29,10 @@ spring:
     timeout-per-shutdown-phase: 30s
   servlet:
     multipart:
-      # 容器层粗筛（>6MB 直接拒并映射 400006）；业务上限 5MB 由 ImageService 精确校验
-      max-file-size: 6MB
-      max-request-size: 8MB
+      # 容器层粗筛上限=全部业务上限最大值的余量（图片 5MB/CSV 50MB/Excel 20MB → 60MB）；
+      # 超限由容器拒收并映射 400016 UPLOAD_TOO_LARGE（通用文案），精确校验在各业务 Service
+      max-file-size: ${KCGL_MAX_FILE_SIZE:60MB}
+      max-request-size: ${KCGL_MAX_REQUEST_SIZE:64MB}
 
 server:
   port: 8080
@@ -82,6 +83,34 @@ kcgl:
       on-sale: [ "出品中" ]
       sold: [ "落札されました", "落札" ]
       canceled: [ "落札されませんでした", "取消", "取り消し" ]
+  excel:
+    # Excel 双模式导入/流式导出（docs/01 3.1）。模板列名与雅虎 CSV 同理放部署配置——
+    # 格式变更本需发版验证；列名需调整时改此段重启即适配
+    imports-dir: ${KCGL_EXCEL_IMPORTS_DIR:./data/excel-imports}
+    max-file-bytes: ${KCGL_EXCEL_MAX_FILE_BYTES:20971520}   # 20MB：2 万行 xlsx 上限
+    max-rows: ${KCGL_EXCEL_MAX_ROWS:20000}                   # 两周日量（1000 件/天）余量
+    zombie-minutes: ${KCGL_EXCEL_ZOMBIE_MINUTES:30}          # processing 超阈值的僵尸批次启动自愈
+    # 19 列固定索引契约（D-058 E）：前 13 列对齐录入表单字段，后 6 列为 D-017 扩展属性
+    columns:
+      item-code: "管理番号"
+      venue-code: "会場コード"
+      buy-date: "落札日"
+      purchase-price: "仕入単価"
+      fee: "手数料"
+      shipping-fee: "送料"
+      tax: "消費税"
+      warehouse: "倉庫"
+      warehouse-in-date: "入庫日"
+      shelf-no: "棚番号"
+      group-no: "グループ番号"
+      photo-date: "撮影日"
+      remark: "備考"
+      item-name: "商品名"
+      category: "分類"
+      author-kiln: "作者・窯元"
+      size-text: "サイズ"
+      weight-g: "重量（g）"
+      sales-channel: "販売チャネル"
   self-check:
     # 每日自检（M3-⑦）：数据量阈值按「活库存」口径（A20 确认后可调）；每日 04:17 JST 执行
     item-volume-threshold: ${KCGL_SELF_CHECK_ITEM_VOLUME:150000}

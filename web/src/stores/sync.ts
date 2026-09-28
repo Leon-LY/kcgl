@@ -34,6 +34,7 @@ const BUSINESS_TYPES = [
   'IMAGE',
   'STOCKTAKE',
   'YAHOO_IMPORT',
+  'EXCEL_IMPORT',
   'SETTING',
   'DICT',
 ] as const

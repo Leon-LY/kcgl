@@ -34,6 +34,12 @@ public enum ErrorCode {
     YAHOO_ROW_LIMIT(400011, "CSVの行数が上限（20万行）を超えています"),
     YAHOO_ENCODING_UNDETECTABLE(400012, "CSVファイルの文字コードを判定できませんでした"),
 
+    EXCEL_FILE_TOO_LARGE(400013, "Excelファイルは20MB以内にしてください"),
+    EXCEL_FILE_INVALID(400014, "Excelファイルが読み取れません。テンプレートをダウンロードして正しい形式で作成してください"),
+    EXCEL_ROW_LIMIT(400015, "Excelの行数が上限（2万行）を超えています"),
+    /** multipart 容器层粗筛超限（图片/CSV/Excel 全上传物通用）；上限经 env 可调故文案不带数字。 */
+    UPLOAD_TOO_LARGE(400016, "アップロードサイズが上限を超えています"),
+
     ACCOUNT_LOCKED(423001, "アカウントがロックされました。しばらくしてからもう一度お試しください"),
 
     USER_EXISTS(409001, "同じユーザー名が既に存在します"),
@@ -47,6 +53,7 @@ public enum ErrorCode {
     STOCKTAKE_ACTIVE_EXISTS(409009, "この倉庫では実行中の棚卸があります。既存の棚卸を続けてください"),
     STOCKTAKE_STATUS_INVALID(409010, "この棚卸は現在の状態では操作できません。画面を再読み込みして確認してください"),
     YAHOO_BATCH_DUPLICATE(409011, "同じ内容のCSVファイルは既にインポート済みです"),
+    EXCEL_BATCH_DUPLICATE(409012, "同じ内容のExcelファイルは既にインポート済みです"),
     /** 乐观锁 version 冲突（通用：对象在操作窗口内被他人变更）。 */
     CONFLICT(409000, "操作対象が更新されています。画面を再読み込みしてもう一度お試しください"),
 

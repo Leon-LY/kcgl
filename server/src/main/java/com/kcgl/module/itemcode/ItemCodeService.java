@@ -39,14 +39,27 @@ public class ItemCodeService {
     }
 
     public ItemEntity create(CreateItemCommand cmd) {
+        ItemEntity item = createWithRetry(cmd);
+        // 提交后广播（事务边界之外，同 InventoryActionService 模式）：他端的
+        // 在途清单/本日会话按 ITEM 域失效重取。重放读回同样走到这里——
+        // 多一次广播=他端多一次无害重取，不为省它给事务体加签名
+        sseHub.broadcast(SyncEvent.TYPE_ITEM, item.getItemCode(), cmd.operatorId());
+        return item;
+    }
+
+    /**
+     * 生成但不再广播（Excel 批量生成模式专用，D-058 B）：2 万行逐件广播=事件风暴，
+     * 由批次完成时的批次级单次广播（TYPE_EXCEL_IMPORT+TYPE_ITEM）替代；
+     * 重试/幂等语义与 {@link #create} 完全一致。
+     */
+    public ItemEntity createQuietly(CreateItemCommand cmd) {
+        return createWithRetry(cmd);
+    }
+
+    private ItemEntity createWithRetry(CreateItemCommand cmd) {
         for (int attempt = 1; ; attempt++) {
             try {
-                ItemEntity item = txService.allocateAndInsert(cmd);
-                // 提交后广播（事务边界之外，同 InventoryActionService 模式）：他端的
-                // 在途清单/本日会话按 ITEM 域失效重取。重放读回同样走到这里——
-                // 多一次广播=他端多一次无害重取，不为省它给事务体加签名
-                sseHub.broadcast(SyncEvent.TYPE_ITEM, item.getItemCode(), cmd.operatorId());
-                return item;
+                return txService.allocateAndInsert(cmd);
             } catch (DuplicateKeyException | CannotAcquireLockException
                     | DeadlockLoserDataAccessException e) {
                 if (attempt >= MAX_ATTEMPTS) {

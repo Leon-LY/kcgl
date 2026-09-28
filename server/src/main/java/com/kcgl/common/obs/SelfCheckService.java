@@ -22,8 +22,8 @@ import java.util.stream.Stream;
 
 /**
  * 每日自检（M3-⑦，docs/01 5.3/9.3 唯一定义）：账实对账（复用 LedgerConsistencyService
- * 的逐件头寸比对）、管理号计数器一致性（按桶 cur_seq≥MAX(seq_no)，落后=后续生成必撞
- * uk）、数据量阈值（item 15 万/流水 300 万/操作日志 300 万）、图片卷磁盘水位（80%）、
+ * 的逐件头寸比对）、管理号计数器一致性（按桶按当前前缀 cur_seq≥MAX(seq_no)，落后=后续
+ * 生成必撞 uk）、数据量阈值（item 15 万/流水 300 万/操作日志 300 万）、图片卷磁盘水位（80%）、
  * 图片文件双向对账（孤儿=盘有表无→清理候选；缺失=表有盘无→破图）。备份新鲜度检查
  * 随 M7 backup.sh 状态标记文件一并接入本入口。
  *
@@ -98,20 +98,31 @@ public class SelfCheckService {
     // ------------------------------------------------------------------ 各节检查
 
     /**
-     * 计数器一致性：cur_seq 落后于该桶已落库最大流水（含桶行丢失=IFNULL −1）——
-     * uk 由 DB 约束保证唯一，本检查防的是「计数器倒退后生成必撞 uk」的前兆。
+     * 计数器一致性：按桶按<b>当前前缀</b>比较 cur_seq ≥ MAX(seq_no)（桶行丢失=IFNULL −1 仍报）。
+     * MAX 必须限定 seq_prefix=cur_prefix：前缀进位（A99→B1）后 cur_seq 归 1，若跨前缀取 MAX
+     * 则恒 99>1，单桶过 99 件即永久误报（Excel 旧号导入任意非当前前缀的号同样触发）。
+     * 健康=计数器相对当前前缀的已落库号不落后；计数器超前（跳号/导入推进）是正常态。
      */
     private CounterSection checkCounters() {
         List<CounterMismatch> mismatches = jdbcTemplate.query("""
-                SELECT i.venue_id, i.year, i.buy_month, MAX(i.seq_no) AS max_seq,
-                       IFNULL(s.cur_seq, -1) AS cur_seq
-                FROM item i
+                SELECT b.venue_id, b.year, b.buy_month,
+                       s.cur_prefix,
+                       IFNULL(s.cur_seq, -1) AS cur_seq,
+                       IFNULL(pm.max_seq, 0) AS max_seq
+                FROM (SELECT DISTINCT venue_id, year, buy_month FROM item) b
                 LEFT JOIN seq_item_code s
-                       ON s.venue_id = i.venue_id AND s.year = i.year AND s.month = i.buy_month
-                GROUP BY i.venue_id, i.year, i.buy_month
-                HAVING cur_seq < max_seq
+                       ON s.venue_id = b.venue_id AND s.year = b.year AND s.month = b.buy_month
+                LEFT JOIN (
+                    SELECT venue_id, year, buy_month, seq_prefix, MAX(seq_no) AS max_seq
+                    FROM item
+                    GROUP BY venue_id, year, buy_month, seq_prefix
+                ) pm
+                       ON pm.venue_id = b.venue_id AND pm.year = b.year
+                      AND pm.buy_month = b.buy_month AND pm.seq_prefix = s.cur_prefix
+                WHERE IFNULL(s.cur_seq, -1) < IFNULL(pm.max_seq, 0)
                 """, (rs, n) -> new CounterMismatch(rs.getLong("venue_id"), rs.getInt("year"),
-                rs.getInt("buy_month"), rs.getInt("cur_seq"), rs.getInt("max_seq")));
+                rs.getInt("buy_month"), rs.getString("cur_prefix"), rs.getInt("cur_seq"),
+                rs.getInt("max_seq")));
         return new CounterSection(mismatches.isEmpty(), mismatches);
     }
 
@@ -273,8 +284,8 @@ public class SelfCheckService {
             int driftCount, List<LedgerConsistencyService.ItemDrift> drifts) {
     }
 
-    /** curSeq=-1 表示桶行丢失（item 已落库但计数器行不在）。 */
-    public record CounterMismatch(long venueId, int year, int month, int curSeq, int maxSeq) {
+    /** curSeq=-1 表示桶行丢失（item 已落库但计数器行不在）；maxSeq 仅统计当前前缀（curPrefix）的行。 */
+    public record CounterMismatch(long venueId, int year, int month, String curPrefix, int curSeq, int maxSeq) {
     }
 
     public record CounterSection(boolean ok, List<CounterMismatch> mismatches) {

@@ -64,4 +64,29 @@ class ItemCodeFormatterTest {
         assertThatThrownBy(() -> ItemCodeFormatter.parse(code))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @ParameterizedTest
+    @CsvSource({
+            "A, 1", "B, 2", "Y, 25", "Z, 26", "AA, 27", "AZ, 52",
+            "BA, 53", "ZZ, 702", "AAA, 703", "ZZZ, 18278",
+    })
+    void prefixRank_knownPrefixes_returnsBigEndianPosition(String prefix, int expected) {
+        assertThat(ItemCodeFormatter.prefixRank(prefix)).isEqualTo(expected);
+    }
+
+    /** 红证 String.compareTo 方向错误：字典序 Z＞AA，与进位序 Z＜AA 相反（D-058 D）。 */
+    @Test
+    void prefixRank_zVersusAa_oppositeOfStringCompare() {
+        assertThat("Z".compareTo("AA")).isPositive();
+        assertThat(ItemCodeFormatter.prefixRank("Z"))
+                .isLessThan(ItemCodeFormatter.prefixRank("AA"));
+    }
+
+    /** 权值与进位链互恰：nextPrefix 恒 +1（导入计数器跳变判定的正确性根基）。 */
+    @ParameterizedTest
+    @ValueSource(strings = {"A", "Z", "AA", "AZ", "BA", "ZZ", "AAA", "ZZA", "ZZZ"})
+    void prefixRank_nextPrefixChain_incrementsByOne(String prefix) {
+        assertThat(ItemCodeFormatter.prefixRank(ItemCodeFormatter.nextPrefix(prefix)))
+                .isEqualTo(ItemCodeFormatter.prefixRank(prefix) + 1);
+    }
 }

@@ -27,6 +27,9 @@ public record SyncEvent(long seq, String type, String entity, Long operatorId, L
     /** 雅虎导入域：批次完成。 */
     public static final String TYPE_YAHOO_IMPORT = "YAHOO_IMPORT";
 
+    /** Excel 导入域：批次完成（2 万件逐件广播=事件风暴，批次级单次广播）。 */
+    public static final String TYPE_EXCEL_IMPORT = "EXCEL_IMPORT";
+
     /** 设置域：sys_setting 变更。 */
     public static final String TYPE_SETTING = "SETTING";
 

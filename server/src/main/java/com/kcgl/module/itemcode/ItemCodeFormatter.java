@@ -44,6 +44,19 @@ public final class ItemCodeFormatter {
         return "A" + new String(chars);
     }
 
+    /**
+     * 前缀位置序权值（base-26 大端：A=1、Z=26、AA=27、AZ=52、AAA=703）——长度优先再
+     * 字典序，与 {@link #nextPrefix} 进位序一致。不可用 String.compareTo 替代：字典序
+     * "Z"＞"AA" 与进位序 Z＜AA 方向相反（Excel 旧号导入判定计数器是否被超越，D-058 D）。
+     */
+    public static int prefixRank(String prefix) {
+        int rank = 0;
+        for (int i = 0; i < prefix.length(); i++) {
+            rank = rank * 26 + (prefix.charAt(i) - 'A' + 1);
+        }
+        return rank;
+    }
+
     /** 拆解管理号六段（与 format 互逆；无价格码时 bandCode=null）。 */
     public static ParsedCode parse(String code) {
         Matcher matcher = CODE_PATTERN.matcher(code);

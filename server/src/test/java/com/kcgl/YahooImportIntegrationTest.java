@@ -1,5 +1,6 @@
 package com.kcgl;
 
+import com.kcgl.module.yahoo.YahooProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,6 +63,15 @@ class YahooImportIntegrationTest {
     MockMvc mockMvc;
     @Autowired
     JdbcTemplate jdbcTemplate;
+    @Autowired
+    YahooProperties yahooProperties;
+
+    @Test
+    void propertiesBinding_inlineOverrideTakesEffect() {
+        // 绑定回归锚点：record 带额外无参构造器曾静默禁用构造器绑定（与 Excel 同源缺陷，
+        // 生产 yml 值恰与代码默认一致故无感）
+        assertThat(yahooProperties.importsDir()).isEqualTo("target/yahoo-test-imports");
+    }
 
     long venueId;
 

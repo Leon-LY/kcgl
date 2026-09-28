@@ -81,7 +81,8 @@
     "priceBands": "Price bands",
     "yearCodes": "Year codes",
     "users": "Users",
-    "yahoo": "Yahoo"
+    "yahoo": "Yahoo",
+    "excel": "Excel"
   },
   "entry": {
     "title": "Item Entry",
@@ -478,7 +479,12 @@
     "400010": "The CSV file is empty.",
     "400011": "The CSV exceeds the row limit (200,000).",
     "400012": "The CSV file encoding could not be detected.",
-    "409011": "This exact CSV file has already been imported."
+    "409011": "This exact CSV file has already been imported.",
+    "400013": "Excel files must be 20MB or smaller.",
+    "400014": "The Excel file could not be read. Download the template and use the correct format.",
+    "400015": "The Excel file exceeds the row limit (20,000 rows).",
+    "400016": "The upload exceeds the size limit.",
+    "409012": "This exact Excel file has already been imported."
   },
   "yahoo": {
     "title": "Yahoo integration",
@@ -538,6 +544,50 @@
       "soldPrice": "Sold price",
       "loadFailed": "Failed to load reconciliation.",
       "note": "Rows in the CSV but not in the system appear in each import report as unmatched."
+    }
+  },
+  "excel": {
+    "title": "Excel",
+    "import": {
+      "title": "Import",
+      "template": "Download template",
+      "upload": "Import Excel file",
+      "uploading": "Uploading…",
+      "roleDenied": "Importing requires editor role or above.",
+      "hint": "Upload a file in the same format as the template item sheet (19 columns). Rows without an item code get one generated; rows with a code are registered as-is.",
+      "listTitle": "Import history",
+      "filename": "File",
+      "statusProcessing": "Processing",
+      "statusDone": "Done",
+      "statusFailed": "Failed",
+      "rowCount": "Rows",
+      "generated": "Generated",
+      "imported": "Existing codes",
+      "errorCount": "Errors",
+      "note": "Numbering note",
+      "uploadedAt": "Uploaded",
+      "finishedAt": "Finished",
+      "errorMessage": "Error",
+      "errorRows": "Error rows (first 1000)",
+      "errorLine": "Line",
+      "errorRaw": "Row content",
+      "errorReason": "Reason",
+      "emptyList": "No imports yet.",
+      "noteHint": "The numbering note records when importing existing codes advanced the counter (e.g. A0→A5). Later generated codes continue from the advanced position."
+    },
+    "export": {
+      "title": "Export",
+      "rangeLabel": "Created date",
+      "rangeFrom": "From",
+      "rangeTo": "To",
+      "venueLabel": "Venue",
+      "venueAll": "All venues",
+      "codeLabel": "Item code",
+      "codePlaceholder": "Enter to export that single item",
+      "download": "Export",
+      "downloading": "Exporting…",
+      "hint": "Exports a report (25 columns). The created date range is required; the file includes total cost and profit.",
+      "rangeInverted": "The start date is after the end date."
     }
   }
 }

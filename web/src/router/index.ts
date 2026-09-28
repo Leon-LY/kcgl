@@ -130,6 +130,14 @@ const router = createRouter({
       meta: { titleKey: 'yahoo.title' },
     },
     {
+      // エクセル連携（M4-⑤，D-058）：模板下载/双模式导入/帳票导出，全员可读；
+      // 模板与上传仅编辑者以上（服务端 @PreAuthorize 兜底）
+      path: '/excel',
+      name: 'excel',
+      component: () => import('@/views/desktop/excel/ExcelView.vue'),
+      meta: { titleKey: 'excel.title' },
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/',
     },

@@ -47,13 +47,14 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * multipart 容器层粗筛（>6MB 在进入业务前被拒）：与应用层 5MB 上限同文案同码，
-     * 前端只见到一种「画像サイズが上限（5MB）を超えています」。
+     * multipart 容器层粗筛超限（图片 5MB/CSV 50MB/Excel 20MB 各业务上限的余量 60MB）：
+     * 进入业务校验前被 Tomcat 拒收。通用码（不区分业务——该层拿不到目标端点语义），
+     * 文案不带数字（上限经 KCGL_MAX_FILE_SIZE 可调，写死会陈旧）；精确校验与专属文案在各业务 Service。
      */
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ApiResponse<Void>> onMaxUpload(MaxUploadSizeExceededException ex) {
         return ResponseEntity.badRequest()
-                .body(ApiResponse.error(ErrorCode.IMAGE_TOO_LARGE));
+                .body(ApiResponse.error(ErrorCode.UPLOAD_TOO_LARGE));
     }
 
     /**

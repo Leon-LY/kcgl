@@ -302,4 +302,63 @@ class SelfCheckIntegrationTest {
                 .andExpect(jsonPath("$.data.total").value(5))
                 .andExpect(jsonPath("$.data.list[0].type").exists());
     }
+
+    // ------------------------------------------------------------- 计数器跨前缀回归（D-058 H）
+
+    /**
+     * 前缀进位后（A 前缀遗留号高于 B 前缀现值）健康态不得误报：
+     * A1..A9+B1..B2、计数器 (B,2)——跨前缀 MAX(seq_no)=9＞cur_seq 2 旧 SQL 必误报
+     * 「カウンタ不整合」（单桶过 99 件即永久 ERROR，狼来了效应），按当前前缀比较才是健康语义。
+     */
+    @Test
+    void checkCounters_afterPrefixCarryWithLegacyHigherSeq_notFlagged() {
+        long editorId = jdbcTemplate.queryForObject(
+                "SELECT id FROM sys_user WHERE username = 'eichi'", Long.class);
+        for (int seq = 1; seq <= 9; seq++) {
+            seedCounterItem(editorId, "HTK9-A" + seq + "X", "A", seq);
+        }
+        for (int seq = 1; seq <= 2; seq++) {
+            seedCounterItem(editorId, "HTK9-B" + seq + "X", "B", seq);
+        }
+        jdbcTemplate.update("""
+                INSERT INTO seq_item_code(venue_id, year, month, cur_prefix, cur_seq)
+                VALUES (?, 2026, 9, 'B', 2)
+                """, venueId);
+
+        SelfCheckService.SelfCheckReport report = selfCheck.check();
+        assertThat(report.counters().ok()).as("前缀进位后按当前前缀比较应健康").isTrue();
+        assertThat(report.counters().mismatches()).isEmpty();
+    }
+
+    /** 当前前缀内计数器真实落后（生成必撞 uk 前兆）仍须告警，且明细携带前缀。 */
+    @Test
+    void checkCounters_currentPrefixBehindMaxSeq_flaggedWithPrefixDetail() {
+        long editorId = jdbcTemplate.queryForObject(
+                "SELECT id FROM sys_user WHERE username = 'eichi'", Long.class);
+        seedCounterItem(editorId, "HTK9-A1X", "A", 1);
+        seedCounterItem(editorId, "HTK9-B1X", "B", 1);
+        seedCounterItem(editorId, "HTK9-B2X", "B", 2);
+        jdbcTemplate.update("""
+                INSERT INTO seq_item_code(venue_id, year, month, cur_prefix, cur_seq)
+                VALUES (?, 2026, 9, 'B', 0)
+                """, venueId);
+
+        SelfCheckService.SelfCheckReport report = selfCheck.check();
+        assertThat(report.counters().ok()).isFalse();
+        assertThat(report.counters().mismatches()).hasSize(1);
+        SelfCheckService.CounterMismatch mismatch = report.counters().mismatches().get(0);
+        assertThat(mismatch.curPrefix()).isEqualTo("B");
+        assertThat(mismatch.curSeq()).isZero();
+        assertThat(mismatch.maxSeq()).as("仅统计 B 前缀的行").isEqualTo(2);
+    }
+
+    /** 直插 item 行（在途态，不写 ledger）供计数器检查夹具用。 */
+    private void seedCounterItem(long userId, String itemCode, String seqPrefix, int seqNo) {
+        jdbcTemplate.update("""
+                INSERT INTO item(item_code, venue_id, venue_code, year, year_code, buy_month,
+                    seq_prefix, seq_no, buy_date, purchase_price, price_band_code, warehouse,
+                    stock_status, sale_status, created_by)
+                VALUES (?, ?, 'HT', 2026, 'K', 9, ?, ?, '2026-09-15', 1000, 'X', 1, 0, 0, ?)
+                """, itemCode, venueId, seqPrefix, seqNo, userId);
+    }
 }

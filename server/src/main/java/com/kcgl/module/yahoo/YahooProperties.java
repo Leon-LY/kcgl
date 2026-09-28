@@ -39,9 +39,14 @@ public record YahooProperties(
         }
     }
 
-    /** 测试/默认构造（全走 compact 构造器的兜底值）。 */
-    public YahooProperties() {
-        this(null, null, null, null, null, null, null);
+    /**
+     * 测试/默认实例工厂（全走 compact 构造器的兜底值）。
+     * 必须是静态方法而非额外无参构造器：多一个非 private 构造器会让 Boot 放弃
+     * 构造器绑定→JavaBean 绑定→record 无 setter→整个属性类静默不绑定
+     * （与 ExcelProperties 同源缺陷，2026-09-28 全链路定位修复）。
+     */
+    public static YahooProperties defaults() {
+        return new YahooProperties(null, null, null, null, null, null, null);
     }
 
     public Path importsRoot() {

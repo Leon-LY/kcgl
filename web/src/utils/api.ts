@@ -775,3 +775,128 @@ export function fetchYahooReconcile(): Promise<YahooReconcile> {
 export function fetchPendingShipments(): Promise<YahooPendingShipmentList> {
   return request('/api/yahoo/pending-shipments', { method: 'GET' })
 }
+
+// ------------------------------------------------------------------ Excel 导入导出（M4-⑤，D-058）
+
+/** 错误行采样条目（后端前 1000 条采样）。 */
+export interface ExcelImportErrorRow {
+  line: number
+  raw: string
+  reason: string
+}
+
+/** 导入批次报告：status 0处理中 1完成 2失败；note=计数器跳变说明（A0→A5 等）。 */
+export interface ExcelImportBatch {
+  id: number
+  originalFilename: string
+  status: number
+  rowCount: number
+  generatedCount: number
+  importedCount: number
+  errorCount: number
+  note: string | null
+  errorMessage: string | null
+  uploadedBy: number
+  createdAt: string | null
+  finishedAt: string | null
+  errorRows: ExcelImportErrorRow[]
+}
+
+/** 导出筛选（与打印列表同口径）：日期区间必填、会场可选、管理番号可选（単票抽出优先）。 */
+export interface ExcelExportParams {
+  createdFrom: string
+  createdTo: string
+  venueId?: number | null
+  code?: string
+}
+
+/** 二进制下载结果：blob + 从 Content-Disposition 解析的文件名。 */
+export interface BlobDownload {
+  blob: Blob
+  filename: string
+}
+
+/**
+ * 二进制下载（模板/导出=原始 xlsx 流，无 JSON 信封）；失败时后端仍回 JSON
+ * 信封（如倒挂区间 400）→ 标准化为 ApiError。成功路径不走 response.json()。
+ */
+async function requestBlob(path: string, fallbackFilename: string): Promise<BlobDownload> {
+  let response: Response
+  try {
+    response = await fetch(path)
+  } catch {
+    throw new ApiError(0, 'NETWORK_ERROR')
+  }
+  if (!response.ok) {
+    if (response.status === 401 && unauthorizedHandler) {
+      unauthorizedHandler()
+    }
+    let envelope: ApiEnvelope<unknown> | null = null
+    try {
+      envelope = (await response.json()) as ApiEnvelope<unknown>
+    } catch {
+      envelope = null
+    }
+    if (envelope && envelope.code !== 0) {
+      throw new ApiError(envelope.code, envelope.message, envelope.errorId, envelope.data)
+    }
+    throw new ApiError(0, 'INVALID_RESPONSE', undefined, { status: response.status })
+  }
+  return { blob: await response.blob(), filename: filenameFrom(response.headers, fallbackFilename) }
+}
+
+/** Content-Disposition 解析：RFC 5987 filename*=UTF-8''… 优先，回退 filename=…。 */
+function filenameFrom(headers: Headers, fallback: string): string {
+  const disposition = headers.get('Content-Disposition')
+  if (disposition) {
+    const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(disposition)
+    if (utf8) {
+      try {
+        return decodeURIComponent(utf8[1])
+      } catch {
+        // 非法百分号序列：落到 filename= 回退
+      }
+    }
+    const plain = /filename="?([^";]+)"?/i.exec(disposition)
+    if (plain) {
+      return plain[1]
+    }
+  }
+  return fallback
+}
+
+/** 模板下载（双 Sheet：商品表头+記入方法；流式生成不落盘）。 */
+export function downloadExcelTemplate(): Promise<BlobDownload> {
+  return requestBlob('/api/excel/items/template', '商品登録テンプレート.xlsx')
+}
+
+/** 上传（同步段）：毫秒级返回 processing 批次；sha 重复 409012、队列满 429001。 */
+export function uploadExcelWorkbook(form: FormData): Promise<ExcelImportBatch> {
+  return request('/api/excel/items/import', { method: 'POST', body: form })
+}
+
+/** 批次列表（最新 50）。 */
+export function fetchExcelBatches(): Promise<ExcelImportBatch[]> {
+  return request('/api/excel/items/imports', { method: 'GET' })
+}
+
+/** 批次详情（含错误行采样与跳变说明；上传后轮询至终态）。 */
+export function fetchExcelBatch(id: number): Promise<ExcelImportBatch> {
+  return request(`/api/excel/items/imports/${id}`, { method: 'GET' })
+}
+
+/** 流式导出（报告口径 25 列）；无码条件时倒挂区间由后端 400 拦截。 */
+export function downloadExcelExport(params: ExcelExportParams): Promise<BlobDownload> {
+  const search = new URLSearchParams({
+    createdFrom: params.createdFrom,
+    createdTo: params.createdTo,
+  })
+  if (params.venueId != null) {
+    search.set('venueId', String(params.venueId))
+  }
+  const code = params.code?.trim()
+  if (code) {
+    search.set('code', code)
+  }
+  return requestBlob(`/api/excel/items/export?${search.toString()}`, '商品一覧.xlsx')
+}

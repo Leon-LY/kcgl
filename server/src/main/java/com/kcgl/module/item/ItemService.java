@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.kcgl.common.audit.AuditRecorder;
 import com.kcgl.common.sse.SseHub;
+import com.kcgl.common.util.CodeNormalizer;
 import com.kcgl.common.sse.SyncEvent;
 import com.kcgl.common.web.BizException;
 import com.kcgl.common.web.ErrorCode;
@@ -45,6 +46,8 @@ public class ItemService {
     private static final int MAX_PAGE_SIZE = 100;
     /** 重录反链最大跳数（防脏数据成环；正常深度 1-2 跳）。 */
     private static final int MAX_RE_ENTRY_HOPS = 10;
+    /** 导出 keyset 分页批大小（forEachItemForExport）。 */
+    private static final int EXPORT_PAGE_SIZE = 500;
 
     private final ItemMapper itemMapper;
     private final StockLedgerMapper ledgerMapper;
@@ -203,6 +206,47 @@ public class ItemService {
                 .map(item -> ItemSummaryResponse.from(item, firstThumbs.get(item.getId())))
                 .toList();
         return new ItemListResponse(result.getTotal(), safePage, safeSize, rows);
+    }
+
+    /**
+     * 导出流式遍历（M4-⑤，D-058 F）：筛选语义与 {@link #listForPrint} 完全一致
+     * （同一数据源单一出处——两处查询漂移=导出与列表对不上）；差异仅取数方式——
+     * keyset 分页（id 升序 LIMIT 批次）逐批回调，5 万行不整表进堆（docs/01 五节）。
+     * 排除作废/软删件（导出=报告口径，非回收站）。
+     */
+    public void forEachItemForExport(LocalDate createdFrom, LocalDate createdTo,
+            Long venueId, String code, java.util.function.Consumer<ItemEntity> consumer) {
+        String normalizedCode = code != null && !code.isBlank()
+                ? CodeNormalizer.normalize(code) : null;
+        if (normalizedCode == null && createdFrom.isAfter(createdTo)) {
+            throw new BizException(ErrorCode.VALIDATION, "作成日範囲の開始が終了より後になっています");
+        }
+        Long lastId = 0L;
+        while (true) {
+            LambdaQueryWrapper<ItemEntity> wrapper = new LambdaQueryWrapper<ItemEntity>()
+                    .eq(ItemEntity::getVoided, 0)
+                    .eq(ItemEntity::getDeleted, 0)
+                    .gt(ItemEntity::getId, lastId)
+                    .orderByAsc(ItemEntity::getId)
+                    .last("LIMIT " + EXPORT_PAGE_SIZE);
+            if (normalizedCode != null) {
+                // 単票抽出（単票再印刷と同優先）：码条件优先于日期/会场条件
+                wrapper.eq(ItemEntity::getItemCode, normalizedCode);
+            } else {
+                wrapper.ge(ItemEntity::getCreatedAt, LocalDateTime.of(createdFrom, LocalTime.MIN))
+                        .lt(ItemEntity::getCreatedAt, LocalDateTime.of(createdTo.plusDays(1), LocalTime.MIN))
+                        .eq(venueId != null, ItemEntity::getVenueId, venueId);
+            }
+            List<ItemEntity> page = itemMapper.selectList(wrapper);
+            if (page.isEmpty()) {
+                return;
+            }
+            page.forEach(consumer);
+            lastId = page.get(page.size() - 1).getId();
+            if (page.size() < EXPORT_PAGE_SIZE) {
+                return;
+            }
+        }
     }
 
     // ------------------------------------------------------------------ 内部

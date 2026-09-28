@@ -100,8 +100,9 @@ const child = spawn('java', ['-jar', path.join(TARGET_DIR, jar)], {
     DB_PASSWORD,
     // Vite 代理转发保留浏览器 Origin 头——后端 Origin 白名单需放行 dev server 端口
     KCGL_ALLOWED_ORIGINS: `http://127.0.0.1:${WEB_PORT},http://localhost:${WEB_PORT}`,
-    // CSV 原始文件（sha 命名）落系统临时目录——不污染 web/ 工作区
+    // CSV/Excel 原始文件（sha 命名）落系统临时目录——不污染 web/ 工作区
     KCGL_YAHOO_IMPORTS_DIR: path.join(tmpdir(), 'kcgl-e2e-imports'),
+    KCGL_EXCEL_IMPORTS_DIR: path.join(tmpdir(), 'kcgl-e2e-excel-imports'),
   },
   stdio: 'inherit',
 })

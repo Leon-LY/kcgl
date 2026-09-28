@@ -38,7 +38,7 @@ class V1SchemaMigrationTest {
     JdbcTemplate jdbc;
 
     @Test
-    void migration_createsAll17Tables() {
+    void migration_createsAll18Tables() {
         List<String> tables = jdbc.queryForList(
                 "SELECT table_name FROM information_schema.tables "
                         + "WHERE table_schema = DATABASE() AND table_name <> 'flyway_schema_history' "
@@ -47,7 +47,8 @@ class V1SchemaMigrationTest {
                 "sys_user", "auction_venue", "year_code", "price_band", "item",
                 "seq_item_code", "item_image", "stock_ledger", "yahoo_listing",
                 "yahoo_import_batch", "stocktake", "stocktake_scan", "stocktake_diff",
-                "operation_log", "sys_setting", "sys_alert", "client_error");
+                "operation_log", "sys_setting", "sys_alert", "client_error",
+                "excel_import_batch");
     }
 
     @Test
@@ -106,5 +107,34 @@ class V1SchemaMigrationTest {
         Integer profit = jdbc.queryForObject(
                 "SELECT profit FROM item WHERE item_code = 'HTK9-A1X'", Integer.class);
         assertThat(profit).isNull();
+    }
+
+    /**
+     * V2 前向迁移伴随锚点（D-058 J）：V2 为纯加法（新建 excel_import_batch，不动既有表），
+     * 既有种子数据经完整迁移链（V1→V2）后不变——yearCodeSeed/sysSettingSeed 两用例在本类
+     * 先后运行即承担「行不变」断言；此处钉死新表形状与约束。
+     */
+    @Test
+    void v2ExcelImportBatch_constraintsEnforced() {
+        String sha = "a".repeat(64);
+        jdbc.update("""
+                INSERT INTO excel_import_batch(file_sha256, original_filename, uploaded_by)
+                VALUES (?, 'items.xlsx', 1)
+                """, sha);
+        assertThat(jdbc.queryForObject(
+                "SELECT status FROM excel_import_batch WHERE original_filename = 'items.xlsx'",
+                Integer.class)).isZero();
+        // 状态值域 CHECK
+        assertThatThrownBy(() -> jdbc.update(
+                "UPDATE excel_import_batch SET status = 3 WHERE original_filename = 'items.xlsx'"))
+                .isInstanceOf(DataAccessException.class)
+                .hasMessageContaining("chk_excel_batch_status");
+        // 同 sha 重复上传幂等键
+        assertThatThrownBy(() -> jdbc.update("""
+                INSERT INTO excel_import_batch(file_sha256, original_filename, uploaded_by)
+                VALUES (?, 'items-again.xlsx', 1)
+                """, sha))
+                .isInstanceOf(DataAccessException.class)
+                .hasMessageContaining("uk_sha");
     }
 }
