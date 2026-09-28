@@ -1,0 +1,887 @@
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { useSyncInvalidation } from '@/composables/useSyncInvalidation'
+import { formatJstDateTime, formatYen } from '@/utils/format'
+import { toDisplayMessage } from '@/utils/errors'
+import {
+  fetchPendingShipments,
+  fetchYahooBatches,
+  fetchYahooReconcile,
+  uploadYahooCsv,
+} from '@/utils/api'
+import type {
+  YahooImportBatch,
+  YahooPendingShipment,
+  YahooReconcile,
+  YahooReconcileRow,
+} from '@/utils/api'
+
+/**
+ * 雅虎联动桌面页（M4，docs/01 7.2/7.4）：三标签——CSV 导入（上传毫秒级受理+
+ * 处理中批次 2s 轮询/SSE 双通道接力终态、错误行展开）、出荷待ち（拣货队列，
+ * 行内直达扫码卖出）、照合三活视图（滞留红标/近期同步降灰）。上传仅编辑者
+ * 以上；读取全员（服务端 @PreAuthorize 兜底）。
+ */
+
+const POLL_INTERVAL_MS = 2000
+
+const { t } = useI18n()
+const auth = useAuthStore()
+const router = useRouter()
+
+const canUpload = computed(() => auth.me != null && auth.me.role <= 2)
+
+const activeTab = ref('import')
+
+// ------------------------------------------------------------- CSV 导入
+
+const batches = ref<YahooImportBatch[]>([])
+const batchesError = ref('')
+const uploading = ref(false)
+const uploadError = ref('')
+const fileInput = ref<HTMLInputElement | null>(null)
+let batchesSeq = 0
+let pollTimer: number | undefined
+
+/** 处理中批次存在时启动 2s 轮询（SSE 断连兜底），全部终态即停。 */
+function syncPolling(): void {
+  const hasProcessing = batches.value.some((batch) => batch.status === 0)
+  if (hasProcessing && pollTimer === undefined) {
+    pollTimer = window.setInterval(() => {
+      void loadBatches()
+    }, POLL_INTERVAL_MS)
+  } else if (!hasProcessing && pollTimer !== undefined) {
+    window.clearInterval(pollTimer)
+    pollTimer = undefined
+  }
+}
+
+async function loadBatches(): Promise<void> {
+  const seq = ++batchesSeq
+  batchesError.value = ''
+  try {
+    const data = await fetchYahooBatches()
+    if (seq !== batchesSeq) {
+      return
+    }
+    batches.value = data
+    syncPolling()
+  } catch (error) {
+    if (seq !== batchesSeq) {
+      return
+    }
+    batchesError.value = toDisplayMessage(error, t)
+  }
+}
+
+function pickFile(): void {
+  fileInput.value?.click()
+}
+
+async function onFileChange(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = '' // 清空选择：同一文件修正后（如 409 提示）可再次触发 change
+  if (file == null || uploading.value) {
+    return
+  }
+  uploading.value = true
+  uploadError.value = ''
+  try {
+    const form = new FormData()
+    form.append('file', file)
+    await uploadYahooCsv(form)
+    await loadBatches()
+  } catch (error) {
+    uploadError.value = toDisplayMessage(error, t)
+  } finally {
+    uploading.value = false
+  }
+}
+
+function statusText(status: number): string {
+  return status === 0
+    ? t('yahoo.import.statusProcessing')
+    : status === 1 ? t('yahoo.import.statusDone') : t('yahoo.import.statusFailed')
+}
+
+function statusClass(status: number): string {
+  return status === 0 ? 'is-processing' : status === 1 ? 'is-done' : 'is-failed'
+}
+
+// ------------------------------------------------------------- 出荷待ち
+
+const shipmentItems = ref<YahooPendingShipment[]>([])
+const shipmentsError = ref('')
+let shipmentsSeq = 0
+
+async function loadShipments(): Promise<void> {
+  const seq = ++shipmentsSeq
+  shipmentsError.value = ''
+  try {
+    const data = await fetchPendingShipments()
+    if (seq !== shipmentsSeq) {
+      return
+    }
+    shipmentItems.value = data.items
+  } catch (error) {
+    if (seq !== shipmentsSeq) {
+      return
+    }
+    shipmentsError.value = toDisplayMessage(error, t)
+  }
+}
+
+function goSell(item: YahooPendingShipment): void {
+  void router.push({ name: 'scan', query: { code: item.itemCode } })
+}
+
+// ------------------------------------------------------------- 照合
+
+const reconcileData = ref<YahooReconcile | null>(null)
+const reconcileError = ref('')
+let reconcileSeq = 0
+
+async function loadReconcile(): Promise<void> {
+  const seq = ++reconcileSeq
+  reconcileError.value = ''
+  try {
+    const data = await fetchYahooReconcile()
+    if (seq !== reconcileSeq) {
+      return
+    }
+    reconcileData.value = data
+  } catch (error) {
+    if (seq !== reconcileSeq) {
+      return
+    }
+    reconcileError.value = toDisplayMessage(error, t)
+  }
+}
+
+function warehouseOf(row: YahooReconcileRow): string {
+  return t(`common.warehouse.${row.warehouse}`)
+}
+
+// ------------------------------------------------------------- 装配
+
+function reloadAll(): void {
+  void loadBatches()
+  void loadShipments()
+  void loadReconcile()
+}
+
+// 卖出（INVENTORY）与 CSV 回写（YAHOO_IMPORT）都会改变三份数据
+useSyncInvalidation(['INVENTORY', 'YAHOO_IMPORT'], reloadAll)
+
+onMounted(reloadAll)
+
+onBeforeUnmount(() => {
+  if (pollTimer !== undefined) {
+    window.clearInterval(pollTimer)
+  }
+})
+</script>
+
+<template>
+  <section class="yahoo-view">
+    <div class="admin-header">
+      <div>
+        <h1 class="admin-title">
+          {{ t('yahoo.title') }}
+        </h1>
+      </div>
+    </div>
+
+    <div class="kcgl-card yahoo-body">
+      <el-tabs
+        v-model="activeTab"
+        class="yahoo-tabs"
+      >
+        <el-tab-pane
+          :label="t('yahoo.import.title')"
+          name="import"
+        >
+          <div class="yahoo-upload">
+            <input
+              ref="fileInput"
+              type="file"
+              accept=".csv,text/csv"
+              class="yahoo-upload-input"
+              @change="onFileChange"
+            >
+            <div class="yahoo-upload-row">
+              <el-button
+                type="primary"
+                :loading="uploading"
+                :disabled="!canUpload"
+                @click="pickFile"
+              >
+                {{ uploading ? t('yahoo.import.uploading') : t('yahoo.import.upload') }}
+              </el-button>
+              <p class="yahoo-hint">
+                {{ t('yahoo.import.hint') }}
+              </p>
+            </div>
+            <p
+              v-if="!canUpload"
+              class="kcgl-info-box"
+            >
+              {{ t('yahoo.import.roleDenied') }}
+            </p>
+            <p
+              v-if="uploadError"
+              class="kcgl-error-box"
+              role="alert"
+            >
+              {{ uploadError }}
+            </p>
+          </div>
+
+          <h2 class="yahoo-section-title">
+            {{ t('yahoo.import.listTitle') }}
+          </h2>
+          <p
+            v-if="batchesError"
+            class="kcgl-error-box"
+            role="alert"
+          >
+            {{ batchesError }}
+            <el-button
+              link
+              type="primary"
+              @click="loadBatches"
+            >
+              {{ t('common.reload') }}
+            </el-button>
+          </p>
+          <el-table
+            v-else
+            v-loading="batches.length === 0 && batchesError === ''"
+            :data="batches"
+            row-key="id"
+            class="yahoo-table"
+          >
+            <el-table-column type="expand">
+              <template #default="{ row }">
+                <div class="yahoo-detail">
+                  <p
+                    v-if="(row as YahooImportBatch).errorMessage"
+                    class="kcgl-error-box"
+                  >
+                    {{ t('yahoo.import.errorMessage') }}：{{ (row as YahooImportBatch).errorMessage }}
+                  </p>
+                  <template v-if="(row as YahooImportBatch).errorRows.length > 0">
+                    <p class="yahoo-errors-title">
+                      {{ t('yahoo.import.errorRows') }}
+                    </p>
+                    <el-table
+                      :data="(row as YahooImportBatch).errorRows"
+                      size="small"
+                      class="yahoo-errors-table"
+                    >
+                      <el-table-column
+                        :label="t('yahoo.import.errorLine')"
+                        prop="line"
+                        width="80"
+                      />
+                      <el-table-column
+                        :label="t('yahoo.import.errorRaw')"
+                        prop="raw"
+                        min-width="260"
+                      />
+                      <el-table-column
+                        :label="t('yahoo.import.errorReason')"
+                        prop="reason"
+                        min-width="220"
+                      />
+                    </el-table>
+                  </template>
+                  <p class="yahoo-unmatched-note">
+                    {{ t('yahoo.import.unmatchedNote') }}
+                  </p>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column
+              :label="t('yahoo.import.filename')"
+              prop="originalFilename"
+              min-width="180"
+              show-overflow-tooltip
+            />
+            <el-table-column
+              :label="t('admin.status')"
+              width="90"
+            >
+              <template #default="{ row }">
+                <span
+                  class="yahoo-tag"
+                  :class="statusClass((row as YahooImportBatch).status)"
+                >{{ statusText((row as YahooImportBatch).status) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column
+              :label="t('yahoo.import.encoding')"
+              width="110"
+            >
+              <template #default="{ row }">
+                {{ (row as YahooImportBatch).encodingDetected ?? '—' }}
+              </template>
+            </el-table-column>
+            <el-table-column
+              :label="t('yahoo.import.rowCount')"
+              width="90"
+              align="right"
+            >
+              <template #default="{ row }">
+                {{ (row as YahooImportBatch).rowCount ?? '—' }}
+              </template>
+            </el-table-column>
+            <el-table-column
+              :label="t('yahoo.import.matched')"
+              width="90"
+              align="right"
+            >
+              <template #default="{ row }">
+                {{ (row as YahooImportBatch).matchedCount ?? '—' }}
+              </template>
+            </el-table-column>
+            <el-table-column
+              :label="t('yahoo.import.unmatched')"
+              width="90"
+              align="right"
+            >
+              <template #default="{ row }">
+                {{ (row as YahooImportBatch).unmatchedCount ?? '—' }}
+              </template>
+            </el-table-column>
+            <el-table-column
+              :label="t('yahoo.import.updated')"
+              width="90"
+              align="right"
+            >
+              <template #default="{ row }">
+                {{ (row as YahooImportBatch).updatedCount ?? '—' }}
+              </template>
+            </el-table-column>
+            <el-table-column
+              :label="t('yahoo.import.uploadedAt')"
+              width="150"
+            >
+              <template #default="{ row }">
+                {{ formatJstDateTime((row as YahooImportBatch).createdAt) }}
+              </template>
+            </el-table-column>
+            <el-table-column
+              :label="t('yahoo.import.finishedAt')"
+              width="150"
+            >
+              <template #default="{ row }">
+                {{ formatJstDateTime((row as YahooImportBatch).finishedAt) }}
+              </template>
+            </el-table-column>
+            <template #empty>
+              {{ t('yahoo.import.emptyList') }}
+            </template>
+          </el-table>
+        </el-tab-pane>
+
+        <el-tab-pane
+          :label="t('yahoo.shipments.title')"
+          name="shipments"
+        >
+          <p
+            v-if="shipmentsError"
+            class="kcgl-error-box"
+            role="alert"
+          >
+            {{ shipmentsError }}
+            <el-button
+              link
+              type="primary"
+              @click="loadShipments"
+            >
+              {{ t('common.reload') }}
+            </el-button>
+          </p>
+          <template v-else>
+            <p class="yahoo-section-count">
+              {{ t('yahoo.shipments.count', { n: shipmentItems.length }) }}
+            </p>
+            <el-table
+              :data="shipmentItems"
+              row-key="itemId"
+              class="yahoo-table"
+            >
+              <el-table-column
+                width="70"
+              >
+                <template #default="{ row }">
+                  <span class="yahoo-thumb">
+                    <img
+                      v-if="(row as YahooPendingShipment).thumbUrl"
+                      :src="(row as YahooPendingShipment).thumbUrl ?? undefined"
+                      alt=""
+                      loading="lazy"
+                    >
+                  </span>
+                </template>
+              </el-table-column>
+              <el-table-column
+                prop="itemCode"
+                :label="t('yahoo.itemCode')"
+                min-width="130"
+              >
+                <template #default="{ row }">
+                  <span class="yahoo-code">{{ (row as YahooPendingShipment).itemCode }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column
+                :label="t('yahoo.warehouse')"
+                width="120"
+              >
+                <template #default="{ row }">
+                  {{ t(`common.warehouse.${(row as YahooPendingShipment).warehouse}`) }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                :label="t('yahoo.shelfNo')"
+                width="110"
+              >
+                <template #default="{ row }">
+                  {{ (row as YahooPendingShipment).shelfNo ?? '—' }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                :label="t('yahoo.reconcile.soldPrice')"
+                width="110"
+                align="right"
+              >
+                <template #default="{ row }">
+                  {{ formatYen((row as YahooPendingShipment).soldPrice) }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                :label="t('yahoo.shipments.closedAt')"
+                width="150"
+              >
+                <template #default="{ row }">
+                  {{ formatJstDateTime((row as YahooPendingShipment).closedAt) }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                :label="t('yahoo.auctionId')"
+                width="110"
+              >
+                <template #default="{ row }">
+                  {{ (row as YahooPendingShipment).auctionId ?? '—' }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                width="110"
+              >
+                <template #default="{ row }">
+                  <span
+                    v-if="(row as YahooPendingShipment).delayed"
+                    class="yahoo-tag is-failed"
+                  >{{ t('yahoo.shipments.delayed') }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column
+                :label="t('admin.actions')"
+                width="170"
+              >
+                <template #default="{ row }">
+                  <el-button
+                    link
+                    type="primary"
+                    @click="goSell(row as YahooPendingShipment)"
+                  >
+                    {{ t('yahoo.shipments.goSell') }}
+                  </el-button>
+                </template>
+              </el-table-column>
+              <template #empty>
+                {{ t('yahoo.shipments.empty') }}
+              </template>
+            </el-table>
+          </template>
+        </el-tab-pane>
+
+        <el-tab-pane
+          :label="t('yahoo.reconcile.title')"
+          name="reconcile"
+        >
+          <p
+            v-if="reconcileError"
+            class="kcgl-error-box"
+            role="alert"
+          >
+            {{ reconcileError }}
+            <el-button
+              link
+              type="primary"
+              @click="loadReconcile"
+            >
+              {{ t('common.reload') }}
+            </el-button>
+          </p>
+          <template v-else-if="reconcileData">
+            <h3 class="yahoo-section-subtitle">
+              {{ t('yahoo.reconcile.soldNotShipped') }}（{{ reconcileData.soldNotShipped.length }}）
+            </h3>
+            <el-table
+              :data="reconcileData.soldNotShipped"
+              row-key="itemId"
+              class="yahoo-table"
+            >
+              <el-table-column
+                prop="itemCode"
+                :label="t('yahoo.itemCode')"
+                min-width="130"
+              >
+                <template #default="{ row }">
+                  <span class="yahoo-code">{{ (row as YahooReconcileRow).itemCode }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column
+                width="140"
+              >
+                <template #default="{ row }">
+                  {{ warehouseOf(row as YahooReconcileRow) }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                :label="t('yahoo.shelfNo')"
+                width="110"
+              >
+                <template #default="{ row }">
+                  {{ (row as YahooReconcileRow).shelfNo ?? '—' }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                :label="t('yahoo.reconcile.soldPrice')"
+                width="110"
+                align="right"
+              >
+                <template #default="{ row }">
+                  {{ formatYen((row as YahooReconcileRow).soldPrice) }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                :label="t('yahoo.auctionId')"
+                width="110"
+              >
+                <template #default="{ row }">
+                  {{ (row as YahooReconcileRow).auctionId ?? '—' }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                :label="t('yahoo.reconcile.closedAt')"
+                width="150"
+              >
+                <template #default="{ row }">
+                  {{ formatJstDateTime((row as YahooReconcileRow).closedAt) }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                width="100"
+              >
+                <template #default="{ row }">
+                  <span
+                    v-if="(row as YahooReconcileRow).delayed"
+                    class="yahoo-tag is-failed"
+                  >{{ t('yahoo.reconcile.delayed') }}</span>
+                </template>
+              </el-table-column>
+              <template #empty>
+                {{ t('yahoo.reconcile.empty') }}
+              </template>
+            </el-table>
+
+            <h3 class="yahoo-section-subtitle">
+              {{ t('yahoo.reconcile.canceledNotRelisted') }}（{{ reconcileData.canceledNotRelisted.length }}）
+            </h3>
+            <el-table
+              :data="reconcileData.canceledNotRelisted"
+              row-key="itemId"
+              class="yahoo-table"
+            >
+              <el-table-column
+                prop="itemCode"
+                :label="t('yahoo.itemCode')"
+                min-width="130"
+              >
+                <template #default="{ row }">
+                  <span class="yahoo-code">{{ (row as YahooReconcileRow).itemCode }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column
+                width="140"
+              >
+                <template #default="{ row }">
+                  {{ warehouseOf(row as YahooReconcileRow) }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                :label="t('yahoo.shelfNo')"
+                width="110"
+              >
+                <template #default="{ row }">
+                  {{ (row as YahooReconcileRow).shelfNo ?? '—' }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                :label="t('yahoo.auctionId')"
+                width="110"
+              >
+                <template #default="{ row }">
+                  {{ (row as YahooReconcileRow).auctionId ?? '—' }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                :label="t('yahoo.reconcile.closedAt')"
+                width="150"
+              >
+                <template #default="{ row }">
+                  {{ formatJstDateTime((row as YahooReconcileRow).closedAt) }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                width="100"
+              >
+                <template #default="{ row }">
+                  <span
+                    v-if="(row as YahooReconcileRow).delayed"
+                    class="yahoo-tag is-failed"
+                  >{{ t('yahoo.reconcile.delayed') }}</span>
+                </template>
+              </el-table-column>
+              <template #empty>
+                {{ t('yahoo.reconcile.empty') }}
+              </template>
+            </el-table>
+
+            <h3 class="yahoo-section-subtitle">
+              {{ t('yahoo.reconcile.withdrawNeeded') }}（{{ reconcileData.withdrawNeeded.length }}）
+            </h3>
+            <el-table
+              :data="reconcileData.withdrawNeeded"
+              row-key="itemId"
+              class="yahoo-table"
+            >
+              <el-table-column
+                prop="itemCode"
+                :label="t('yahoo.itemCode')"
+                min-width="130"
+              >
+                <template #default="{ row }">
+                  <span class="yahoo-code">{{ (row as YahooReconcileRow).itemCode }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column
+                width="140"
+              >
+                <template #default="{ row }">
+                  {{ warehouseOf(row as YahooReconcileRow) }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                :label="t('yahoo.shelfNo')"
+                width="110"
+              >
+                <template #default="{ row }">
+                  {{ (row as YahooReconcileRow).shelfNo ?? '—' }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                :label="t('yahoo.auctionId')"
+                width="110"
+              >
+                <template #default="{ row }">
+                  {{ (row as YahooReconcileRow).auctionId ?? '—' }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                :label="t('yahoo.reconcile.closedAt')"
+                width="150"
+              >
+                <template #default="{ row }">
+                  {{ formatJstDateTime((row as YahooReconcileRow).closedAt) }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                :label="t('yahoo.reconcile.lastSyncedAt')"
+                width="150"
+              >
+                <template #default="{ row }">
+                  {{ formatJstDateTime((row as YahooReconcileRow).lastSyncedAt) }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                width="150"
+              >
+                <template #default="{ row }">
+                  <span
+                    v-if="(row as YahooReconcileRow).recentlySynced"
+                    class="yahoo-tag is-muted"
+                  >{{ t('yahoo.reconcile.recentlySynced') }}</span>
+                </template>
+              </el-table-column>
+              <template #empty>
+                {{ t('yahoo.reconcile.empty') }}
+              </template>
+            </el-table>
+
+            <p class="yahoo-unmatched-note">
+              {{ t('yahoo.reconcile.note') }}
+            </p>
+          </template>
+        </el-tab-pane>
+      </el-tabs>
+    </div>
+  </section>
+</template>
+
+<style scoped>
+.yahoo-view {
+  display: grid;
+  gap: 16px;
+}
+
+.yahoo-body {
+  padding: 20px 24px;
+}
+
+.yahoo-upload {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--kcgl-color-border);
+  border-radius: var(--kcgl-radius-m);
+  background: var(--kcgl-color-bg);
+}
+
+.yahoo-upload-input {
+  display: none;
+}
+
+.yahoo-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.yahoo-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--kcgl-color-text-sub);
+}
+
+.yahoo-section-title {
+  margin: 24px 0 10px;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.yahoo-section-subtitle {
+  margin: 20px 0 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.yahoo-section-count {
+  margin: 0 0 10px;
+  font-size: 0.9rem;
+  color: var(--kcgl-color-text-sub);
+}
+
+.yahoo-table {
+  width: 100%;
+}
+
+.yahoo-detail {
+  display: grid;
+  gap: 8px;
+  padding: 4px 8px;
+}
+
+.yahoo-errors-title {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--kcgl-color-text-sub);
+}
+
+.yahoo-errors-table {
+  max-width: 760px;
+}
+
+.yahoo-unmatched-note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--kcgl-color-text-faint);
+}
+
+.yahoo-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid var(--kcgl-color-border);
+  border-radius: var(--kcgl-radius-s);
+  font-size: 0.75rem;
+  color: var(--kcgl-color-text-sub);
+  white-space: nowrap;
+}
+
+.yahoo-tag.is-processing {
+  border-color: var(--kcgl-color-warning-border);
+  background: var(--kcgl-color-warning-bg);
+  color: var(--kcgl-color-warning);
+}
+
+.yahoo-tag.is-done {
+  border-color: var(--kcgl-color-success-border);
+  background: var(--kcgl-color-success-bg);
+  color: var(--kcgl-color-success);
+}
+
+.yahoo-tag.is-failed {
+  border-color: var(--kcgl-color-danger-border);
+  background: var(--kcgl-color-danger-bg);
+  color: var(--kcgl-color-danger);
+}
+
+.yahoo-tag.is-muted {
+  border-color: var(--kcgl-color-border);
+  background: var(--kcgl-color-bg);
+  color: var(--kcgl-color-text-faint);
+}
+
+.yahoo-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--kcgl-color-border);
+  border-radius: var(--kcgl-radius-s);
+  background: var(--kcgl-color-bg);
+  overflow: hidden;
+}
+
+.yahoo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.yahoo-code {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+</style>

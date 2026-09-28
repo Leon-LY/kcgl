@@ -66,7 +66,8 @@
       "stepItem": "商品を1件登録してみる",
       "stepPrint": "ラベルを1枚印刷してみる",
       "printDone": "印刷できた"
-    }
+    },
+    "goPendingShipments": "出荷待ち"
   },
   "nav": {
     "label": "ナビゲーション",
@@ -79,7 +80,8 @@
     "venues": "会場",
     "priceBands": "価格帯",
     "yearCodes": "年代号",
-    "users": "アカウント"
+    "users": "アカウント",
+    "yahoo": "ヤフー連携"
   },
   "entry": {
     "title": "商品登録",
@@ -471,6 +473,71 @@
     "429001": "送信回数が上限を超えました。しばらくしてからもう一度お試しください",
     "500000": "システムエラーが発生しました",
     "NETWORK_ERROR": "サーバーに接続できません。ネットワークを確認してください",
-    "INVALID_RESPONSE": "サーバーから不正な応答を受け取りました"
+    "INVALID_RESPONSE": "サーバーから不正な応答を受け取りました",
+    "400009": "CSVファイルは50MB以内にしてください。",
+    "400010": "CSVファイルが空です。",
+    "400011": "CSVの行数が上限（20万行）を超えています。",
+    "400012": "CSVファイルの文字コードを判定できませんでした。",
+    "409011": "同じ内容のCSVファイルは既にインポート済みです。"
+  },
+  "yahoo": {
+    "title": "ヤフー連携",
+    "itemCode": "管理番号",
+    "auctionId": "オークションID",
+    "warehouse": "倉庫",
+    "shelfNo": "棚番号",
+    "import": {
+      "title": "CSVインポート",
+      "upload": "CSVファイルをインポート",
+      "fileButton": "ファイルを選択",
+      "hint": "ヤフー出品管理のCSV（50MB以内）。処理は数秒で完了し、結果は履歴に表示されます。",
+      "uploading": "アップロード中…",
+      "roleDenied": "インポートには編集者以上の権限が必要です。",
+      "listTitle": "インポート履歴",
+      "filename": "ファイル",
+      "detail": "詳細を見る",
+      "hideDetail": "閉じる",
+      "statusProcessing": "処理中",
+      "statusDone": "完了",
+      "statusFailed": "失敗",
+      "encoding": "文字コード",
+      "rowCount": "総行数",
+      "matched": "一致",
+      "unmatched": "不一致",
+      "updated": "既存更新",
+      "uploadedAt": "アップロード",
+      "finishedAt": "完了時刻",
+      "errorMessage": "エラー内容",
+      "errorRows": "エラー行（先頭1000件）",
+      "errorLine": "行",
+      "errorRaw": "行の内容",
+      "errorReason": "理由",
+      "emptyList": "インポート履歴はまだありません。",
+      "loadFailed": "履歴の取得に失敗しました。",
+      "unmatchedNote": "不一致行はCSV原文の管理番号ごと出品記録に残ります（照合の手がかりになります）。"
+    },
+    "shipments": {
+      "title": "出荷待ち",
+      "count": "出荷待ち {n} 件",
+      "empty": "出荷待ちの商品はありません。",
+      "delayed": "出荷遅延",
+      "closedAt": "落札日時",
+      "goSell": "この商品を売り上げる",
+      "loadFailed": "出荷待ちリストの取得に失敗しました。"
+    },
+    "reconcile": {
+      "title": "照合",
+      "soldNotShipped": "落札済み・未出庫",
+      "canceledNotRelisted": "落札なし・再出品待ち",
+      "withdrawNeeded": "出庫済み・ヤフー出品中（取り下げ確認）",
+      "empty": "該当なし",
+      "delayed": "滞留",
+      "recentlySynced": "直近で同期済み",
+      "lastSyncedAt": "最終同期",
+      "closedAt": "終了日時",
+      "soldPrice": "落札価格",
+      "loadFailed": "照合情報の取得に失敗しました。",
+      "note": "「CSVにあり・システムになし」は各インポート報告の不一致件数で確認できます。"
+    }
   }
 }

@@ -213,6 +213,13 @@ const shellOptions = [
       >
         {{ t('home.goStocktake') }}
       </button>
+      <button
+        type="button"
+        class="home-entry-link"
+        @click="router.push({ name: 'pending-shipments' })"
+      >
+        {{ t('home.goPendingShipments') }}
+      </button>
     </div>
 
     <p class="home-preparing">

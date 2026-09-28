@@ -66,7 +66,8 @@
       "stepItem": "试录一件商品",
       "stepPrint": "试打一张标签",
       "printDone": "已打印"
-    }
+    },
+    "goPendingShipments": "待发货"
   },
   "nav": {
     "label": "导航",
@@ -79,7 +80,8 @@
     "venues": "会场",
     "priceBands": "价格档位",
     "yearCodes": "年代号",
-    "users": "账号"
+    "users": "账号",
+    "yahoo": "雅虎联动"
   },
   "entry": {
     "title": "商品录入",
@@ -471,6 +473,71 @@
     "429001": "提交次数超过上限，请稍后重试",
     "500000": "系统发生错误",
     "NETWORK_ERROR": "无法连接服务器，请检查网络",
-    "INVALID_RESPONSE": "服务器返回了无效响应"
+    "INVALID_RESPONSE": "服务器返回了无效响应",
+    "400009": "CSV 文件不得超过 50MB。",
+    "400010": "CSV 文件为空。",
+    "400011": "CSV 行数超过上限（20 万行）。",
+    "400012": "无法识别 CSV 文件的字符编码。",
+    "409011": "相同内容的 CSV 文件已导入过。"
+  },
+  "yahoo": {
+    "title": "雅虎联动",
+    "itemCode": "管理号",
+    "auctionId": "拍卖 ID",
+    "warehouse": "仓库",
+    "shelfNo": "货架号",
+    "import": {
+      "title": "CSV 导入",
+      "upload": "导入 CSV 文件",
+      "fileButton": "选择文件",
+      "hint": "雅虎出品管理的 CSV（≤50MB）。处理数秒完成，结果显示在历史列表。",
+      "uploading": "上传中…",
+      "roleDenied": "导入需要编辑者及以上权限。",
+      "listTitle": "导入历史",
+      "filename": "文件",
+      "detail": "查看详情",
+      "hideDetail": "收起",
+      "statusProcessing": "处理中",
+      "statusDone": "完成",
+      "statusFailed": "失败",
+      "encoding": "字符编码",
+      "rowCount": "总行数",
+      "matched": "匹配",
+      "unmatched": "未匹配",
+      "updated": "更新既有",
+      "uploadedAt": "上传时间",
+      "finishedAt": "完成时间",
+      "errorMessage": "错误内容",
+      "errorRows": "错误行（前 1000 条）",
+      "errorLine": "行",
+      "errorRaw": "行内容",
+      "errorReason": "原因",
+      "emptyList": "暂无导入历史。",
+      "loadFailed": "获取导入历史失败。",
+      "unmatchedNote": "未匹配行会连同 CSV 原文管理号保留在出品记录中（可作对照线索）。"
+    },
+    "shipments": {
+      "title": "待发货",
+      "count": "待发货 {n} 件",
+      "empty": "没有待发货的商品。",
+      "delayed": "发货滞留",
+      "closedAt": "落札时间",
+      "goSell": "卖出此商品",
+      "loadFailed": "获取待发货清单失败。"
+    },
+    "reconcile": {
+      "title": "对账",
+      "soldNotShipped": "已落札・未出库",
+      "canceledNotRelisted": "流拍・待重新出品",
+      "withdrawNeeded": "已出库・雅虎仍在售（需撤架）",
+      "empty": "暂无该项",
+      "delayed": "滞留",
+      "recentlySynced": "近期已同步",
+      "lastSyncedAt": "最后同步",
+      "closedAt": "结束时间",
+      "soldPrice": "落札价格",
+      "loadFailed": "获取对账信息失败。",
+      "note": "「CSV 有而系统无」请在各导入报告的未匹配计数中确认。"
+    }
   }
 }

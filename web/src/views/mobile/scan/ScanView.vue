@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import { QrcodeStream } from 'vue-qrcode-reader'
 import type { BarcodeFormat, DetectedBarcode } from 'vue-qrcode-reader'
 import { useAuthStore } from '@/stores/auth'
@@ -292,8 +293,16 @@ function onKeydown(event: KeyboardEvent): void {
   }
 }
 
+const route = useRoute()
+
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
+  // 深链定位（?code=）：出荷待ち「この商品を売り上げる」等入口跳转进来
+  // 即定位该件，动作菜单直出（与手动输入同一路径，仅免敲码）
+  const linked = typeof route.query.code === 'string' ? normalizeItemCode(route.query.code) : ''
+  if (linked !== '') {
+    void locate(linked)
+  }
 })
 
 onBeforeUnmount(() => {

@@ -1,0 +1,291 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
+import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+
+const apiMocks = vi.hoisted(() => ({
+  fetchYahooBatches: vi.fn(),
+  uploadYahooCsv: vi.fn(),
+  fetchPendingShipments: vi.fn(),
+  fetchYahooReconcile: vi.fn(),
+}))
+
+// ApiError 保持真实实现（错误文案分支依赖 instanceof/code）；仅替换网络端点
+vi.mock('@/utils/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/utils/api')>()
+  return {
+    ...actual,
+    fetchYahooBatches: apiMocks.fetchYahooBatches,
+    uploadYahooCsv: apiMocks.uploadYahooCsv,
+    fetchPendingShipments: apiMocks.fetchPendingShipments,
+    fetchYahooReconcile: apiMocks.fetchYahooReconcile,
+  }
+})
+
+import YahooView from './YahooView.vue'
+import { i18n } from '@/i18n'
+import { useAuthStore } from '@/stores/auth'
+import { ApiError } from '@/utils/api'
+import type {
+  MeResponse,
+  YahooImportBatch,
+  YahooPendingShipment,
+  YahooReconcile,
+  YahooReconcileRow,
+} from '@/utils/api'
+
+/**
+ * 雅虎联动桌面页（M4）：批次历史（状态/计数/失败计数占位）/viewer 禁传/
+ * 上传后刷新历史/上传失败就地展示（409011）/处理中轮询起停/出荷待ち行内
+ * 直达扫码卖出/照合三视图（滞留红标+近期同步降灰）。
+ */
+
+const meAdmin: MeResponse = {
+  username: 'boss',
+  displayName: '管理者',
+  role: 1,
+  locale: 'ja-JP',
+  mustChangePwd: false,
+}
+
+const meViewer: MeResponse = {
+  username: 'miru',
+  displayName: '閲覧者',
+  role: 3,
+  locale: 'ja-JP',
+  mustChangePwd: false,
+}
+
+function batch(overrides: Partial<YahooImportBatch> = {}): YahooImportBatch {
+  return {
+    id: 1,
+    originalFilename: 'export.csv',
+    status: 1,
+    encodingDetected: 'MS932',
+    rowCount: 3,
+    matchedCount: 2,
+    unmatchedCount: 1,
+    updatedCount: 0,
+    errorMessage: null,
+    uploadedBy: 2,
+    createdAt: '2026-09-28 09:00:00',
+    finishedAt: '2026-09-28 09:00:02',
+    errorRows: [],
+    ...overrides,
+  }
+}
+
+function shipment(): YahooPendingShipment {
+  return {
+    itemId: 601,
+    itemCode: 'HTK9-A1X',
+    thumbUrl: null,
+    warehouse: 1,
+    shelfNo: 'A-03',
+    soldPrice: 12000,
+    auctionId: 'auc-101',
+    closedAt: '2026-09-20 21:05:33',
+    delayed: true,
+  }
+}
+
+function reconcileRow(overrides: Partial<YahooReconcileRow> = {}): YahooReconcileRow {
+  return {
+    itemId: 701,
+    itemCode: 'HTK9-A2X',
+    warehouse: 2,
+    shelfNo: null,
+    soldPrice: 25000,
+    auctionId: 'auc-201',
+    closedAt: '2026-09-01 21:00:00',
+    lastSyncedAt: '2026-09-28 08:00:00',
+    delayed: false,
+    recentlySynced: true,
+    ...overrides,
+  }
+}
+
+function reconcile(): YahooReconcile {
+  return {
+    soldNotShipped: [reconcileRow({ delayed: true })],
+    canceledNotRelisted: [],
+    withdrawNeeded: [reconcileRow({ itemId: 702, recentlySynced: true })],
+  }
+}
+
+/** 静默读取三份数据的默认夹具（多数用例只关心其中一个标签页）。 */
+function seedReads(): void {
+  apiMocks.fetchYahooBatches.mockResolvedValue([])
+  apiMocks.fetchPendingShipments.mockResolvedValue({ count: 0, items: [] })
+  apiMocks.fetchYahooReconcile.mockResolvedValue({
+    soldNotShipped: [],
+    canceledNotRelisted: [],
+    withdrawNeeded: [],
+  })
+}
+
+async function mountView(role: 1 | 3 = 1): Promise<{ wrapper: VueWrapper; router: Router }> {
+  const auth = useAuthStore()
+  auth.me = role === 1 ? meAdmin : meViewer
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/yahoo', name: 'yahoo', component: { template: '<div />' } },
+      { path: '/scan', name: 'scan', component: { template: '<div />' } },
+    ],
+  })
+  await router.push({ name: 'yahoo' })
+  const wrapper = mount(YahooView, {
+    global: { plugins: [i18n, router] },
+  })
+  await flushPromises()
+  return { wrapper, router }
+}
+
+enableAutoUnmount(afterEach)
+
+beforeEach(() => {
+  vi.resetAllMocks()
+  setActivePinia(createPinia())
+  i18n.global.locale.value = 'ja-JP'
+  seedReads()
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+
+describe('yahoo view (M4)', () => {
+  it('renders batch history with status tags and null-safe counts', async () => {
+    apiMocks.fetchYahooBatches.mockResolvedValue([
+      batch(),
+      batch({ id: 2, status: 0, encodingDetected: null, rowCount: null, matchedCount: null,
+        unmatchedCount: null, updatedCount: null, finishedAt: null }),
+      batch({ id: 3, status: 2, errorMessage: '文字コードを判定できませんでした',
+        encodingDetected: null, rowCount: null, matchedCount: null, unmatchedCount: null,
+        updatedCount: null, finishedAt: '2026-09-28 09:01:00',
+        errorRows: [{ line: 2, raw: 'auc-502,…', reason: '不明な状態' }] }),
+    ])
+    const { wrapper } = await mountView()
+
+    const rows = wrapper.findAll('#pane-import .el-table__row')
+    expect(rows).toHaveLength(3)
+    expect(wrapper.text()).toContain('export.csv')
+    const tags = wrapper.findAll('#pane-import .yahoo-tag')
+    expect(tags.map((tag) => tag.text())).toEqual(['完了', '処理中', '失敗'])
+    // 失败/处理中批次计数未落 → 占位符；完成批次显示真实计数
+    expect(rows[0]!.text()).toContain('MS932')
+    expect(rows[0]!.text()).toContain('2')
+    expect(rows[1]!.text()).toContain('—')
+  })
+
+  it('viewer cannot upload and sees the role note', async () => {
+    const { wrapper } = await mountView(3)
+
+    const uploadButton = wrapper.find('.yahoo-upload button')
+    expect(uploadButton.attributes('disabled')).toBeDefined()
+    expect(wrapper.find('.yahoo-upload .kcgl-info-box').text()).toBe(
+      'インポートには編集者以上の権限が必要です。',
+    )
+  })
+
+  it('uploads the chosen CSV and refreshes the history', async () => {
+    const { wrapper } = await mountView()
+    expect(apiMocks.fetchYahooBatches).toHaveBeenCalledTimes(1)
+
+    apiMocks.uploadYahooCsv.mockResolvedValue(batch({ status: 0 }))
+    const input = wrapper.find('.yahoo-upload-input')
+    const file = new File(['オークションID,…'], 'export.csv', { type: 'text/csv' })
+    Object.defineProperty(input.element, 'files', { value: [file] })
+    await input.trigger('change')
+    await flushPromises()
+
+    expect(apiMocks.uploadYahooCsv).toHaveBeenCalledTimes(1)
+    const form = apiMocks.uploadYahooCsv.mock.calls[0]![0] as FormData
+    expect(form.get('file')).toBe(file)
+    expect(apiMocks.fetchYahooBatches).toHaveBeenCalledTimes(2)
+    // 上传成功后错误清空、输入复位（同文件可再次触发 change）
+    expect(wrapper.find('.yahoo-upload .kcgl-error-box').exists()).toBe(false)
+  })
+
+  it('upload failure (sha duplicate) shows the mapped message in place', async () => {
+    const { wrapper } = await mountView()
+
+    apiMocks.uploadYahooCsv.mockRejectedValue(new ApiError(409011, 'duplicate'))
+    const input = wrapper.find('.yahoo-upload-input')
+    const file = new File(['x'], 'export.csv', { type: 'text/csv' })
+    Object.defineProperty(input.element, 'files', { value: [file] })
+    await input.trigger('change')
+    await flushPromises()
+
+    expect(wrapper.find('.yahoo-upload .kcgl-error-box').text()).toBe(
+      i18n.global.t('errors.409011'),
+    )
+  })
+
+  it('starts polling while a batch is processing and stops at terminal state', async () => {
+    const setIntervalSpy = vi.spyOn(window, 'setInterval')
+    const clearIntervalSpy = vi.spyOn(window, 'clearInterval')
+    apiMocks.fetchYahooBatches
+      .mockResolvedValueOnce([batch({ status: 0 })])
+      .mockResolvedValueOnce([batch({ status: 1 })])
+    const { wrapper } = await mountView()
+
+    expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 2000)
+
+    // 手动触发一次轮询回调：批次到终态后应停止
+    const tick = setIntervalSpy.mock.calls[0]![0] as () => void
+    tick()
+    await flushPromises()
+
+    expect(apiMocks.fetchYahooBatches).toHaveBeenCalledTimes(2)
+    expect(clearIntervalSpy).toHaveBeenCalled()
+    expect(wrapper.find('#pane-import .yahoo-tag').text()).toBe('完了')
+  })
+
+  it('renders the shipment queue with a direct sell deep link', async () => {
+    apiMocks.fetchPendingShipments.mockResolvedValue({ count: 1, items: [shipment()] })
+    const { wrapper, router } = await mountView()
+
+    const row = wrapper.find('#pane-shipments .el-table__row')
+    expect(row.text()).toContain('HTK9-A1X')
+    expect(row.text()).toContain('￥12,000')
+    expect(row.text()).toContain('出荷遅延')
+    expect(wrapper.find('#pane-shipments .yahoo-section-count').text()).toBe('出荷待ち 1 件')
+
+    await wrapper.find('#pane-shipments .el-table__row button').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('scan')
+    expect(router.currentRoute.value.query.code).toBe('HTK9-A1X')
+  })
+
+  it('renders the three reconcile views with delayed and recently-synced marks', async () => {
+    apiMocks.fetchYahooReconcile.mockResolvedValue(reconcile())
+    const { wrapper } = await mountView()
+
+    const pane = wrapper.find('#pane-reconcile')
+    expect(pane.findAll('.el-table__row')).toHaveLength(2)
+    expect(pane.text()).toContain('落札済み・未出庫（1）')
+    expect(pane.text()).toContain('落札なし・再出品待ち（0）')
+    expect(pane.text()).toContain('出庫済み・ヤフー出品中（取り下げ確認）（1）')
+    expect(pane.text()).toContain('滞留')
+    expect(pane.text()).toContain('直近で同期済み')
+  })
+
+  it('shows load errors per pane with a reload action', async () => {
+    apiMocks.fetchYahooBatches
+      .mockRejectedValueOnce(new ApiError(0, 'network down'))
+      .mockResolvedValueOnce([batch()])
+    const { wrapper } = await mountView()
+
+    const errorBox = wrapper.find('#pane-import .kcgl-error-box')
+    expect(errorBox.text()).toContain('network down')
+
+    await errorBox.find('button').trigger('click')
+    await flushPromises()
+
+    expect(apiMocks.fetchYahooBatches).toHaveBeenCalledTimes(2)
+    expect(wrapper.find('#pane-import .kcgl-error-box').exists()).toBe(false)
+  })
+})

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { createMemoryHistory, createRouter } from 'vue-router'
 
 const apiMocks = vi.hoisted(() => ({
   fetchItemByCode: vi.fn(),
@@ -110,11 +111,17 @@ const actionResult = (item: ItemByCode) => ({
   warehouse: item.item.warehouse,
 })
 
-async function mountView(role: 2 | 3 = 2): Promise<VueWrapper> {
+/** 内存路由（useRoute 深链 ?code= 分支需要）；query 可带预定位码。 */
+async function mountView(role: 2 | 3 = 2, query: Record<string, string> = {}): Promise<VueWrapper> {
   const auth = useAuthStore()
   auth.me = role === 2 ? meEditor : meViewer
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: '/:pathMatch(.*)*', component: { template: '<div />' } }],
+  })
+  await router.push({ path: '/', query })
   const wrapper = mount(ScanView, {
-    global: { plugins: [i18n] },
+    global: { plugins: [i18n, router] },
   })
   await flushPromises()
   return wrapper
@@ -168,6 +175,15 @@ describe('scan locate (M3-④)', () => {
 
     expect(wrapper.find('.scan-error').text()).toBe('この管理番号の商品は見つかりません')
     expect(wrapper.find('.scan-card').exists()).toBe(false)
+  })
+
+  it('深链 ?code= 进页即定位该件（出荷待ち直达，全角归一）', async () => {
+    apiMocks.fetchItemByCode.mockResolvedValue(itemByCode())
+    const wrapper = await mountView(2, { code: 'ｈｔｋ９－ａ１ｘ' })
+
+    expect(apiMocks.fetchItemByCode).toHaveBeenCalledWith('HTK9-A1X')
+    expect(wrapper.find('.scan-code').text()).toBe('HTK9-A1X')
+    expect(wrapper.find('.scan-card').exists()).toBe(true)
   })
 
   it('作废件带重录新号：提示新号且无动作菜单', async () => {

@@ -69,6 +69,14 @@ const router = createRouter({
       meta: { titleKey: 'stocktake.title' },
     },
     {
+      // 出荷待ち（M4）：雅虎成交未出库的拣货队列，全员可看；卖出动作在扫码页
+      // 执行（?code= 深链定位），服务端 403 兜底
+      path: '/pending-shipments',
+      name: 'pending-shipments',
+      component: () => import('@/views/mobile/shipment/PendingShipmentsView.vue'),
+      meta: { titleKey: 'yahoo.shipments.title' },
+    },
+    {
       path: '/stocktake/:id',
       name: 'stocktake-session',
       component: () => import('@/views/mobile/stocktake/StocktakeScanView.vue'),
@@ -112,6 +120,14 @@ const router = createRouter({
       name: 'print',
       component: () => import('@/views/desktop/print/PrintView.vue'),
       meta: { titleKey: 'print.title' },
+    },
+    {
+      // 雅虎联动（M4）：CSV 导入/出荷待ち/照合三视图，全员可读；上传仅编辑者
+      // 以上（服务端 @PreAuthorize 兜底）
+      path: '/yahoo',
+      name: 'yahoo',
+      component: () => import('@/views/desktop/yahoo/YahooView.vue'),
+      meta: { titleKey: 'yahoo.title' },
     },
     {
       path: '/:pathMatch(.*)*',

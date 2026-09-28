@@ -66,7 +66,8 @@
       "stepItem": "Enter one item",
       "stepPrint": "Print one label",
       "printDone": "Done printing"
-    }
+    },
+    "goPendingShipments": "Pending shipments"
   },
   "nav": {
     "label": "Navigation",
@@ -79,7 +80,8 @@
     "venues": "Venues",
     "priceBands": "Price bands",
     "yearCodes": "Year codes",
-    "users": "Users"
+    "users": "Users",
+    "yahoo": "Yahoo"
   },
   "entry": {
     "title": "Item Entry",
@@ -471,6 +473,71 @@
     "429001": "Submission limit exceeded. Please try again later",
     "500000": "A system error occurred",
     "NETWORK_ERROR": "Cannot reach the server. Please check your network",
-    "INVALID_RESPONSE": "Received an invalid response from the server"
+    "INVALID_RESPONSE": "Received an invalid response from the server",
+    "400009": "CSV files must be 50MB or smaller.",
+    "400010": "The CSV file is empty.",
+    "400011": "The CSV exceeds the row limit (200,000).",
+    "400012": "The CSV file encoding could not be detected.",
+    "409011": "This exact CSV file has already been imported."
+  },
+  "yahoo": {
+    "title": "Yahoo integration",
+    "itemCode": "Item code",
+    "auctionId": "Auction ID",
+    "warehouse": "Warehouse",
+    "shelfNo": "Shelf",
+    "import": {
+      "title": "CSV import",
+      "upload": "Import CSV file",
+      "fileButton": "Choose file",
+      "hint": "Yahoo listing CSV (up to 50MB). Processing takes a few seconds; results appear in the history below.",
+      "uploading": "Uploading…",
+      "roleDenied": "Importing requires Editor role or above.",
+      "listTitle": "Import history",
+      "filename": "File",
+      "detail": "Details",
+      "hideDetail": "Close",
+      "statusProcessing": "Processing",
+      "statusDone": "Done",
+      "statusFailed": "Failed",
+      "encoding": "Encoding",
+      "rowCount": "Rows",
+      "matched": "Matched",
+      "unmatched": "Unmatched",
+      "updated": "Updated",
+      "uploadedAt": "Uploaded",
+      "finishedAt": "Finished",
+      "errorMessage": "Error",
+      "errorRows": "Error rows (first 1,000)",
+      "errorLine": "Line",
+      "errorRaw": "Row content",
+      "errorReason": "Reason",
+      "emptyList": "No imports yet.",
+      "loadFailed": "Failed to load import history.",
+      "unmatchedNote": "Unmatched rows are kept in listing records with the raw code from the CSV."
+    },
+    "shipments": {
+      "title": "Pending shipments",
+      "count": "{n} items pending",
+      "empty": "No pending shipments.",
+      "delayed": "Delayed",
+      "closedAt": "Closed at",
+      "goSell": "Sell this item",
+      "loadFailed": "Failed to load pending shipments."
+    },
+    "reconcile": {
+      "title": "Reconciliation",
+      "soldNotShipped": "Sold, not shipped",
+      "canceledNotRelisted": "Unsold, awaiting relist",
+      "withdrawNeeded": "Shipped but still listed (withdraw)",
+      "empty": "None",
+      "delayed": "Stalled",
+      "recentlySynced": "Synced recently",
+      "lastSyncedAt": "Last synced",
+      "closedAt": "Closed at",
+      "soldPrice": "Sold price",
+      "loadFailed": "Failed to load reconciliation.",
+      "note": "Rows in the CSV but not in the system appear in each import report as unmatched."
+    }
   }
 }

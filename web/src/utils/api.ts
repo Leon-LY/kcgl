@@ -686,3 +686,92 @@ export function resolveStocktakeDiff(
     jsonInit('POST', { action, clientReqId }),
   )
 }
+
+// ------------------------------------------------------------------ 雅虎 CSV（M4，docs/01 7.4/7.2）
+
+/** 错误行采样条目（后端前 1000 条采样）。 */
+export interface YahooImportErrorRow {
+  line: number
+  raw: string
+  reason: string
+}
+
+/** 导入批次报告：status 0处理中 1完成 2失败；失败批次计数为 null。 */
+export interface YahooImportBatch {
+  id: number
+  originalFilename: string
+  status: number
+  encodingDetected: string | null
+  rowCount: number | null
+  matchedCount: number | null
+  unmatchedCount: number | null
+  updatedCount: number | null
+  errorMessage: string | null
+  uploadedBy: number
+  createdAt: string | null
+  finishedAt: string | null
+  errorRows: YahooImportErrorRow[]
+}
+
+/** 对账三活视图行（docs/01 7.2）：delayed=滞留红标；recentlySynced=降灰（CSV 滞后期假阳性）。 */
+export interface YahooReconcileRow {
+  itemId: number
+  itemCode: string
+  warehouse: number
+  shelfNo: string | null
+  soldPrice: number | null
+  auctionId: string | null
+  closedAt: string | null
+  lastSyncedAt: string | null
+  delayed: boolean
+  recentlySynced: boolean
+}
+
+export interface YahooReconcile {
+  soldNotShipped: YahooReconcileRow[]
+  canceledNotRelisted: YahooReconcileRow[]
+  withdrawNeeded: YahooReconcileRow[]
+}
+
+/** 出荷待ち行：已成交未出库的拣货队列（货架号序+缩略图）。 */
+export interface YahooPendingShipment {
+  itemId: number
+  itemCode: string
+  thumbUrl: string | null
+  warehouse: number
+  shelfNo: string | null
+  soldPrice: number | null
+  auctionId: string | null
+  closedAt: string | null
+  delayed: boolean
+}
+
+export interface YahooPendingShipmentList {
+  count: number
+  items: YahooPendingShipment[]
+}
+
+/** 上传（同步段）：毫秒级返回 processing 批次；sha 重复 409011、队列满 429001。 */
+export function uploadYahooCsv(form: FormData): Promise<YahooImportBatch> {
+  return request('/api/yahoo/imports', { method: 'POST', body: form })
+}
+
+/** 批次列表（最新 50）。 */
+export function fetchYahooBatches(): Promise<YahooImportBatch[]> {
+  return request('/api/yahoo/imports', { method: 'GET' })
+}
+
+/** 批次详情（含错误行采样；上传后轮询至终态）。 */
+export function fetchYahooBatch(id: number): Promise<YahooImportBatch> {
+  return request(`/api/yahoo/imports/${id}`, { method: 'GET' })
+}
+
+/** 对账三活视图。 */
+export function fetchYahooReconcile(): Promise<YahooReconcile> {
+  return request('/api/yahoo/reconcile', { method: 'GET' })
+}
+
+/** 出荷待ち清单。 */
+export function fetchPendingShipments(): Promise<YahooPendingShipmentList> {
+  return request('/api/yahoo/pending-shipments', { method: 'GET' })
+}
