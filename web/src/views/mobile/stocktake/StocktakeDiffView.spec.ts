@@ -19,6 +19,16 @@ vi.mock('@/utils/api', async (importOriginal) => {
   }
 })
 
+// 失效接线捕获：直接持有视图注册的 reload 回调，模拟 SSE 失效落点
+// （不连真实 sync store——组件级只验证「回声落进 armed 窗口不得劫持确认」）
+const syncMock = vi.hoisted(() => ({ reload: null as (() => void) | null }))
+
+vi.mock('@/composables/useSyncInvalidation', () => ({
+  useSyncInvalidation: (_types: readonly string[], reload: () => void) => {
+    syncMock.reload = reload
+  },
+}))
+
 const routeMock = vi.hoisted(() => ({ params: { id: '5' } }))
 
 vi.mock('vue-router', async (importOriginal) => {
@@ -296,6 +306,38 @@ describe('stocktake difference review (M3-6)', () => {
     await waitFor(() => wrapper.find('.diff-alldone').exists())
     expect(wrapper.text()).toContain('すべての差異を処理しました')
     expect(wrapper.text()).toContain('差異はありません')
+  })
+
+  it('keeps an armed two-step confirm intact when an invalidation lands mid-confirm', async () => {
+    // 回归（E2E stocktake 端到端 30s 超时根因）：close/扫描的 STOCKTAKE 回声经
+    // 500ms 防抖落进用户已拉开两步确认的窗口——armed 模板被整页重取拆掉，
+    // 「はい」按钮从 DOM 消失且不会自行回来（盘点多人并发下同事扫码同样触发）。
+    // 守卫语义：armed/busy 期间跳过失效重取；本人确认动作的回声在 busy 解除后
+    // 追平远端变化，armed 释放后失效路径照常工作。
+    apiMocks.fetchStocktake.mockResolvedValue(summary({ pendingDiffCount: 2 }))
+    apiMocks.fetchStocktakeDiffs.mockResolvedValue(
+      diffList([diffRow({ id: 11 }), diffRow({ id: 12, itemId: 202 })]),
+    )
+    const wrapper = await mountView()
+    await waitFor(() => rows(wrapper).length === 2)
+    const callsBefore = apiMocks.fetchStocktakeDiffs.mock.calls.length
+    const summaryCallsBefore = apiMocks.fetchStocktake.mock.calls.length
+
+    const row = rows(wrapper)[0]!
+    await rowButton(row, '調整する')!.trigger('click')
+    expect(row.text()).toContain('実行しますか')
+
+    // 失效落在 armed 窗口内：はい 按钮必须在场，且不触发任何重取
+    syncMock.reload!()
+    await flushPromises()
+    expect(rowButton(row, 'はい')).toBeDefined()
+    expect(apiMocks.fetchStocktakeDiffs.mock.calls.length).toBe(callsBefore)
+    expect(apiMocks.fetchStocktake.mock.calls.length).toBe(summaryCallsBefore)
+
+    // いいえ 解除 armed 后，同样的失效照常重取（远端变化追平路径不变）
+    await rowButton(row, 'いいえ')!.trigger('click')
+    syncMock.reload!()
+    await waitFor(() => apiMocks.fetchStocktakeDiffs.mock.calls.length > callsBefore)
   })
 
   it('renders read-only rows for viewers', async () => {

@@ -187,12 +187,14 @@ function warehouseLabel(value: number | null): string {
 void loadSummary()
 
 /**
- * 他端失效重取（SSE）：他人处理差异（STOCKTAKE）→ 待确认数与行状态同步；
- * 差异请求在途时跳过（applyRow 就地更新，重取竞态会回卷行内两步确认）。
+ * 他端失效重取（SSE）：他人处理差异（STOCKTAKE）→ 待确认数与行状态同步。
+ * 请求在途或两步确认已拉开（busy/armed）时跳过——重取会拆掉 armed 模板，
+ * 用户正要点的「はい」按钮瞬间消失且不会回来（close/扫描的回声同样触发；
+ * 盘点多人并发下同事扫码亦然）。错过的失效由本人确认动作的回声（busy 解除
+ * 后）或下一次事件追平；applyRow 就地更新已覆盖自己处理的行。
  */
 useSyncInvalidation(['STOCKTAKE'], () => {
-  if (busyId.value != null) return
-  armedId.value = null
+  if (busyId.value != null || armedId.value != null) return
   void loadSummary()
   resetList()
 })
