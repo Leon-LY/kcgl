@@ -1,3 +1,4 @@
+import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
@@ -28,6 +29,7 @@ vi.mock('vue-qrcode-reader', () => ({
 
 const pushMock = vi.hoisted(() => vi.fn())
 const routeMock = vi.hoisted(() => ({ params: { id: '5' } }))
+const scanQueue = useScanQueue()
 
 vi.mock('vue-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-router')>()
@@ -41,6 +43,7 @@ vi.mock('vue-router', async (importOriginal) => {
 import StocktakeScanView from './StocktakeScanView.vue'
 import { i18n } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
+import { useScanQueue } from '@/composables/useScanQueue'
 import { ApiError } from '@/utils/api'
 import type { ItemResponse, MeResponse, StocktakeSummary } from '@/utils/api'
 
@@ -48,6 +51,8 @@ import type { ItemResponse, MeResponse, StocktakeSummary } from '@/utils/api'
  * 盘点会话页（M3-⑥）：进行中=相机+手动兜底扫码记录（repeated 不报错不加数/
  * 他仓/冻结/非在库照记卡内警示——docs/01 7.3）/close 成功跳差异页/cancel 仅
  * 发起人/已 close 只读引导差异/viewer 只读/404 文案。
+ * M6-②：网络失败照记本地小队列（离线卡+计数含队列+close 拦截），恢复 online
+ * 自动回放（幂等 200 出清）→ 计数切回服务端口径；回放业务拒绝落警示可关。
  */
 
 const meEditor: MeResponse = {
@@ -133,11 +138,12 @@ async function mountView(role: 2 | 3 = 2): Promise<VueWrapper> {
 
 enableAutoUnmount(afterEach)
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.resetAllMocks()
   pushMock.mockReset()
   setActivePinia(createPinia())
   i18n.global.locale.value = 'ja-JP'
+  await scanQueue.resetForTests()
 })
 
 afterEach(() => {
@@ -283,5 +289,88 @@ describe('stocktake session (M3-6)', () => {
 
     expect(wrapper.text()).toContain('この棚卸は見つかりません')
     expect(wrapper.find('.session-summary').exists()).toBe(false)
+  })
+})
+
+describe('stocktake offline queue (M6-2)', () => {
+  it('queues the scan locally on network failure: offline card, count includes queue, close blocked', async () => {
+    apiMocks.fetchStocktake.mockResolvedValue(summary())
+    apiMocks.scanStocktakeItem.mockRejectedValue(new ApiError(0, 'NETWORK_ERROR'))
+    const wrapper = await mountView()
+
+    await wrapper.find('#stocktake-manual-input').setValue('HT9-A1X')
+    await wrapper.find('.session-manual').trigger('submit')
+
+    // 离线卡：码 + 待送信提示；详情/缩略图离线拿不到（只显码）
+    await vi.waitFor(() => {
+      expect(wrapper.text()).toContain('オフラインで記録しました')
+    })
+    expect(wrapper.text()).toContain('HT9-A1X')
+    expect(wrapper.find('.session-card img').exists()).toBe(false)
+    // 计数口径=服务端 3 + 队列 1
+    await vi.waitFor(() => {
+      expect(wrapper.text()).toContain('スキャン済み 4 件')
+    })
+    // close 拦截：未送信存续期间不可冻结期望集合
+    expect(wrapper.find('.session-actions .kcgl-btn-primary').attributes('disabled')).toBeDefined()
+    expect(wrapper.text()).toContain('未送信のスキャンが 1 件あります')
+    // 报错条不走网络错误文案（照记成功，非失败）
+    expect(wrapper.find('.session-error').exists()).toBe(false)
+  })
+
+  it('replays the queued scan when back online, switches the count to the server side, and re-enables close', async () => {
+    apiMocks.fetchStocktake.mockResolvedValue(summary())
+    apiMocks.scanStocktakeItem
+      .mockRejectedValueOnce(new ApiError(0, 'NETWORK_ERROR'))
+      .mockResolvedValueOnce({ repeated: false, item: item(), thumbUrl: null })
+    const wrapper = await mountView()
+
+    await wrapper.find('#stocktake-manual-input').setValue('HT9-A1X')
+    await wrapper.find('.session-manual').trigger('submit')
+    await vi.waitFor(() => {
+      expect(wrapper.find('.session-actions .kcgl-btn-primary').attributes('disabled')).toBeDefined()
+    })
+
+    // 恢复网络（online 事件）：回放幂等成功 → 队列清空 → 重取服务端计数
+    apiMocks.fetchStocktake.mockResolvedValue(summary({ scannedCount: 4 }))
+    window.dispatchEvent(new Event('online'))
+    await vi.waitFor(() => {
+      expect(apiMocks.scanStocktakeItem).toHaveBeenCalledTimes(2) // 离线失败 1 + 回放 1
+    })
+    await vi.waitFor(() => {
+      expect(wrapper.find('.session-actions .kcgl-btn-primary').attributes('disabled')).toBeUndefined()
+    })
+    expect(wrapper.text()).toContain('スキャン済み 4 件')
+    expect(wrapper.text()).not.toContain('未送信のスキャンが')
+    expect(apiMocks.fetchStocktake).toHaveBeenCalledTimes(2) // 回放清空触发口径刷新
+  })
+
+  it('surfaces a business rejection from the replay and keeps the session closeable', async () => {
+    apiMocks.fetchStocktake.mockResolvedValue(summary())
+    apiMocks.scanStocktakeItem
+      .mockRejectedValueOnce(new ApiError(0, 'NETWORK_ERROR')) // 离线入队
+      .mockRejectedValueOnce(new ApiError(404001, 'NOT_FOUND')) // 回放被拒（码不存在）
+    const wrapper = await mountView()
+
+    await wrapper.find('#stocktake-manual-input').setValue('HT9-XXX')
+    await wrapper.find('.session-manual').trigger('submit')
+    await vi.waitFor(() => {
+      expect(wrapper.text()).toContain('オフラインで記録しました')
+    })
+
+    window.dispatchEvent(new Event('online'))
+    await vi.waitFor(() => {
+      expect(wrapper.text()).toContain('送信できなかったスキャン')
+    })
+    expect(wrapper.text()).toContain('HT9-XXX')
+    // 业务拒绝即出清（不无限重试）：close 不再被拦，计数回落服务端口径
+    await vi.waitFor(() => {
+      expect(wrapper.find('.session-actions .kcgl-btn-primary').attributes('disabled')).toBeUndefined()
+    })
+    expect(wrapper.text()).toContain('スキャン済み 3 件')
+
+    // 「閉じる」消除警示
+    await wrapper.find('.session-flush-dismiss').trigger('click')
+    expect(wrapper.text()).not.toContain('送信できなかったスキャン')
   })
 })

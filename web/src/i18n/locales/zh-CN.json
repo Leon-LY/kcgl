@@ -339,7 +339,11 @@
       "cancelConfirm": "作废",
       "viewDiffs": "确认差异",
       "closedNote": "该盘点已结束，请前往差异确认",
-      "notFound": "找不到该盘点单"
+      "notFound": "找不到该盘点单",
+      "offlineCard": "已在离线状态记录，网络恢复后将自动发送",
+      "queuedNote": "有 {n} 条扫描未发送。网络恢复后自动发送，全部送达后才能结束盘点",
+      "flushFailed": "未能发送的扫描：{codes}",
+      "flushFailedDismiss": "关闭"
     },
     "diff": {
       "title": "差异确认",

@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { QrcodeStream } from 'vue-qrcode-reader'
 import type { BarcodeFormat, DetectedBarcode } from 'vue-qrcode-reader'
 import { useAuthStore } from '@/stores/auth'
 import { beep, createScanGate, vibrate } from '@/composables/useScan'
+import { useScanQueue } from '@/composables/useScanQueue'
 import { useSyncInvalidation } from '@/composables/useSyncInvalidation'
 import { formatJstDate } from '@/utils/format'
 import { toDisplayMessage } from '@/utils/errors'
@@ -19,6 +20,8 @@ import { ApiError } from '@/utils/api'
  * 他仓/冻结/非在库照记并卡内警示——差异在 close 后人工裁决）；close=冻结
  * 期望集合生成差异表（盘点期间的自然变动落入差异）；发起人可撤单（mine 仅
  * 渲染依据，服务端强校验）。已 close=引导差异确认；已确认/作废=只读摘要。
+ * M6-②：网络失败照记本地小队列（离线卡只显码）——恢复 online 自动回放
+ * （服务端同单同件幂等），close 在队列清空前拦截（期望集合冻结不可漏记）。
  */
 
 const CAMERA_CONSTRAINTS = { facingMode: 'environment' }
@@ -31,6 +34,7 @@ const auth = useAuthStore()
 
 const canAct = computed(() => auth.me != null && auth.me.role <= 2)
 const stocktakeId = computed(() => Number(route.params.id))
+const scanQueue = useScanQueue()
 
 // ------------------------------------------------------------- 会话载入
 
@@ -56,6 +60,26 @@ async function loadSummary(): Promise<void> {
 const isActive = computed(() => summary.value?.status === 0)
 const isClosed = computed(() => summary.value?.status === 1)
 const canScan = computed(() => canAct.value && isActive.value)
+
+// ------------------------------------------------------------- 离线小队列（M6-②）
+
+/** 本单未送信扫码数（离线计数合成与 close 拦截依据）。 */
+const queuedHere = computed(() => scanQueue.pendingFor(stocktakeId.value))
+/** 回放期业务拒绝（码不存在等）——重试无意义，逐条警示可关。 */
+const flushFailedCodes = computed(() =>
+  scanQueue.state.failures
+    .filter((failure) => failure.stocktakeId === stocktakeId.value)
+    .map((failure) => failure.code),
+)
+/** 计数口径：服务端数 + 本单队列数（回放清空后由 watcher 切回服务端口径）。 */
+const displayScannedCount = computed(() => (summary.value?.scannedCount ?? 0) + queuedHere.value)
+
+// 回放清空（网络恢复自动冲）→ 重取服务端计数：离线乐观数换成真实账
+watch(queuedHere, (now, was) => {
+  if (was > 0 && now === 0) {
+    void loadSummary()
+  }
+})
 
 /**
  * 他端失效重取（SSE）：他人扫同一单（STOCKTAKE）计数+1、他人 close 后
@@ -109,7 +133,7 @@ const cameraErrorMessage = computed(() => {
 // ------------------------------------------------------------- 扫码记录
 
 const gate = createScanGate()
-const scannedCard = ref<{ code: string; thumbUrl: string | null; warningKey: string | null; repeated: boolean } | null>(null)
+const scannedCard = ref<{ code: string; thumbUrl: string | null; warningKey: string | null; repeated: boolean; queued: boolean } | null>(null)
 const scanning = ref(false)
 const scanError = ref('')
 
@@ -137,10 +161,24 @@ async function record(code: string): Promise<void> {
       thumbUrl: result.thumbUrl,
       warningKey: warningKeyFor(result.item, current),
       repeated: result.repeated,
+      queued: false,
     }
   } catch (error) {
-    scannedCard.value = null
-    scanError.value = toDisplayMessage(error, t)
+    if (error instanceof ApiError && error.code === 0) {
+      // 网络错误（ApiError code 0）：照记本地小队列，恢复后自动回放——
+      // 详情/缩略图离线拿不到，离线卡只显码
+      try {
+        await scanQueue.enqueue(current.id, code)
+        scannedCard.value = { code, thumbUrl: null, warningKey: null, repeated: false, queued: true }
+      } catch {
+        // IndexedDB 不可用（Safari 隐私模式等）：离线记录无处落——按原网络错误报错
+        scannedCard.value = null
+        scanError.value = toDisplayMessage(error, t)
+      }
+    } else {
+      scannedCard.value = null
+      scanError.value = toDisplayMessage(error, t)
+    }
   } finally {
     scanning.value = false
   }
@@ -216,6 +254,8 @@ function onKeydown(event: KeyboardEvent): void {
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
   void loadSummary()
+  // 离线小队列：恢复计数并冲上个会话遗留（冲完由 watcher 刷新服务端口径）
+  void scanQueue.init()
 })
 
 onBeforeUnmount(() => {
@@ -267,7 +307,7 @@ onBeforeUnmount(() => {
           v-if="isActive"
           class="session-summary-count"
         >
-          {{ t('stocktake.scan.scanned', { n: summary.scannedCount }) }}
+          {{ t('stocktake.scan.scanned', { n: displayScannedCount }) }}
         </p>
         <p
           v-else-if="isClosed"
@@ -392,7 +432,13 @@ onBeforeUnmount(() => {
           </p>
         </div>
         <p
-          v-if="scannedCard.repeated"
+          v-if="scannedCard.queued"
+          class="kcgl-info-box session-card-note is-offline"
+        >
+          {{ t('stocktake.scan.offlineCard') }}
+        </p>
+        <p
+          v-else-if="scannedCard.repeated"
           class="kcgl-info-box session-card-note"
         >
           {{ t('stocktake.scan.repeated') }}
@@ -412,6 +458,29 @@ onBeforeUnmount(() => {
         {{ t('stocktake.viewerNote') }}
       </p>
 
+      <p
+        v-if="canScan && queuedHere > 0"
+        class="kcgl-info-box session-queued-note"
+      >
+        {{ t('stocktake.scan.queuedNote', { n: queuedHere }) }}
+      </p>
+
+      <div
+        v-if="flushFailedCodes.length > 0"
+        class="kcgl-info-box session-flush-failures"
+      >
+        <p class="session-flush-text">
+          {{ t('stocktake.scan.flushFailed', { codes: flushFailedCodes.join('・') }) }}
+        </p>
+        <button
+          type="button"
+          class="session-flush-dismiss"
+          @click="scanQueue.dismissFailures(stocktakeId)"
+        >
+          {{ t('stocktake.scan.flushFailedDismiss') }}
+        </button>
+      </div>
+
       <div
         v-if="canScan"
         class="session-actions"
@@ -428,7 +497,7 @@ onBeforeUnmount(() => {
         <button
           type="button"
           class="kcgl-btn kcgl-btn-primary"
-          :disabled="dialogBusy"
+          :disabled="dialogBusy || queuedHere > 0"
           @click="openDialog('close')"
         >
           {{ t('stocktake.scan.close') }}
@@ -691,6 +760,41 @@ onBeforeUnmount(() => {
   border-color: var(--kcgl-color-warning-border);
   background: var(--kcgl-color-warning-bg);
   color: var(--kcgl-color-warning);
+}
+
+.session-card-note.is-offline {
+  border-color: var(--kcgl-color-info-border);
+  color: var(--kcgl-color-primary);
+}
+
+.session-queued-note {
+  font-size: 0.85rem;
+}
+
+.session-flush-failures {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  border-color: var(--kcgl-color-warning-border);
+  background: var(--kcgl-color-warning-bg);
+  color: var(--kcgl-color-warning);
+  font-size: 0.85rem;
+}
+
+.session-flush-text {
+  margin: 0;
+  word-break: break-all;
+}
+
+.session-flush-dismiss {
+  padding: 4px 12px;
+  border: 1px solid currentColor;
+  border-radius: var(--kcgl-radius-s);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
 }
 
 .session-actions {

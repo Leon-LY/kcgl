@@ -48,7 +48,6 @@ registerRoute(
 
 const SYNC_TAG = 'kcgl-upload-queue'
 const DB_NAME = 'kcgl'
-const DB_VERSION = 1
 const UPLOAD_STORE = 'uploadQueue'
 
 /** Background Sync 的 sync 事件（TS 标准库未收录——最小结构声明）。 */
@@ -65,9 +64,11 @@ self.addEventListener('sync', ((event: SyncEvent) => {
 /** 原始 IndexedDB 读取待传条目（SW 不引入 Dexie——保持产物零应用依赖）。 */
 function readPendingEntries(): Promise<{ clientUuid: string; itemId: number | null; data: ArrayBuffer; mimeType: string }[]> {
   return new Promise((resolve) => {
-    const open = indexedDB.open(DB_NAME, DB_VERSION)
+    // 无版本号打开：钉死版本会在页面侧 Dexie 升库（v2 加 scan_actions）后
+    // 抛 VersionError 静默哑掉回放；无版本号恒开当前版，只认 uploadQueue 店面。
+    const open = indexedDB.open(DB_NAME)
     open.onupgradeneeded = () => {
-      // 数据库尚未创建（从未传过照片）：无需回放。版本不符也走此分支终止。
+      // 数据库尚未创建（从未传过照片）：无需回放，终止本次打开。
       open.transaction?.abort()
     }
     open.onerror = () => resolve([])
@@ -96,7 +97,7 @@ function readPendingEntries(): Promise<{ clientUuid: string; itemId: number | nu
 
 function deleteEntry(clientUuid: string): Promise<void> {
   return new Promise((resolve) => {
-    const open = indexedDB.open(DB_NAME, DB_VERSION)
+    const open = indexedDB.open(DB_NAME)
     open.onerror = () => resolve()
     open.onblocked = () => resolve()
     open.onsuccess = () => {

@@ -339,7 +339,11 @@
       "cancelConfirm": "Cancel",
       "viewDiffs": "Review differences",
       "closedNote": "This stocktake is closed. Continue to the difference review",
-      "notFound": "This stocktake was not found"
+      "notFound": "This stocktake was not found",
+      "offlineCard": "Recorded offline. It will be sent automatically once the connection recovers",
+      "queuedNote": "{n} scan(s) are not sent yet. They are sent automatically once the connection recovers; closing becomes available when all are delivered",
+      "flushFailed": "Scans that could not be sent: {codes}",
+      "flushFailedDismiss": "Close"
     },
     "diff": {
       "title": "Difference Review",

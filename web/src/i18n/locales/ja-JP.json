@@ -339,7 +339,11 @@
       "cancelConfirm": "取り消す",
       "viewDiffs": "差異を確認する",
       "closedNote": "この棚卸は締められています。差異の確認へ進んでください",
-      "notFound": "この棚卸は見つかりません"
+      "notFound": "この棚卸は見つかりません",
+      "offlineCard": "オフラインで記録しました。回線が復旧すると自動的に送信されます",
+      "queuedNote": "未送信のスキャンが {n} 件あります。回線の復旧後に自動送信され、すべて届くと締められるようになります",
+      "flushFailed": "送信できなかったスキャン：{codes}",
+      "flushFailedDismiss": "閉じる"
     },
     "diff": {
       "title": "差異の確認",
