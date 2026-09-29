@@ -63,8 +63,15 @@ test.describe('dashboard (desktop-chromium)', () => {
     await page.locator('.dashboard-link-btn').filter({ hasText: '出荷待ちへ' }).click()
     await expect(page).toHaveURL(/\/pending-shipments$/)
 
+    // goBack 重挂大盘组件（RouterView 无 keep-alive）→ 两路 stats 重拉重渲染；
+    // 等数据落定再点卡片按钮，防点击落进重渲染瞬间导航静默丢失（M5-④ 同族病灶）
+    const statsSettled = Promise.all([
+      page.waitForResponse((r) => r.url().includes('/api/stats/dashboard') && r.request().method() === 'GET'),
+      page.waitForResponse((r) => r.url().includes('/api/stats/warehouses') && r.request().method() === 'GET'),
+    ])
     await page.goBack()
     await expect(page.locator('.dashboard-view')).toBeVisible()
+    await statsSettled
     await page.locator('.dashboard-link-btn').filter({ hasText: 'ヤフー連携へ' }).click()
     await expect(page).toHaveURL(/\/yahoo$/)
   })

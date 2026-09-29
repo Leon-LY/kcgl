@@ -5,11 +5,13 @@ import vue from '@vitejs/plugin-vue'
 import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import { VantResolver } from '@vant/auto-import-resolver'
+import { VitePWA } from 'vite-plugin-pwa'
 
 // 构建配置：Vant 随 M2 录入页接入、Element Plus 随 M2-7 打印页接入（均按需，D-027）；
-// PWA（vite-plugin-pwa）在 M6 接入。
+// PWA（vite-plugin-pwa，M6-①）：injectManifest 自定义 sw.ts（Background Sync
+// 回放需要自定义事件处理器，generateSW 模式做不到）。
 // vitest 的 SSR 管道不处理 node_modules 的 css 导入（"Unknown file extension .css"），
-// 测试模式下关掉按需样式注入——单测不依赖视觉样式。
+// 测试模式下关掉按需样式注入与 PWA 插件——单测不依赖视觉样式，也不应触碰 SW 虚拟模块。
 const isVitest = Boolean(process.env.VITEST)
 export default defineConfig({
   plugins: [
@@ -20,6 +22,45 @@ export default defineConfig({
         ElementPlusResolver({ importStyle: !isVitest }),
       ],
     }),
+    ...(!isVitest
+      ? [
+          VitePWA({
+            registerType: 'autoUpdate',
+            // 自定义 SW 源（src/sw.ts）：预缓存 + 图片 CacheFirst + Background Sync 回放；
+            // srcDir/filename 是插件顶层选项（非 injectManifest 内），后者只收 workbox-build
+            // 的打包参数（injectionPoint/globPatterns 等）
+            strategies: 'injectManifest',
+            srcDir: 'src',
+            filename: 'sw.ts',
+            injectManifest: {
+              injectionPoint: 'self.__WB_MANIFEST',
+              // 预缓存范围：构建产物 + 图标/manifest（大文件不进预缓存）
+              globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,woff2}'],
+              maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+            },
+            manifest: {
+              name: '在庫管理システム',
+              short_name: '在庫管理',
+              description: '骨董品の在庫管理——管理番号・QR・台帳・ヤフー連携',
+              lang: 'ja',
+              dir: 'ltr',
+              // 带 shell 参数强制移动壳：iPad PWA 的 UA 呈现为桌面（Mac Safari 同款），
+              // 不带参数会被路由进桌面壳（docs/01 iOS 优先节）
+              start_url: '/?shell=mobile',
+              scope: '/',
+              display: 'standalone',
+              orientation: 'portrait-primary',
+              background_color: '#f5f6f7',
+              theme_color: '#2062a6',
+              icons: [
+                { src: '/icons/pwa-192.png', sizes: '192x192', type: 'image/png' },
+                { src: '/icons/pwa-512.png', sizes: '512x512', type: 'image/png' },
+                { src: '/icons/pwa-512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+              ],
+            },
+          }),
+        ]
+      : []),
   ],
   resolve: {
     alias: {

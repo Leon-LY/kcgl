@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import LangSwitch from '@/components/LangSwitch.vue'
+import PwaInstallBar from '@/components/PwaInstallBar.vue'
 
 /**
  * 移动壳：顶栏 = 标题 + 语言切换；底栏 = van-tabbar 五页导航
  * （首页/商品登録/入庫確認/スキャン/本日；录入页仅编辑者以上显示，
  * 路由守卫与服务端 403 双兜底）。登录/改密页不显示底栏。
+ * 顶上挂 PwaInstallBar（M6-①：安装引导/未送信警示）；standalone 键盘弹起时
+ * visualViewport 收缩——把焦点输入滚回可视区（iOS PWA 专项，docs/01 iOS 节）。
  */
 const { t } = useI18n()
 const route = useRoute()
@@ -27,10 +30,27 @@ async function onLogout(): Promise<void> {
   await auth.logout()
   await router.push({ name: 'login' })
 }
+
+// standalone 下 iOS 键盘遮内容的兜底：视口收缩时聚焦输入滚回可视区
+function onViewportResize(): void {
+  const active = document.activeElement
+  if (active instanceof HTMLElement && active.matches('input, textarea, select')) {
+    active.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }
+}
+
+onMounted(() => {
+  window.visualViewport?.addEventListener('resize', onViewportResize)
+})
+
+onBeforeUnmount(() => {
+  window.visualViewport?.removeEventListener('resize', onViewportResize)
+})
 </script>
 
 <template>
   <div class="shell shell-mobile">
+    <PwaInstallBar />
     <header class="shell-header">
       <span class="shell-title">{{ t('common.appTitle') }}</span>
       <span class="shell-actions">

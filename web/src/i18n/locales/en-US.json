@@ -451,6 +451,15 @@
     "400006": "Image exceeds the 5MB size limit",
     "400007": "Image resolution exceeds the 8000×8000 limit",
     "400008": "Up to 9 photos per item",
+    "400009": "Order files must be 5MB or smaller.",
+    "400010": "The order file is empty.",
+    "400011": "The order file exceeds the row limit (100,000).",
+    "400012": "The order file (xlsx) could not be read. Upload the Yahoo order Excel as is.",
+    "400013": "Excel files must be 20MB or smaller.",
+    "400014": "The Excel file could not be read. Download the template and use the correct format.",
+    "400015": "The Excel file exceeds the row limit (20,000 rows).",
+    "400016": "The upload exceeds the size limit.",
+    "400017": "Invalid setting value",
     "400101": "Current password is incorrect",
     "400102": "New password does not meet the requirements",
     "401001": "Sign-in required",
@@ -471,25 +480,16 @@
     "409008": "This operation is not allowed in the item's current state. Reload the page and check again.",
     "409009": "An active stocktake already exists for this warehouse. Continue the existing stocktake",
     "409010": "This stocktake cannot be modified in its current state. Reload the page and check again",
-    "423001": "Account locked. Please try again later",
-    "429001": "Submission limit exceeded. Please try again later",
-    "500000": "A system error occurred",
-    "NETWORK_ERROR": "Cannot reach the server. Please check your network",
-    "INVALID_RESPONSE": "Received an invalid response from the server",
-    "400009": "Order files must be 5MB or smaller.",
-    "400010": "The order file is empty.",
-    "400011": "The order file exceeds the row limit (100,000).",
-    "400012": "The order file (xlsx) could not be read. Upload the Yahoo order Excel as is.",
     "409011": "This exact order file has already been imported.",
-    "400013": "Excel files must be 20MB or smaller.",
-    "400014": "The Excel file could not be read. Download the template and use the correct format.",
-    "400015": "The Excel file exceeds the row limit (20,000 rows).",
-    "400016": "The upload exceeds the size limit.",
     "409012": "This exact Excel file has already been imported.",
     "409013": "Warehouse changes must be made through a move operation.",
     "409014": "This item has already been deleted.",
     "409015": "This item is not deleted and cannot be restored.",
-    "400017": "Invalid setting value"
+    "423001": "Account locked. Please try again later",
+    "429001": "Submission limit exceeded. Please try again later",
+    "500000": "A system error occurred",
+    "NETWORK_ERROR": "Cannot reach the server. Please check your network",
+    "INVALID_RESPONSE": "Received an invalid response from the server"
   },
   "yahoo": {
     "title": "Yahoo integration",
@@ -901,6 +901,20 @@
     "export": {
       "run": "Export diagnostics",
       "running": "Exporting…"
+    }
+  },
+  "pwa": {
+    "guide": {
+      "title": "Add to Home Screen",
+      "body": "Installing as an app keeps temporarily stored photos safer (without adding to the home screen, stored photos may be cleared after long inactivity).",
+      "ios": "Safari Share button → “Add to Home Screen”",
+      "generic": "Browser menu → “Install app” / “Add to Home screen”",
+      "install": "Install",
+      "later": "Later"
+    },
+    "warning": {
+      "title": "{n} photo(s) pending upload",
+      "body": "Photos may be cleared after long inactivity if the app is not added to the home screen. Uploads resume automatically once back online."
     }
   }
 }

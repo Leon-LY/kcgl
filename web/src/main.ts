@@ -5,6 +5,7 @@ import { Locale } from 'vant'
 import jaVant from 'vant/es/locale/lang/ja-JP'
 import zhVant from 'vant/es/locale/lang/zh-CN'
 import enVant from 'vant/es/locale/lang/en-US'
+import { registerSW } from 'virtual:pwa-register'
 import App from './App.vue'
 import router from './router'
 import { i18n } from './i18n'
@@ -18,5 +19,9 @@ Locale.use(i18n.global.locale.value)
 watch(i18n.global.locale, (locale) => {
   Locale.use(locale)
 })
+
+// SW 注册（M6-①，autoUpdate）：新版本激活即整页刷新——库存作业页无长驻可丢状态，
+// 静默换版优于滞留旧壳。dev 模式（devOptions 未启用）registerSW 为 no-op。
+registerSW({ immediate: true })
 
 createApp(App).use(createPinia()).use(router).use(i18n).mount('#app')

@@ -5,6 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="light" />
     <title>在庫管理システム</title>
+    <!-- PWA/主屏（M6-①）：iOS 不读 manifest icons——apple-touch-icon 三尺寸显式声明
+         （180=iPhone、167=iPad Pro、152=iPad，scripts/generate-pwa-icons.mjs 生成）。 -->
+    <meta name="theme-color" content="#2062a6" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/pwa-192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="/icons/apple-touch-icon-167.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/apple-touch-icon-152.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="在庫管理" />
   </head>
   <body>
     <div id="app"></div>

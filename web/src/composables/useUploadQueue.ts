@@ -135,6 +135,8 @@ async function uploadOne(entry: UploadQueueEntry): Promise<void> {
         attempts,
         nextRetryAt: Date.now() + backoffMs(attempts),
       })
+      // 退避等待期间页面可能被关闭——重新挂 Background Sync 让 SW 兜底回放
+      void registerBackgroundSync()
     }
   } finally {
     activeUploads--
@@ -207,6 +209,41 @@ function setupListeners(): void {
       void pump()
     }
   })
+  // iOS 无 Background Sync——关页/切走时队列仍有存货则留警示（docs/01 R2 四件套）
+  window.addEventListener('beforeunload', (event) => {
+    if (state.waitingCount + state.uploadingCount + state.unboundCount > 0) {
+      event.preventDefault()
+      // Chrome 需要 returnValue 非空才弹确认框（规范遗留字段）
+      event.returnValue = ''
+    }
+  })
+  // SW Background Sync 回放成功后通知：刷新计数并继续泵（清剩余退避条目）
+  navigator.serviceWorker?.addEventListener('message', (event) => {
+    if ((event as MessageEvent).data?.type === 'kcgl-upload-replayed') {
+      void refreshCounts().then(() => pump())
+    }
+  })
+}
+
+/** 安卓主路径（docs/01 R2）：注册一次性 Background Sync——页面关闭后网络恢复时
+ *  SW 直接回放（见 src/sw.ts）。不可用（iOS/Safari 等）静默降级到页面存活循环。 */
+async function registerBackgroundSync(): Promise<void> {
+  try {
+    if (!('serviceWorker' in navigator)) {
+      return
+    }
+    const registration = await navigator.serviceWorker.ready
+    const sync = (
+      registration as ServiceWorkerRegistration & {
+        sync?: { register: (tag: string) => Promise<void> }
+      }
+    ).sync
+    if (sync != null) {
+      await sync.register('kcgl-upload-queue')
+    }
+  } catch {
+    // 注册失败不阻断上传——页面泵仍是兜底
+  }
 }
 
 // 模块加载即注册（幂等回调，队列空时无操作）；不挂在 init 上避免「监听是否存在」依赖调用次序
@@ -217,16 +254,26 @@ async function init(): Promise<void> {
     return
   }
   initialized = true
-  // 僵尸复位：上次进程遗留的 uploading → pending
-  await db.uploadQueue.where('status').equals('uploading').modify({ status: 'pending' })
-  await refreshCounts()
-  void pump()
+  try {
+    // 僵尸复位：上次进程遗留的 uploading → pending
+    await db.uploadQueue.where('status').equals('uploading').modify({ status: 'pending' })
+    await refreshCounts()
+    // 重开即有存货：挂上 Background Sync（此前会话可能没等到网络恢复就被关闭）
+    if (state.waitingCount > 0) {
+      void registerBackgroundSync()
+    }
+    void pump()
+  } catch {
+    // IndexedDB 不可用（Safari 隐私模式等）：队列静默降级——直传路径仍在
+  }
 }
 
 // ------------------------------------------------------------------ 队列操作
 
 /** 压缩并落库（pending_bind）。返回新建条目（含压缩后数据，供调用方做本地预览）。 */
 async function addFiles(files: File[]): Promise<UploadQueueEntry[]> {
+  // 存储保险（docs/01 7.5）：有照片在本地即申请持久化——ITP/配额压力下多一道防线
+  navigator.storage?.persist?.().catch(() => undefined)
   const created: UploadQueueEntry[] = []
   for (const file of files) {
     const { data, mimeType } = await compressImage(file)
@@ -253,6 +300,7 @@ async function bindItem(itemId: number): Promise<number> {
   await db.uploadQueue.where('status').equals('pending_bind').modify({ status: 'pending', itemId })
   const bound = await db.uploadQueue.where('itemId').equals(itemId).count()
   await refreshCounts()
+  void registerBackgroundSync()
   void pump()
   return bound
 }

@@ -104,7 +104,13 @@ test.describe('item list and detail (desktop-chromium)', () => {
     await expect(page.locator('#pane-list .el-table__row', { hasText: itemB.itemCode })).toBeVisible()
     await expect(page.locator('#pane-list .el-table__row', { hasText: itemA.itemCode })).toHaveCount(0)
 
+    // 清条件触发列表重拉——先挂响应等待（快响应不能漏接），落定后再做行点击
+    // （行可见断言可能在渲染切换窗口命中旧 DOM，点击随之落空——nav 静默丢失）
+    const listRefetched = page.waitForResponse(
+      (r) => r.url().includes('/api/items/search') && r.request().method() === 'GET',
+    )
     await page.getByRole('button', { name: '条件をクリア' }).click()
+    await listRefetched
     await expect(page.locator('#pane-list .el-table__row', { hasText: itemA.itemCode })).toBeVisible()
 
     // ---- 详情：行点击进入，四段式+状态标签，无分歧徽标

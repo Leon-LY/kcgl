@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useShell } from '@/composables/useShell'
 import LangSwitch from '@/components/LangSwitch.vue'
+import PwaInstallBar from '@/components/PwaInstallBar.vue'
 
 /**
  * 桌面壳（M1 骨架 → M5-③ 侧边栏化，D-040 触发：导航链接达 9 个）：
@@ -150,6 +151,7 @@ function onSwitchMobile(): void {
         </span>
       </header>
       <main class="shell-main">
+        <PwaInstallBar warning-only />
         <RouterView />
       </main>
     </div>

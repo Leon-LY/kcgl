@@ -245,7 +245,7 @@ useSyncInvalidation(['ITEM', 'INVENTORY', 'YAHOO_IMPORT', 'SETTING'], () => void
             <tbody>
               <tr
                 v-for="row in warehouses"
-                :key="row.warehouse"
+                :key="row.warehouse ?? 'none'"
               >
                 <th scope="row">
                   {{ warehouseName(row) }}
