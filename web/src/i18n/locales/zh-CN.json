@@ -82,7 +82,11 @@
     "priceBands": "价格档位",
     "users": "账号",
     "yahoo": "雅虎联动",
-    "excel": "Excel"
+    "excel": "Excel",
+    "dashboard": "仪表盘",
+    "settings": "系统设置",
+    "groupOps": "运营",
+    "groupAdmin": "管理"
   },
   "entry": {
     "title": "商品录入",
@@ -168,7 +172,9 @@
     "preset": {
       "small": "38×21（65张）",
       "medium": "50×30（36张）",
-      "large": "70×25（33张）"
+      "large": "70×25（33张）",
+      "custom": "自定义",
+      "customDims": "自定义（{w}×{h}）"
     },
     "reprintLabel": "按管理号重打",
     "reprintPlaceholder": "例）HT9-A12X",
@@ -478,7 +484,8 @@
     "409012": "相同内容的 Excel 文件已导入过。",
     "409013": "仓库变更请通过移动操作进行。",
     "409014": "该商品已被删除。",
-    "409015": "该商品未被删除，无法恢复。"
+    "409015": "该商品未被删除，无法恢复。",
+    "400017": "设置值无效"
   },
   "yahoo": {
     "title": "雅虎联动",
@@ -743,5 +750,46 @@
       "empty": "暂无受注记录",
       "loadFailed": "受注记录加载失败。"
     }
+  },
+  "dashboard": {
+    "title": "仪表盘",
+    "fleetTitle": "整体概况",
+    "warehouseTitle": "分仓概况",
+    "warehouse": "仓库",
+    "inStock": "在库",
+    "inTransit": "待入库",
+    "shipped": "已出库",
+    "monthInbound": "本月入库",
+    "monthOutbound": "本月出库",
+    "slowWarn": "滞销（黄）",
+    "slowRed": "滞销（红）",
+    "stockValue": "在库货值",
+    "avgStockAgeDays": "平均库龄",
+    "ageDays": "{n} 天",
+    "yahooTitle": "雅虎联动",
+    "soldNotShipped": "已成交・未出库",
+    "canceledNotRelisted": "已取消・待重新出品",
+    "withdrawNeeded": "需撤下出品",
+    "lastImport": "最近导入：{file}（{at}）",
+    "lastImportNone": "尚未导入过受注文件",
+    "goPendingShipments": "前往出库待办",
+    "goYahoo": "前往雅虎联动"
+  },
+  "settings": {
+    "title": "系统设置",
+    "slowTitle": "滞销阈值",
+    "slowNote": "在库天数超过黄色阈值标记为注意、超过红色阈值标记为需处理（商品列表）。",
+    "warnDays": "黄色阈值（天）",
+    "alarmDays": "红色阈值（天）",
+    "errDaysRange": "阈值须在 {min}～{max} 天范围内",
+    "errWarnLtAlarm": "黄色阈值须小于红色阈值",
+    "labelTitle": "标签规格",
+    "labelNote": "标签打印的默认规格。选择「自定义」可指定宽度和高度。",
+    "labelWidth": "标签宽度（mm）",
+    "labelHeight": "标签高度（mm）",
+    "errWidthRange": "标签宽度须在 {min}～{max} mm 范围内",
+    "errHeightRange": "标签高度须在 {min}～{max} mm 范围内",
+    "saved": "已保存",
+    "loadFailed": "设置读取失败"
   }
 }

@@ -21,7 +21,7 @@ async function login(page: Page, username: string): Promise<void> {
   await page.fill('#login-username', username)
   await page.fill('#login-password', E2E_PASSWORD)
   await page.getByRole('button', { name: 'ログイン' }).click()
-  await expect(page.locator('.home-welcome')).toBeVisible()
+  await expect(page.locator('.home-welcome, .dashboard-view')).toBeVisible()
 }
 
 /** 打印页共享断言助手见 ./qr.ts（entry.spec 10 件闭环同样使用）。 */

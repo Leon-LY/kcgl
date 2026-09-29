@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useShell } from '@/composables/useShell'
 import { setUnauthorizedHandler } from '@/utils/api'
 
 // M1 起路由按 meta.shell 双壳组织（mobile/desktop，UA 自动选择+手动切换，见 composables/useShell）。
@@ -31,6 +32,14 @@ const router = createRouter({
       path: '/',
       name: 'home',
       component: () => import('@/views/HomeView.vue'),
+    },
+    {
+      // 桌面大盘（M5-③，D-072）：桌面壳的落地页（'/' 重定向至此）——
+      // 首启引导+全队/两仓指标+雅虎待办；全员可读（指标聚合无敏感面）
+      path: '/dashboard',
+      name: 'dashboard',
+      component: () => import('@/views/desktop/dashboard/DashboardView.vue'),
+      meta: { titleKey: 'dashboard.title' },
     },
     {
       path: '/entry',
@@ -124,6 +133,14 @@ const router = createRouter({
       meta: { titleKey: 'admin.band.title', roles: [1] },
     },
     {
+      // 系统设置（M5-③）：滞销阈值/标签规格，仅管理员
+      // （GET 全员可读是打印页/列表的口径，本页管理面收敛在 A；PUT /api/settings/** URL 级 RBAC 兜底）
+      path: '/admin/settings',
+      name: 'admin-settings',
+      component: () => import('@/views/desktop/admin/settings/SettingsView.vue'),
+      meta: { titleKey: 'settings.title', roles: [1] },
+    },
+    {
       // 标签打印（M2-7）：桌面为主、全员可打印（录入手与贴标手常不同人）
       path: '/print',
       name: 'print',
@@ -172,6 +189,12 @@ router.beforeEach(async (to) => {
   }
   if (auth.me?.mustChangePwd && to.name !== 'change-password') {
     return { name: 'change-password' }
+  }
+  // 桌面壳下 '/' 落地大盘（D-072）：HomeView 归移动壳（欢迎语/账号/快捷入口），
+  // 桌面首屏直接进指标速览；移动壳不受影响。useShell 返回 ref——守卫在
+  // setup 外运行无自动解包，必须 .value（漏写时重定向静默失效，E2E 12 败全因它）
+  if (to.name === 'home' && useShell().shell.value === 'desktop') {
+    return { name: 'dashboard' }
   }
   // 角色受限页（meta.roles）：越权访问回首页（viewer 点「商品录入」入口被入口隐藏，
   // 直敲 URL 由此拦截；403 语义由服务端端点二次兜底）

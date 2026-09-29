@@ -39,6 +39,8 @@ public enum ErrorCode {
     EXCEL_ROW_LIMIT(400015, "Excelの行数が上限（2万行）を超えています"),
     /** multipart 容器层粗筛超限（图片/CSV/Excel 全上传物通用）；上限经 env 可调故文案不带数字。 */
     UPLOAD_TOO_LARGE(400016, "アップロードサイズが上限を超えています"),
+    /** sys_setting 值校验（M5-③：范围/格式/黄红阈值关系——具体文案由前端预检给出，本码为服务端兜底）。 */
+    SETTING_VALUE_INVALID(400017, "設定値が正しくありません"),
 
     ACCOUNT_LOCKED(423001, "アカウントがロックされました。しばらくしてからもう一度お試しください"),
 

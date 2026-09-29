@@ -6,12 +6,13 @@ import epEn from 'element-plus/es/locale/lang/en'
 import epJa from 'element-plus/es/locale/lang/ja'
 import epZhCn from 'element-plus/es/locale/lang/zh-cn'
 import { useDictsStore } from '@/stores/dicts'
+import { useSettingsStore } from '@/stores/settings'
 import { ApiError, fetchItemsForPrint, type ItemSummary } from '@/utils/api'
 import { toDisplayMessage } from '@/utils/errors'
 import { dayjs, JST_TZ } from '@/utils/format'
 import { normalizeNumericText } from '@/utils/normalize'
 import LabelSheet from './LabelSheet.vue'
-import { LABEL_PRESETS, type LabelEntry, type LabelPresetKey } from './label'
+import { customPreset, LABEL_PRESETS, type LabelEntry, type LabelPreset, type LabelPresetKey } from './label'
 
 /**
  * 标签打印页（M2-7，docs/01 4.3）：创建日区间（JST 日界）+ 会场筛选 →
@@ -25,11 +26,13 @@ const PAGE_SIZE = 100
 
 const { t, locale } = useI18n()
 const dicts = useDictsStore()
+const settings = useSettingsStore()
 
 const range = ref<[string, string]>([todayJst(), todayJst()])
 const venueIdFilter = ref<number | null>(null)
 const reprintCode = ref('')
-const presetKey = ref<LabelPresetKey>('small')
+/** null=设置未就绪且用户未手选（radio 不选中，排版回退 small；加载后落管理员默认）。 */
+const presetKey = ref<LabelPresetKey | null>(null)
 const showThumb = ref(false)
 const entries = ref<LabelEntry[]>([])
 const total = ref(0)
@@ -50,13 +53,30 @@ function todayJst(): string {
   return dayjs().tz(JST_TZ).format('YYYY-MM-DD')
 }
 
-const presetOptions = LABEL_PRESETS.map((preset) => ({
-  value: preset.key,
-  labelKey: `print.preset.${preset.key}`,
+/** 设置缺位/脏值兜底尺寸（与服务端默认 50×30 同值）。 */
+const DEFAULT_WIDTH_MM = 50
+const DEFAULT_HEIGHT_MM = 30
+
+const customDims = computed(() => ({
+  widthMm: settings.data?.labelWidthMm ?? DEFAULT_WIDTH_MM,
+  heightMm: settings.data?.labelHeightMm ?? DEFAULT_HEIGHT_MM,
 }))
-const preset = computed(
-  () => LABEL_PRESETS.find((p) => p.key === presetKey.value) ?? LABEL_PRESETS[0],
-)
+
+const presetOptions = computed<Array<{ value: LabelPresetKey; label: string }>>(() => [
+  ...LABEL_PRESETS.map((p) => ({ value: p.key, label: t(`print.preset.${p.key}`) })),
+  {
+    value: 'custom',
+    label: t('print.preset.customDims', { w: customDims.value.widthMm, h: customDims.value.heightMm }),
+  },
+])
+
+/** 当前生效规格：custom=按管理员设定的幅/高推导（M5-③）；未就绪回退 small。 */
+const preset = computed<LabelPreset>(() => {
+  if (presetKey.value === 'custom') {
+    return customPreset(customDims.value.widthMm, customDims.value.heightMm)
+  }
+  return LABEL_PRESETS.find((p) => p.key === presetKey.value) ?? LABEL_PRESETS[0]
+})
 const sheets = computed(() => {
   const perSheet = preset.value.cols * preset.value.rows
   return Math.ceil(entries.value.length / perSheet)
@@ -148,6 +168,20 @@ function print(): void {
 onMounted(() => {
   // 会场下拉加载失败不阻断打印（无会场筛选仍可按日期打印）
   dicts.ensureLoaded().catch(() => {})
+  // 默认规格=管理员设定（label.preset，M5-③）；未就绪期间用户已手选则尊重手选，
+  // 失败回退 small。SSE SETTING 失效由 store reload 自动带入新默认
+  void settings
+    .ensureLoaded()
+    .then(() => {
+      if (presetKey.value === null) {
+        presetKey.value = settings.data?.labelPreset ?? 'small'
+      }
+    })
+    .catch(() => {
+      if (presetKey.value === null) {
+        presetKey.value = 'small'
+      }
+    })
   void load()
 })
 </script>
@@ -203,7 +237,7 @@ onMounted(() => {
                 :key="option.value"
                 :value="option.value"
               >
-                {{ t(option.labelKey) }}
+                {{ option.label }}
               </el-radio-button>
             </el-radio-group>
           </div>
@@ -397,8 +431,13 @@ onMounted(() => {
 
 @media print {
   /* 去除应用壳与桌面容器的屏幕留白，sheet 直取整页（mm 精确） */
-  .shell-header {
+  .shell-header,
+  .shell-sidebar {
     display: none !important;
+  }
+
+  .shell-body {
+    flex-direction: column;
   }
 
   .shell-main {

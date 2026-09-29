@@ -3,6 +3,7 @@ import { ref, watch, type WatchStopHandle } from 'vue'
 import { api } from '@/utils/api'
 import { useAuthStore } from '@/stores/auth'
 import { useDictsStore } from '@/stores/dicts'
+import { useSettingsStore } from '@/stores/settings'
 
 /**
  * 实时同步单例（docs/01 7.6）：EventSource 长连接 + 粗粒度失效分发。
@@ -19,8 +20,9 @@ import { useDictsStore } from '@/stores/dicts'
  * （盘点差异页 pending 过滤重取曾抹掉刚处理完的行）；异步批次页（Excel/Yahoo）
  * 有轮询主路径，不依赖自己的回声。代价：同账号他设备的自动刷新随之让渡（跨
  * 用户实时一致不受影响——验收承诺的口径）。
- * 字典是唯一常驻业务缓存，DICT 失效直接驱动 dicts.reload；其余域经
- * onInvalidate 监听分发（M3-④/⑤ 起列表视图接入）。
+ * 字典与系统设置是两个常驻业务缓存，DICT/SETTING 失效分别驱动
+ * dicts.reload / settings.reload；其余域经 onInvalidate 监听分发
+ * （M3-④/⑤ 起列表视图接入）。
  */
 
 /** 后端事件信封（server SyncEvent）：{seq,type,entity,operatorId,at}。 */
@@ -51,6 +53,7 @@ const RECONNECT_FULL_REFRESH_MS = 5_000
 export const useSyncStore = defineStore('sync', () => {
   const auth = useAuthStore()
   const dicts = useDictsStore()
+  const settings = useSettingsStore()
 
   const connected = ref(false)
   const lastEventAt = ref<number | null>(null)
@@ -164,6 +167,11 @@ export const useSyncStore = defineStore('sync', () => {
     if (types.has('DICT')) {
       // 字典重取失败不阻断其余监听者；下次失效或视图 ensureLoaded 自然重试
       void dicts.reload().catch(() => undefined)
+    }
+    if (types.has('SETTING')) {
+      // 设置缓存同款失效（M5-③：他端改阈值/标签规格 → 打印页默认规格重取；
+      // reload 内部吞错保旧值，广播链路不外抛）
+      void settings.reload()
     }
     for (const listener of listeners) {
       try {

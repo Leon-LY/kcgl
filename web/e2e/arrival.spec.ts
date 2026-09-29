@@ -26,7 +26,7 @@ async function login(page: Page, username: string): Promise<void> {
   await page.fill('#login-username', username)
   await page.fill('#login-password', E2E_PASSWORD)
   await page.getByRole('button', { name: 'ログイン' }).click()
-  await expect(page.locator('.home-welcome')).toBeVisible()
+  await expect(page.locator('.home-welcome, .dashboard-view')).toBeVisible()
 }
 
 /** JST 日历日（YYYY-MM-DD）；offsetDays 可回溯近几日。 */

@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useShell } from '@/composables/useShell'
-import { fetchChecklist, markChecklistPrintDone } from '@/utils/api'
-import type { Checklist } from '@/utils/api'
+import SetupChecklistCard from '@/components/SetupChecklistCard.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -14,63 +13,21 @@ const { shell, switchShell } = useShell()
 
 const canEntry = computed(() => auth.me != null && auth.me.role <= 2)
 
-// ------------------------------------------------------------- 首启 checklist（管理员）
-
-/**
- * 空字典首件录入必 400（六轮旅程 M2）——五步引导卡片对管理员置顶，
- * 全部完成后隐藏。获取失败静默不显示（引导是增强，不阻塞首页）。
- */
-const checklist = ref<Checklist | null>(null)
-
-const isAdmin = computed(() => auth.me != null && auth.me.role === 1)
-
-const setupSteps = computed(() => {
-  const c = checklist.value
-  if (c === null) {
-    return []
-  }
-  return [
-    { key: 'stepUsers', done: c.hasStaffUser, to: '/admin/users' },
-    { key: 'stepVenue', done: c.hasVenue, to: '/admin/venues' },
-    { key: 'stepBand', done: c.hasPriceBand, to: '/admin/price-bands' },
-    { key: 'stepItem', done: c.hasItem, to: '/entry' },
-    { key: 'stepPrint', done: c.printDone, to: '/print' },
-  ]
-})
-
-const setupDone = computed(
-  () => checklist.value !== null && setupSteps.value.every((step) => step.done),
-)
-
-const showSetupCard = computed(() => isAdmin.value && checklist.value !== null && !setupDone.value)
-
-const printMarking = ref(false)
-
-async function onMarkPrintDone(): Promise<void> {
-  if (printMarking.value) return
-  printMarking.value = true
-  try {
-    checklist.value = await markChecklistPrintDone()
-  } catch {
-    // 幂等标记失败不打断首页——下次进来重试即可
-  } finally {
-    printMarking.value = false
-  }
-}
-
-onMounted(async () => {
-  if (!isAdmin.value) return
-  try {
-    checklist.value = await fetchChecklist()
-  } catch {
-    checklist.value = null
-  }
-})
-
 const shellOptions = [
   { value: 'mobile', labelKey: 'common.shellMobile' },
   { value: 'desktop', labelKey: 'common.shellDesktop' },
 ] as const
+
+/**
+ * 切到桌面壳后 '/' 会重定向到大盘（M5-③ D-072：桌面落地页=dashboard），
+ * 这里主动带上目标页，避免「切了壳还停在移动首页」的一跳。
+ */
+function onSwitchShell(target: 'mobile' | 'desktop'): void {
+  switchShell(target)
+  if (target === 'desktop') {
+    void router.push({ name: 'dashboard' })
+  }
+}
 </script>
 
 <template>
@@ -82,46 +39,7 @@ const shellOptions = [
       {{ t('home.welcome', { name: auth.me.displayName }) }}
     </h1>
 
-    <div
-      v-if="showSetupCard"
-      class="kcgl-card home-card home-setup"
-    >
-      <h2 class="home-card-title">
-        {{ t('home.setup.title') }}
-      </h2>
-      <p class="home-setup-note">
-        {{ t('home.setup.note') }}
-      </p>
-      <ol class="home-setup-steps">
-        <li
-          v-for="step in setupSteps"
-          :key="step.key"
-          class="home-setup-step"
-          :class="{ 'is-done': step.done }"
-        >
-          <span
-            class="home-setup-mark"
-            :aria-hidden="true"
-          >{{ step.done ? '✓' : '' }}</span>
-          <button
-            type="button"
-            class="home-setup-link"
-            @click="router.push(step.to)"
-          >
-            {{ t(`home.setup.${step.key}`) }}
-          </button>
-          <button
-            v-if="step.key === 'stepPrint' && !step.done"
-            type="button"
-            class="home-setup-done"
-            :disabled="printMarking"
-            @click="onMarkPrintDone"
-          >
-            {{ t('home.setup.printDone') }}
-          </button>
-        </li>
-      </ol>
-    </div>
+    <SetupChecklistCard />
 
     <div class="kcgl-card home-card">
       <h2 class="home-card-title">
@@ -159,7 +77,7 @@ const shellOptions = [
           class="home-shell-option"
           :class="{ 'is-active': shell === option.value }"
           :aria-pressed="shell === option.value"
-          @click="switchShell(option.value)"
+          @click="onSwitchShell(option.value)"
         >
           {{ t(option.labelKey) }}
         </button>
@@ -331,89 +249,5 @@ const shellOptions = [
   margin: 0;
   font-size: 0.9rem;
   color: var(--kcgl-color-text-sub);
-}
-
-.home-setup {
-  border-left: 3px solid var(--kcgl-color-primary);
-}
-
-.home-setup-note {
-  margin: 0;
-  font-size: 0.85rem;
-  line-height: 1.6;
-  color: var(--kcgl-color-text-sub);
-}
-
-.home-setup-steps {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 8px;
-}
-
-.home-setup-step {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 36px;
-}
-
-.home-setup-mark {
-  flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  border: 1.5px solid var(--kcgl-color-border);
-  border-radius: 50%;
-  color: var(--kcgl-color-primary);
-  font-size: 0.85rem;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.home-setup-step.is-done .home-setup-mark {
-  border-color: var(--kcgl-color-primary);
-  background: var(--kcgl-color-primary-bg);
-  font-weight: 700;
-}
-
-.home-setup-step.is-done .home-setup-link {
-  color: var(--kcgl-color-text-sub);
-}
-
-.home-setup-link {
-  border: none;
-  background: none;
-  padding: 0;
-  color: var(--kcgl-color-text);
-  font: inherit;
-  font-size: 0.92rem;
-  text-align: left;
-  cursor: pointer;
-}
-
-.home-setup-link:hover {
-  color: var(--kcgl-color-primary);
-  text-decoration: underline;
-}
-
-.home-setup-done {
-  margin-left: auto;
-  flex-shrink: 0;
-  height: 30px;
-  padding: 0 12px;
-  border: 1px solid var(--kcgl-color-border);
-  border-radius: 4px;
-  background: #fff;
-  color: var(--kcgl-color-text-sub);
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-
-.home-setup-done:hover {
-  border-color: var(--kcgl-color-primary);
-  color: var(--kcgl-color-primary);
 }
 </style>

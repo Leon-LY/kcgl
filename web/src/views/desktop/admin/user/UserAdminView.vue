@@ -55,7 +55,10 @@ onMounted(() => {
 })
 
 function roleLabel(role: number): string {
-  return t(`auth.role.${role}`)
+  // element-plus 列注册时会用空哑行 { row: {} } 探测一次 default 插槽
+  // （TableColumnRenderer），此刻 role=undefined——返回占位避免每次进页
+  // 都刷一条 auth.role.undefined 的 intlify 缺键警告（渲染结果本就被丢弃）
+  return typeof role === 'number' ? t(`auth.role.${role}`) : '—'
 }
 
 function isSelf(row: AdminUser): boolean {

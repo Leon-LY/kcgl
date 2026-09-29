@@ -11,6 +11,7 @@ import {
   downloadExcelExport,
   downloadExcelTemplate,
   fetchChecklist,
+  fetchDashboardStats,
   fetchExcelBatches,
   fetchExcelBatch,
   fetchItemByCode,
@@ -22,10 +23,12 @@ import {
   fetchPendingShipments,
   fetchPriceBands,
   fetchRecycleBin,
+  fetchSettings,
   fetchStocktake,
   fetchStocktakeDiffs,
   fetchStocktakes,
   fetchTodaySession,
+  fetchWarehouseStats,
   fetchYahooBatches,
   fetchYahooBatch,
   fetchYahooReconcile,
@@ -44,10 +47,12 @@ import {
   setUnauthorizedHandler,
   transferItem,
   updateItem,
+  updateSetting,
   uploadExcelWorkbook,
   uploadImage,
   uploadYahooImport,
 } from './api'
+import type { DashboardStats, SettingsData, WarehouseStats } from './api'
 
 /** 仅实现包装层用到的 status/json 两个成员的最小 Response 替身。 */
 function jsonResponse(body: unknown, status = 200): Response {
@@ -605,5 +610,76 @@ describe('binary downloads (requestBlob: template and export)', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
     const error = await downloadExcelTemplate().catch((e: unknown) => e)
     expect((error as ApiError).message).toBe('NETWORK_ERROR')
+  })
+})
+
+describe('settings and stats endpoints (M5-③)', () => {
+  function stubOk(data: unknown): ReturnType<typeof vi.fn> {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ code: 0, message: 'ok', data }))
+    vi.stubGlobal('fetch', fetchMock)
+    return fetchMock
+  }
+
+  const SETTINGS: SettingsData = {
+    warnDays: 30,
+    alarmDays: 90,
+    labelPreset: 'small',
+    labelWidthMm: 50,
+    labelHeightMm: 30,
+  }
+
+  it('fetchSettings → GET /api/settings and returns the snapshot', async () => {
+    const fetchMock = stubOk(SETTINGS)
+    await expect(fetchSettings()).resolves.toEqual(SETTINGS)
+    const [path, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(path).toBe('/api/settings')
+    expect(init.method).toBe('GET')
+  })
+
+  it('updateSetting PUTs the single key with a JSON value body', async () => {
+    const fetchMock = stubOk({ ...SETTINGS, warnDays: 45 })
+    await expect(updateSetting('slow_move.warn_days', '45')).resolves.toMatchObject({ warnDays: 45 })
+    const [path, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(path).toBe('/api/settings/slow_move.warn_days')
+    expect(init.method).toBe('PUT')
+    expect(JSON.parse(init.body as string)).toEqual({ value: '45' })
+  })
+
+  it('updateSetting URL-encodes the key path segment', async () => {
+    const fetchMock = stubOk(SETTINGS)
+    await updateSetting('label.preset', 'custom')
+    expect((fetchMock.mock.calls[0] as [string, RequestInit])[0]).toBe('/api/settings/label.preset')
+    // encodeURIComponent 对「.」不转义（安全子字符），键名原样进路径——契约即此形态
+  })
+
+  it('fetchDashboardStats → GET /api/stats/dashboard', async () => {
+    const dashboard: DashboardStats = {
+      fleet: {
+        warehouse: null, totalItems: 8, inTransit: 1, inStock: 5, shipped: 2,
+        monthInbound: 4, monthOutbound: 3, slowWarn: 1, slowRed: 1,
+        stockValue: 11500, avgStockAgeDays: 12.2,
+      },
+      yahoo: {
+        soldNotShipped: 1, canceledNotRelisted: 1, withdrawNeeded: 1,
+        lastImportFinishedAt: '2026-09-01T10:15:30', lastImportFilename: 'orders.csv',
+      },
+    }
+    const fetchMock = stubOk(dashboard)
+    await expect(fetchDashboardStats()).resolves.toEqual(dashboard)
+    const [path, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(path).toBe('/api/stats/dashboard')
+    expect(init.method).toBe('GET')
+  })
+
+  it('fetchWarehouseStats → GET /api/stats/warehouses', async () => {
+    const rows: WarehouseStats[] = [
+      { warehouse: 1, totalItems: 4, inTransit: 1, inStock: 3, shipped: 0, monthInbound: 3, monthOutbound: 2, slowWarn: 0, slowRed: 0, stockValue: 6500, avgStockAgeDays: 2 },
+      { warehouse: 2, totalItems: 4, inTransit: 0, inStock: 2, shipped: 2, monthInbound: 2, monthOutbound: 1, slowWarn: 1, slowRed: 1, stockValue: 5000, avgStockAgeDays: null },
+    ]
+    const fetchMock = stubOk(rows)
+    await expect(fetchWarehouseStats()).resolves.toEqual(rows)
+    const [path, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(path).toBe('/api/stats/warehouses')
+    expect(init.method).toBe('GET')
   })
 })

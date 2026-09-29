@@ -4,10 +4,11 @@ import type { ItemSummary } from '@/utils/api'
  * 标签排版规格（M2-7，docs/01 4.3/7.7）：A4 不干胶三预置。
  * 栅格数学（210×297mm）：2·padX + cols·w + (cols−1)·colGap = 210、
  * 2·padY + rows·h + (rows−1)·rowGap = 297——预置值经手算校核，勿随手改单值。
- * 自定义尺寸/单件重打（n=1）在 M5 详情页与 sys_setting 接入（D-036）。
+ * M5-③ 起自定义尺寸经 sys_setting（label.preset=custom + 幅/高）接入：
+ * 预置仍手调最优栅格，自定义按保守统一栅格推导（customPreset）。
  */
 
-export type LabelPresetKey = 'small' | 'medium' | 'large'
+export type LabelPresetKey = 'small' | 'medium' | 'large' | 'custom'
 
 export interface LabelPreset {
   key: LabelPresetKey
@@ -93,6 +94,40 @@ export const LABEL_PRESETS: LabelPreset[] = [
 export interface LabelEntry {
   item: ItemSummary
   qr: string | null
+}
+
+/**
+ * 自定义尺寸推导（M5-③，sys_setting label.width/height → 排版规格）：
+ * 幅 30〜100mm・高 21〜60mm 由设置页约束（服务端兜底同界）。栅格按保守统一
+ * 规格取整：pad=4・gap=2 → cols=floor(204/(w+2))、rows=floor(291/(h+2))（恰好
+ * 整除时铺满 A4，否则留白不满一格）。QR=clamp(高−8, 13, 16)（13=38×21 底、
+ * 16=50×30 顶；人读码字号按高 24mm 分档）。缩略图位与预置同判据
+ * （幅≥50 且高≥25），宽=min(20, 幅−QR−16)。
+ */
+export function customPreset(widthMm: number, heightMm: number): LabelPreset {
+  const qrMm = Math.min(16, Math.max(13, heightMm - 8))
+  const thumbSupported = widthMm >= 50 && heightMm >= 25
+  const thumbMm = thumbSupported ? Math.min(20, Math.floor(widthMm - qrMm - 16)) : 0
+  const cols = Math.max(1, Math.floor(204 / (widthMm + 2)))
+  const rows = Math.max(1, Math.floor(291 / (heightMm + 2)))
+  const [headPt, tailPt, datePt] = heightMm < 24 ? [6.5, 8.5, 5.5] : [8, 11, 6.5]
+  return {
+    key: 'custom',
+    widthMm,
+    heightMm,
+    cols,
+    rows,
+    colGapMm: 2,
+    rowGapMm: 2,
+    padXMm: 4,
+    padYMm: 4,
+    thumbSupported,
+    qrMm,
+    thumbMm,
+    headPt,
+    tailPt,
+    datePt,
+  }
 }
 
 /** 按预置每页容量把条目切成页（录入顺序即贴件顺序，跨页不回填）。 */

@@ -82,7 +82,11 @@
     "priceBands": "Price bands",
     "users": "Users",
     "yahoo": "Yahoo",
-    "excel": "Excel"
+    "excel": "Excel",
+    "dashboard": "Dashboard",
+    "settings": "Settings",
+    "groupOps": "Operations",
+    "groupAdmin": "Administration"
   },
   "entry": {
     "title": "Item Entry",
@@ -168,7 +172,9 @@
     "preset": {
       "small": "38×21 (65)",
       "medium": "50×30 (36)",
-      "large": "70×25 (33)"
+      "large": "70×25 (33)",
+      "custom": "Custom",
+      "customDims": "Custom ({w}×{h})"
     },
     "reprintLabel": "Reprint by item code",
     "reprintPlaceholder": "e.g. HT9-A12X",
@@ -478,7 +484,8 @@
     "409012": "This exact Excel file has already been imported.",
     "409013": "Warehouse changes must be made through a move operation.",
     "409014": "This item has already been deleted.",
-    "409015": "This item is not deleted and cannot be restored."
+    "409015": "This item is not deleted and cannot be restored.",
+    "400017": "Invalid setting value"
   },
   "yahoo": {
     "title": "Yahoo integration",
@@ -743,5 +750,46 @@
       "empty": "No order history",
       "loadFailed": "Failed to load order history."
     }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "fleetTitle": "Fleet summary",
+    "warehouseTitle": "Per-warehouse summary",
+    "warehouse": "Warehouse",
+    "inStock": "In stock",
+    "inTransit": "Awaiting arrival",
+    "shipped": "Shipped",
+    "monthInbound": "Inbound this month",
+    "monthOutbound": "Outbound this month",
+    "slowWarn": "Slow-moving (yellow)",
+    "slowRed": "Slow-moving (red)",
+    "stockValue": "Stock value",
+    "avgStockAgeDays": "Avg. stock age",
+    "ageDays": "{n} days",
+    "yahooTitle": "Yahoo",
+    "soldNotShipped": "Sold, not shipped",
+    "canceledNotRelisted": "Canceled, awaiting relist",
+    "withdrawNeeded": "Needs withdrawal",
+    "lastImport": "Last import: {file} ({at})",
+    "lastImportNone": "No order file imported yet",
+    "goPendingShipments": "Open pending shipments",
+    "goYahoo": "Open Yahoo"
+  },
+  "settings": {
+    "title": "System settings",
+    "slowTitle": "Slow-move thresholds",
+    "slowNote": "Items held longer than the yellow threshold are flagged as caution in the item list; past the red threshold, as action needed.",
+    "warnDays": "Yellow threshold (days)",
+    "alarmDays": "Red threshold (days)",
+    "errDaysRange": "Thresholds must be between {min} and {max} days",
+    "errWarnLtAlarm": "The yellow threshold must be smaller than the red threshold",
+    "labelTitle": "Label preset",
+    "labelNote": "Default label size for label printing. Choose Custom to specify width and height.",
+    "labelWidth": "Label width (mm)",
+    "labelHeight": "Label height (mm)",
+    "errWidthRange": "Label width must be between {min} and {max} mm",
+    "errHeightRange": "Label height must be between {min} and {max} mm",
+    "saved": "Saved",
+    "loadFailed": "Failed to load settings"
   }
 }

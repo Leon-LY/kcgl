@@ -2,8 +2,9 @@ import { expect, test, type Page } from '@playwright/test'
 
 /**
  * 管理后台（M2-8b-2/8b-3）：会场/价格档位/账号三页 CRUD + 角色可达性
- * （会场=账号=E+；档位/账号管理=管理员；路由守卫+服务端 403 双兜底）
- * + 首启 checklist 卡片（管理员首页置顶、印刷完成标记落库）。
+ * （会场=账号=E+；档位/账号/设置管理=管理员；路由守卫+服务端 403 双兜底）
+ * + 首启 checklist 卡片（管理员大盘置顶、印刷完成标记落库；M5-③ 桌面落地
+ * 页=dashboard，越权回跳亦落大盘，D-072）。
  * 共库隔离（本 spec 按文件名最先执行）：夹具会场 ZZ/档位 Z 在用例尾部
  * 停用——enabled-only 查询（录入/打印下拉）恢复只剩种子 HT/X；
  * 账号 hanako 创建后停用留库（后续 spec 不查用户列表，无影响）。
@@ -20,7 +21,7 @@ async function login(page: Page, username: string): Promise<void> {
   await page.fill('#login-username', username)
   await page.fill('#login-password', E2E_PASSWORD)
   await page.getByRole('button', { name: 'ログイン' }).click()
-  await expect(page.locator('.home-welcome')).toBeVisible()
+  await expect(page.locator('.home-welcome, .dashboard-view')).toBeVisible()
 }
 
 /** 打开新增弹层并按顺序填字段。 */
@@ -42,24 +43,27 @@ test.describe('dictionary admin (desktop-chromium)', () => {
   test('admin manages venues, price bands, and accounts end to end', async ({ page }) => {
     await login(page, 'admin')
 
-    // 首启 checklist：种子态=员工/会场/档位已完成，录件/印刷未完成
-    await expect(page.locator('.home-setup')).toBeVisible()
-    await expect(page.locator('.home-setup-step')).toHaveCount(5)
-    await expect(page.locator('.home-setup-step.is-done')).toHaveCount(3)
+    // 首启 checklist（大盘置顶卡片）：种子态=员工/会场/档位已完成，录件/印刷未完成
+    await expect(page.locator('.setup-card')).toBeVisible()
+    await expect(page.locator('.setup-step')).toHaveCount(5)
+    await expect(page.locator('.setup-step.is-done')).toHaveCount(3)
 
     // 「印刷できた」→ 服务端落 sys_setting → 第 5 步打勾、按钮消失
     await page.getByRole('button', { name: '印刷できた' }).click()
-    await expect(page.locator('.home-setup-step.is-done')).toHaveCount(4)
+    await expect(page.locator('.setup-step.is-done')).toHaveCount(4)
     await expect(page.getByRole('button', { name: '印刷できた' })).toHaveCount(0)
 
-    // 顶栏导航：管理员可见全部八个链接（ホーム/商品/ヤフー/エクセル/ラベル印刷/会場/価格帯/アカウント）
+    // 侧边栏导航（M5-③ 分组）：管理员可见全部九链接
+    // （ダッシュボード/商品/ヤフー/エクセル/ラベル印刷/会場/価格帯/アカウント/設定）
     const nav = page.locator('.shell-nav-link')
-    await expect(nav).toHaveCount(8)
+    await expect(nav).toHaveCount(9)
+    await expect(nav.filter({ hasText: 'ダッシュボード' })).toHaveCount(1)
     await expect(nav.filter({ hasText: '商品' })).toHaveCount(1)
     await expect(nav.filter({ hasText: 'エクセル' })).toHaveCount(1)
     await expect(nav.filter({ hasText: 'ヤフー' })).toHaveCount(1)
     await expect(nav.filter({ hasText: '価格帯' })).toHaveCount(1)
     await expect(nav.filter({ hasText: 'アカウント' })).toHaveCount(1)
+    await expect(nav.filter({ hasText: '設定' })).toHaveCount(1)
 
     // ---- 会场：新增 → 改名 → 停用（尾部停用=恢复 enabled 下拉种子态）
     await nav.filter({ hasText: '会場' }).click()
@@ -126,41 +130,47 @@ test.describe('dictionary admin (desktop-chromium)', () => {
   test('editor can manage venues but not price bands or accounts', async ({ page }) => {
     await login(page, 'editor')
 
-    // 导航：编辑者=ホーム/商品/ヤフー/エクセル/ラベル印刷/会場 六链接（无价格档位/账号）
+    // 导航：编辑者=ダッシュボード/商品/ヤフー/エクセル/ラベル印刷/会場 六链接
+    // （无价格档位/账号/設定）
     const nav = page.locator('.shell-nav-link')
     await expect(nav).toHaveCount(6)
+    await expect(nav.filter({ hasText: 'ダッシュボード' })).toHaveCount(1)
     await expect(nav.filter({ hasText: '商品' })).toHaveCount(1)
     await expect(nav.filter({ hasText: 'エクセル' })).toHaveCount(1)
     await expect(nav.filter({ hasText: 'ヤフー' })).toHaveCount(1)
     await expect(nav.filter({ hasText: '価格帯' })).toHaveCount(0)
     await expect(nav.filter({ hasText: 'アカウント' })).toHaveCount(0)
-    // 编辑者首页无 checklist 卡片（管理员引导）
-    await expect(page.locator('.home-setup')).toHaveCount(0)
+    await expect(nav.filter({ hasText: '設定' })).toHaveCount(0)
+    // 编辑者大盘无 checklist 卡片（管理员引导）
+    await expect(page.locator('.setup-card')).toHaveCount(0)
 
     // 会场页可达：新增/改名可用，无停用按钮
     await nav.filter({ hasText: '会場' }).click()
     await expect(page.locator('.admin-header button').first()).toBeVisible()
     await expect(page.getByRole('button', { name: '停止する' })).toHaveCount(0)
 
-    // 直敲 URL → 路由守卫回首页（服务端 403 二次兜底）
+    // 直敲 URL → 路由守卫回大盘（服务端 403 二次兜底；桌面壳 '/' 即 dashboard）
     await page.goto('/admin/price-bands')
-    await expect(page).toHaveURL(/\/$/)
+    await expect(page).toHaveURL(/\/dashboard$/)
     await page.goto('/admin/users')
-    await expect(page).toHaveURL(/\/$/)
+    await expect(page).toHaveURL(/\/dashboard$/)
   })
 
   test('viewer has no admin links and is bounced home from admin URLs', async ({ page }) => {
     await login(page, 'viewer')
 
-    // 导航：查看者=ホーム/商品/ヤフー/エクセル/ラベル印刷 五链接（列表/雅虎/Excel 报告与导出全员可达）
+    // 导航：查看者=ダッシュボード/商品/ヤフー/エクセル/ラベル印刷 五链接
+    // （列表/雅虎/Excel 报告与导出全员可达）
     const nav = page.locator('.shell-nav-link')
     await expect(nav).toHaveCount(5)
+    await expect(nav.filter({ hasText: 'ダッシュボード' })).toHaveCount(1)
     await expect(nav.filter({ hasText: '商品' })).toHaveCount(1)
     await expect(nav.filter({ hasText: 'エクセル' })).toHaveCount(1)
     await expect(nav.filter({ hasText: 'ヤフー' })).toHaveCount(1)
     await expect(nav.filter({ hasText: '会場' })).toHaveCount(0)
+    await expect(nav.filter({ hasText: '設定' })).toHaveCount(0)
 
     await page.goto('/admin/venues')
-    await expect(page).toHaveURL(/\/$/)
+    await expect(page).toHaveURL(/\/dashboard$/)
   })
 })

@@ -6,12 +6,14 @@ const apiMocks = vi.hoisted(() => ({
   me: vi.fn(),
   fetchVenues: vi.fn(),
   fetchPriceBands: vi.fn(),
+  fetchSettings: vi.fn(),
 }))
 
 vi.mock('@/utils/api', () => ({
   api: { me: apiMocks.me },
   fetchVenues: apiMocks.fetchVenues,
   fetchPriceBands: apiMocks.fetchPriceBands,
+  fetchSettings: apiMocks.fetchSettings,
 }))
 
 import { useAuthStore } from './auth'
@@ -83,6 +85,13 @@ beforeEach(() => {
   apiMocks.me.mockReset()
   apiMocks.fetchVenues.mockReset().mockResolvedValue([])
   apiMocks.fetchPriceBands.mockReset().mockResolvedValue([])
+  apiMocks.fetchSettings.mockReset().mockResolvedValue({
+    warnDays: 30,
+    alarmDays: 90,
+    labelPreset: 'small',
+    labelWidthMm: 50,
+    labelHeightMm: 30,
+  })
 })
 
 afterEach(() => {
@@ -219,6 +228,23 @@ describe('event handling', () => {
     expect(seen).toHaveBeenCalledTimes(1)
     expect(Array.from(seen.mock.calls[0][0] as Set<string>).sort())
       .toEqual(['DICT', 'INVENTORY', 'ITEM'])
+  })
+
+  it('SETTING invalidation reloads the settings cache (other-end threshold/label changes)', async () => {
+    vi.useFakeTimers()
+    const { auth } = setupSync()
+    const sync = useSyncStore()
+    const seen = vi.fn()
+    sync.onInvalidate(seen)
+    const es = await login(auth)
+
+    es.onmessage?.({ data: event('SETTING', 202) }) // 他端管理员改设置
+    await vi.advanceTimersByTimeAsync(500)
+
+    expect(apiMocks.fetchSettings).toHaveBeenCalledTimes(1)
+    // SETTING 同时照常分发给视图监听者（大盘滞销计数等聚合面自行决定重取）
+    expect(seen).toHaveBeenCalledTimes(1)
+    expect(seen.mock.calls[0][0]).toEqual(new Set(['SETTING']))
   })
 
   it('isolates a throwing listener from other listeners', async () => {

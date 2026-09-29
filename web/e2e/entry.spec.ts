@@ -21,7 +21,7 @@ async function login(page: Page, username: string): Promise<void> {
   await page.fill('#login-username', username)
   await page.fill('#login-password', E2E_PASSWORD)
   await page.getByRole('button', { name: 'ログイン' }).click()
-  await expect(page.locator('.home-welcome')).toBeVisible()
+  await expect(page.locator('.home-welcome, .dashboard-view')).toBeVisible()
 }
 
 test.describe('continuous entry (desktop-chromium)', () => {
@@ -96,11 +96,12 @@ test.describe('continuous entry (desktop-chromium)', () => {
     await expect(page.locator('.van-field input').nth(2)).toHaveValue('1000')
   })
 
-  test('viewer navigating straight to /entry is bounced home by the route guard (frontend guard on top of the server-side 403)', async ({ page }) => {
+  test('viewer navigating straight to /entry is bounced to the dashboard by the route guard (frontend guard on top of the server-side 403)', async ({ page }) => {
     await login(page, 'viewer')
     await page.goto('/entry')
-    await expect(page).toHaveURL(/\/$/)
-    await expect(page.locator('.home-welcome')).toBeVisible()
+    // 越权回 home 在桌面壳重定向大盘（D-072）
+    await expect(page).toHaveURL(/\/dashboard$/)
+    await expect(page.locator('.dashboard-view')).toBeVisible()
   })
 
   test('void and re-enter full chain: required cancellation reason, prefilled fields with inherited photos, and a new code that differs from the old one', async ({ page }) => {

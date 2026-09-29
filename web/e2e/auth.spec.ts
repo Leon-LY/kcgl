@@ -60,31 +60,32 @@ test.describe('auth flows (desktop-chromium)', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'ja-JP')
   })
 
-  test('viewer login shows the desktop shell with account info (viewer role label, home title = system name)', async ({ page }) => {
+  test('viewer login lands on the dashboard with the desktop shell (D-072 desktop landing)', async ({ page }) => {
     await login(page, 'viewer', E2E_PASSWORD)
     await expect(page.locator('.shell-desktop')).toBeVisible()
-    await expect(page.locator('.home-welcome')).toContainText('閲覧者 次郎')
-    await expect(page.locator('.home-info')).toContainText('閲覧者')
-    await expect(page).toHaveTitle('在庫管理システム')
+    await expect(page).toHaveURL(/\/dashboard$/)
+    await expect(page.locator('.dashboard-view')).toBeVisible()
+    await expect(page.locator('.shell-user')).toContainText('閲覧者 次郎')
+    await expect(page).toHaveTitle('ダッシュボード｜在庫管理システム')
   })
 
-  test('role label reflects the logged-in account for admin and editor', async ({ page }) => {
+  test('the shell user label reflects the logged-in account for admin and editor', async ({ page }) => {
     await login(page, 'admin', E2E_PASSWORD)
-    await expect(page.locator('.home-info')).toContainText('管理者')
+    await expect(page.locator('.shell-user')).toContainText('管理者')
     await page.getByRole('button', { name: 'ログアウト' }).click()
     await expect(page).toHaveURL(/\/login/)
 
     await login(page, 'editor', E2E_PASSWORD)
-    await expect(page.locator('.home-info')).toContainText('編集者')
+    await expect(page.locator('.shell-user')).toContainText('編集者')
   })
 
   test('visiting a protected page after logout redirects back to login, with a redirect param on non-root paths', async ({ page }) => {
     await login(page, 'viewer', E2E_PASSWORD)
-    await expect(page.locator('.home-welcome')).toBeVisible()
+    await expect(page.locator('.dashboard-view')).toBeVisible()
     await page.getByRole('button', { name: 'ログアウト' }).click()
     await expect(page).toHaveURL(/\/login/)
 
-    // 根路径守卫不带 redirect（回登录后直落首页，无多余参数）
+    // 根路径守卫不带 redirect（回登录后直落，无多余参数）
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
 
@@ -93,7 +94,7 @@ test.describe('auth flows (desktop-chromium)', () => {
     await expect(page).toHaveURL(/\/login\?redirect=/)
   })
 
-  test('first login with mustChangePwd is held on the change-password page and enters home after updating it', async ({ page }) => {
+  test('first login with mustChangePwd is held on the change-password page and enters the dashboard after updating it', async ({ page }) => {
     await login(page, 'taro', E2E_PASSWORD)
     await expect(page).toHaveURL(/\/change-password/)
     await expect(page.locator('.kcgl-info-box')).toContainText('初回ログイン')
@@ -103,8 +104,9 @@ test.describe('auth flows (desktop-chromium)', () => {
     await page.fill('#pwd-confirm', 'taro-new-pass-456')
     await page.getByRole('button', { name: '変更する' }).click()
 
-    await expect(page).toHaveURL(/\/$/)
-    await expect(page.locator('.home-welcome')).toContainText('田中太郎')
+    await expect(page).toHaveURL(/\/dashboard$/)
+    await expect(page.locator('.dashboard-view')).toBeVisible()
+    await expect(page.locator('.shell-user')).toContainText('田中太郎')
   })
 })
 

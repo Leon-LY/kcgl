@@ -6,6 +6,7 @@ const apiMocks = vi.hoisted(() => ({
   fetchItemsForPrint: vi.fn(),
   fetchVenues: vi.fn(),
   fetchPriceBands: vi.fn(),
+  fetchSettings: vi.fn(),
 }))
 
 // ApiError/errors/format 保持真实实现；仅替换网络端点
@@ -16,6 +17,7 @@ vi.mock('@/utils/api', async (importOriginal) => {
     fetchItemsForPrint: apiMocks.fetchItemsForPrint,
     fetchVenues: apiMocks.fetchVenues,
     fetchPriceBands: apiMocks.fetchPriceBands,
+    fetchSettings: apiMocks.fetchSettings,
   }
 })
 
@@ -61,6 +63,14 @@ beforeEach(() => {
     venues: [{ id: 7, code: 'HT', name: '飛騨古民具市', enabled: true }],
     bands: [],
     loaded: true,
+  })
+  // 设置快照默认按服务端默认值（small 50×30）；用例按需覆盖
+  apiMocks.fetchSettings.mockResolvedValue({
+    warnDays: 30,
+    alarmDays: 90,
+    labelPreset: 'small',
+    labelWidthMm: 50,
+    labelHeightMm: 30,
   })
 })
 
@@ -135,6 +145,60 @@ describe('preset and thumbnail interplay', () => {
     const thumbs = wrapper.findAll('.print-thumb')
     expect(thumbs).toHaveLength(1)
     expect(thumbs[0]!.attributes('src')).toBe('/img/thumb/2026/09/a_t.jpg')
+  })
+})
+
+describe('admin-configured default preset (M5-③)', () => {
+  it('adopts the admin default (medium) once settings load', async () => {
+    apiMocks.fetchSettings.mockResolvedValue({
+      warnDays: 30,
+      alarmDays: 90,
+      labelPreset: 'medium',
+      labelWidthMm: 50,
+      labelHeightMm: 30,
+    })
+    apiMocks.fetchItemsForPrint.mockResolvedValue(listResult([row(1)]))
+    const wrapper = mountView()
+    await flushPromises()
+
+    // medium（50×30）支持缩略图 → 开关可用（区别于 small 的禁用态）
+    expect(wrapper.find('.el-switch').classes()).not.toContain('is-disabled')
+    // 第 4 个选项是 custom（跟随管理员尺寸）
+    const customRadio = wrapper
+      .findAll('input[type="radio"]')
+      .find((input) => (input.element as HTMLInputElement).value === 'custom')
+    expect(customRadio).toBeDefined()
+    expect(wrapper.text()).toContain('カスタム（50×30）')
+  })
+
+  it('falls back to small when settings cannot be loaded (printing never blocked)', async () => {
+    apiMocks.fetchSettings.mockRejectedValue(new Error('network down'))
+    apiMocks.fetchItemsForPrint.mockResolvedValue(listResult([row(1)]))
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.findAll('.print-label')).toHaveLength(1)
+    expect(wrapper.find('.el-switch').classes()).toContain('is-disabled')
+  })
+
+  it('derives the custom grid from admin dimensions (60×40 → 3×6=18/sheet)', async () => {
+    apiMocks.fetchSettings.mockResolvedValue({
+      warnDays: 30,
+      alarmDays: 90,
+      labelPreset: 'custom',
+      labelWidthMm: 60,
+      labelHeightMm: 40,
+    })
+    apiMocks.fetchItemsForPrint.mockResolvedValue(
+      listResult(Array.from({ length: 19 }, (_, i) => row(i + 1))),
+    )
+    const wrapper = mountView()
+    await flushPromises()
+
+    // 18 面/版：19 件 → 2 版
+    expect(wrapper.findAll('.print-label')).toHaveLength(19)
+    expect(wrapper.findAll('.print-sheet')).toHaveLength(2)
+    expect(wrapper.find('.print-count').text()).toContain('19件・2枚')
   })
 })
 

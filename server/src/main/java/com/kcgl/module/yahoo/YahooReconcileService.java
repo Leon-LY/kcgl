@@ -53,11 +53,12 @@ public class YahooReconcileService {
         List<ItemEntity> soldNotShippedItems = inStockBySale(2);
         List<ItemEntity> canceledItems = inStockBySale(3);
         List<ItemEntity> shippedStillListedItems = shippedStillListed();
+        YahooImportBatchEntity latestBatch = latestDoneBatch();
 
         return new ReconcileResponse(
                 rows(soldNotShippedItems, 2, null, now),
                 rows(canceledItems, 3, null, now),
-                rows(shippedStillListedItems, 1, latestImportFinishedAt(), now));
+                rows(shippedStillListedItems, 1, finishedAtOf(latestBatch), now));
     }
 
     /** 出荷待ち：= 视图一 + 缩略图，按货架号排序（拣货动线）。 */
@@ -85,33 +86,66 @@ public class YahooReconcileService {
 
     // ------------------------------------------------------------- 视图查询
 
-    /** 在库未冻结的商品按销售态取集（视图一/二/出荷待ち共用）。 */
-    private List<ItemEntity> inStockBySale(int saleStatus) {
-        return itemMapper.selectList(new LambdaQueryWrapper<ItemEntity>()
-                .eq(ItemEntity::getSaleStatus, saleStatus)
-                .eq(ItemEntity::getStockStatus, 1)
-                .eq(ItemEntity::getVoided, 0)
-                .eq(ItemEntity::getDeleted, 0));
+    /** 大盘雅虎指标（M5-③ stats）：与三活视图同源的条件计数（口径唯一定义在此）。 */
+    public long countSoldNotShipped() {
+        return countOf(inStockBySaleWrapper(2));
     }
 
-    /** 视图三（撤架）：已出库但仍标记在售（手动 LIST_UP 是在售的唯一系统事实）。 */
-    private List<ItemEntity> shippedStillListed() {
-        return itemMapper.selectList(new LambdaQueryWrapper<ItemEntity>()
-                .eq(ItemEntity::getSaleStatus, 1)
-                .eq(ItemEntity::getStockStatus, 2)
-                .eq(ItemEntity::getVoided, 0)
-                .eq(ItemEntity::getDeleted, 0));
+    public long countCanceledNotRelisted() {
+        return countOf(inStockBySaleWrapper(3));
     }
 
-    /** 最近一次受注导入完成时刻（视图三数据新鲜度口径；无成功批次=null）。 */
-    private LocalDateTime latestImportFinishedAt() {
+    public long countWithdrawNeeded() {
+        return countOf(shippedStillListedWrapper());
+    }
+
+    /**
+     * 最近一次成功受注导入（大盘数据新鲜度：完成时刻+文件名；无成功批次=null）。
+     * 与 reconcile 视图三的 lastSyncedAt 兜底同源。
+     */
+    public YahooImportBatchEntity latestDoneBatch() {
         List<YahooImportBatchEntity> latest = batchMapper.selectList(
                 new LambdaQueryWrapper<YahooImportBatchEntity>()
                         .eq(YahooImportBatchEntity::getStatus, YahooImportBatchEntity.STATUS_DONE)
                         .isNotNull(YahooImportBatchEntity::getFinishedAt)
                         .orderByDesc(YahooImportBatchEntity::getFinishedAt)
                         .last("LIMIT 1"));
-        return latest.isEmpty() ? null : latest.get(0).getFinishedAt();
+        return latest.isEmpty() ? null : latest.get(0);
+    }
+
+    private long countOf(LambdaQueryWrapper<ItemEntity> wrapper) {
+        Long count = itemMapper.selectCount(wrapper);
+        return count == null ? 0 : count;
+    }
+
+    /** 在库未冻结的商品按销售态取集（视图一/二/出荷待ち共用）。 */
+    private List<ItemEntity> inStockBySale(int saleStatus) {
+        return itemMapper.selectList(inStockBySaleWrapper(saleStatus));
+    }
+
+    private LambdaQueryWrapper<ItemEntity> inStockBySaleWrapper(int saleStatus) {
+        return new LambdaQueryWrapper<ItemEntity>()
+                .eq(ItemEntity::getSaleStatus, saleStatus)
+                .eq(ItemEntity::getStockStatus, 1)
+                .eq(ItemEntity::getVoided, 0)
+                .eq(ItemEntity::getDeleted, 0);
+    }
+
+    /** 视图三（撤架）：已出库但仍标记在售（手动 LIST_UP 是在售的唯一系统事实）。 */
+    private List<ItemEntity> shippedStillListed() {
+        return itemMapper.selectList(shippedStillListedWrapper());
+    }
+
+    private LambdaQueryWrapper<ItemEntity> shippedStillListedWrapper() {
+        return new LambdaQueryWrapper<ItemEntity>()
+                .eq(ItemEntity::getSaleStatus, 1)
+                .eq(ItemEntity::getStockStatus, 2)
+                .eq(ItemEntity::getVoided, 0)
+                .eq(ItemEntity::getDeleted, 0);
+    }
+
+    private static LocalDateTime finishedAtOf(YahooImportBatchEntity batch) {
+        return batch == null ? null : batch.getFinishedAt();
     }
 
     // ------------------------------------------------------------- 行拼装

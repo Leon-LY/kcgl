@@ -7,7 +7,7 @@ const apiMocks = vi.hoisted(() => ({
   markChecklistPrintDone: vi.fn(),
 }))
 
-// ApiError 保持真实实现；仅替换 checklist 网络端点
+// ApiError 保持真实实现；仅替换 checklist 网络端点（SetupChecklistCard 发起）
 vi.mock('@/utils/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/api')>()
   return {
@@ -31,11 +31,11 @@ vi.mock('vue-router', async (importOriginal) => {
 import HomeView from './HomeView.vue'
 import { i18n } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
-import type { Checklist, MeResponse } from '@/utils/api'
+import type { MeResponse } from '@/utils/api'
 
 /**
- * 首启 checklist 卡片（M2-8b-3）：管理员可见五步/完成打勾/
- * 印刷标记后置灰勾选/全部完成隐藏/编辑者不拉取不显示/拉取失败静默。
+ * 移动首页（M5-③ 后）：欢迎语/账号信息/切壳/快捷入口 +
+ * 共享首启引导卡（详见 SetupChecklistCard.spec）。桌面切壳跳大盘（D-072）。
  */
 
 const meAdmin: MeResponse = {
@@ -47,29 +47,9 @@ const meAdmin: MeResponse = {
   mustChangePwd: false,
 }
 
-const meEditor: MeResponse = {
-  id: 2,
-  username: 'eichi',
-  displayName: '編集者',
-  role: 2,
-  locale: 'ja-JP',
-  mustChangePwd: false,
-}
-
-function checklist(overrides: Partial<Checklist>): Checklist {
-  return {
-    hasStaffUser: true,
-    hasVenue: true,
-    hasPriceBand: true,
-    hasItem: true,
-    printDone: true,
-    ...overrides,
-  }
-}
-
-async function mountView(role: 1 | 2 = 1): Promise<VueWrapper> {
+async function mountView(): Promise<VueWrapper> {
   const auth = useAuthStore()
-  auth.me = role === 1 ? meAdmin : meEditor
+  auth.me = meAdmin
   const wrapper = mount(HomeView, {
     global: { plugins: [i18n] },
   })
@@ -81,7 +61,18 @@ enableAutoUnmount(afterEach)
 
 beforeEach(() => {
   vi.resetAllMocks()
+  // admin 挂载必触发 SetupChecklistCard 的 onMounted 取数——裸 mock 返回
+  // undefined 会让 checklist 落成 undefined（类型契约外）并爆未处理拒绝。
+  // 默认给「全部完成」态（卡片隐藏，与本文件各用例断言无交集）。
+  apiMocks.fetchChecklist.mockResolvedValue({
+    hasStaffUser: true,
+    hasVenue: true,
+    hasPriceBand: true,
+    hasItem: true,
+    printDone: true,
+  })
   setActivePinia(createPinia())
+  localStorage.clear()
   i18n.global.locale.value = 'ja-JP'
 })
 
@@ -89,65 +80,49 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('home setup checklist (M2-8b-3)', () => {
-  it('shows the five steps for an admin with incomplete setup', async () => {
-    apiMocks.fetchChecklist.mockResolvedValue(checklist({ hasItem: false, printDone: false }))
+describe('home view', () => {
+  it('renders the welcome and account info from the session', async () => {
+    const wrapper = await mountView()
+
+    expect(wrapper.find('.home-welcome').text()).toContain('管理者')
+    expect(wrapper.text()).toContain('アカウント情報')
+    expect(wrapper.text()).toContain('boss')
+  })
+
+  it('embeds the shared setup checklist card for admins', async () => {
+    apiMocks.fetchChecklist.mockResolvedValue({
+      hasStaffUser: true,
+      hasVenue: true,
+      hasPriceBand: true,
+      hasItem: false,
+      printDone: false,
+    })
     const wrapper = await mountView()
 
     expect(apiMocks.fetchChecklist).toHaveBeenCalledTimes(1)
-    expect(wrapper.find('.home-setup').exists()).toBe(true)
-    const steps = wrapper.findAll('.home-setup-step')
-    expect(steps).toHaveLength(5)
-    // 前 3 步完成（种子员工/会场/档位），第 4-5 步未完成
-    expect(wrapper.findAll('.home-setup-step.is-done')).toHaveLength(3)
-    expect(wrapper.text()).toContain('商品を1件登録してみる')
-    expect(wrapper.text()).toContain('ラベルを1枚印刷してみる')
+    expect(wrapper.find('.setup-card').exists()).toBe(true)
   })
 
-  it('navigates a step link to its admin page', async () => {
-    apiMocks.fetchChecklist.mockResolvedValue(checklist({ printDone: false }))
+  it('switching to the desktop shell navigates to the dashboard (D-072 landing)', async () => {
     const wrapper = await mountView()
 
-    await wrapper.findAll('.home-setup-link')[0]!.trigger('click')
-    expect(pushMock).toHaveBeenCalledWith('/admin/users')
+    const desktopOption = wrapper
+      .findAll('.home-shell-option')
+      .find((b) => b.text() === 'デスクトップ表示')
+    expect(desktopOption).toBeDefined()
+    await desktopOption!.trigger('click')
+
+    expect(pushMock).toHaveBeenCalledWith({ name: 'dashboard' })
   })
 
-  it('marks print done and re-renders the step state', async () => {
-    apiMocks.fetchChecklist.mockResolvedValue(checklist({ hasItem: false, printDone: false }))
-    // 响应：印刷完成但仍未录件 → 卡片保留、第 5 步打勾、按钮消失
-    apiMocks.markChecklistPrintDone.mockResolvedValue(checklist({ hasItem: false, printDone: true }))
+  it('staying on the mobile shell does not navigate', async () => {
     const wrapper = await mountView()
 
-    await wrapper.find('.home-setup-done').trigger('click')
-    await flushPromises()
+    const mobileOption = wrapper
+      .findAll('.home-shell-option')
+      .find((b) => b.text() === 'モバイル表示')
+    await mobileOption!.trigger('click')
 
-    expect(apiMocks.markChecklistPrintDone).toHaveBeenCalledTimes(1)
-    expect(wrapper.find('.home-setup').exists()).toBe(true)
-    expect(wrapper.findAll('.home-setup-step.is-done')).toHaveLength(4)
-    expect(wrapper.find('.home-setup-done').exists()).toBe(false)
-  })
-
-  it('hides the card once every step is done', async () => {
-    apiMocks.fetchChecklist.mockResolvedValue(checklist({}))
-    const wrapper = await mountView()
-
-    expect(apiMocks.fetchChecklist).toHaveBeenCalledTimes(1)
-    expect(wrapper.find('.home-setup').exists()).toBe(false)
-  })
-
-  it('does not fetch the checklist for a non-admin', async () => {
-    const wrapper = await mountView(2)
-
-    expect(apiMocks.fetchChecklist).not.toHaveBeenCalled()
-    expect(wrapper.find('.home-setup').exists()).toBe(false)
-  })
-
-  it('stays silent when the checklist cannot be loaded', async () => {
-    apiMocks.fetchChecklist.mockRejectedValue(new Error('network down'))
-    const wrapper = await mountView()
-
-    expect(apiMocks.fetchChecklist).toHaveBeenCalledTimes(1)
-    expect(wrapper.find('.home-setup').exists()).toBe(false)
-    expect(wrapper.text()).toContain('管理者')
+    expect(pushMock).not.toHaveBeenCalled()
   })
 })

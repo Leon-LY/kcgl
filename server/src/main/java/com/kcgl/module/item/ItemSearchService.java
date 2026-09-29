@@ -11,6 +11,7 @@ import com.kcgl.module.image.FirstThumbReader;
 import com.kcgl.module.item.dto.ItemSearchResponse;
 import com.kcgl.module.itemcode.ItemCodeFormatter;
 import com.kcgl.module.setting.SettingService;
+import com.kcgl.module.setting.SettingService.SlowMoveThresholds;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -20,7 +21,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -38,17 +38,14 @@ import java.util.stream.Collectors;
  *    假名与小仮名同权重）是 utf8mb4_0900_ai_ci 的既知仕様=契约而非意外，集成测试锁定。
  *
  * 滞销（D-065）：行徽标 Java 派生与 warnLevel SQL 谓词共用同一边界计算
- * （warehouse_in_date <= 今天−N 天）；阈值 sys_setting 可覆写、脏值防御回退 30/90。
+ * （warehouse_in_date <= 今天−N 天）；阈值读侧出口=SettingService.slowMoveThresholds
+ * （与 M5-③ 统计聚合同源，脏值防御回退 30/90）。
  * 排除作废/软删件（死件走回收站端点）；V 可见成本利润（A19）。
  */
 @Service
 public class ItemSearchService {
 
     private static final int MAX_PAGE_SIZE = 100;
-    private static final int DEFAULT_WARN_DAYS = 30;
-    private static final int DEFAULT_ALARM_DAYS = 90;
-    private static final String WARN_DAYS_KEY = "slow_move.warn_days";
-    private static final String ALARM_DAYS_KEY = "slow_move.alarm_days";
     private static final String[] FUZZY_COLUMNS = {
             "item_code", "remark", "shelf_no", "group_no", "item_name", "category", "author_kiln"};
     private static final Pattern DATE_KW = Pattern.compile("^(\\d{4})[-/](\\d{1,2})[-/](\\d{1,2})$");
@@ -218,25 +215,7 @@ public class ItemSearchService {
     }
 
     private SlowMoveThresholds thresholds() {
-        return new SlowMoveThresholds(
-                settingDays(WARN_DAYS_KEY, DEFAULT_WARN_DAYS),
-                settingDays(ALARM_DAYS_KEY, DEFAULT_ALARM_DAYS));
-    }
-
-    private int settingDays(String key, int fallback) {
-        return settingService.findValue(key)
-                .map(String::trim)
-                .flatMap(this::parsePositiveDays)
-                .orElse(fallback);
-    }
-
-    private Optional<Integer> parsePositiveDays(String value) {
-        try {
-            int days = Integer.parseInt(value);
-            return days > 0 ? Optional.of(days) : Optional.empty();
-        } catch (NumberFormatException e) {
-            return Optional.empty();
-        }
+        return settingService.slowMoveThresholds();
     }
 
     private Map<Long, String> venueNames(List<ItemEntity> items) {
@@ -250,8 +229,5 @@ public class ItemSearchService {
         }
         return venueMapper.selectBatchIds(venueIds).stream()
                 .collect(Collectors.toMap(VenueEntity::getId, VenueEntity::getName));
-    }
-
-    private record SlowMoveThresholds(int warnDays, int alarmDays) {
     }
 }

@@ -82,7 +82,11 @@
     "priceBands": "価格帯",
     "users": "アカウント",
     "yahoo": "ヤフー連携",
-    "excel": "エクセル"
+    "excel": "エクセル",
+    "dashboard": "ダッシュボード",
+    "settings": "システム設定",
+    "groupOps": "運営",
+    "groupAdmin": "管理"
   },
   "entry": {
     "title": "商品登録",
@@ -168,7 +172,9 @@
     "preset": {
       "small": "38×21（65面）",
       "medium": "50×30（36面）",
-      "large": "70×25（33面）"
+      "large": "70×25（33面）",
+      "custom": "カスタム",
+      "customDims": "カスタム（{w}×{h}）"
     },
     "reprintLabel": "管理番号で再印刷",
     "reprintPlaceholder": "例）HT9-A12X",
@@ -478,7 +484,8 @@
     "409012": "同じ内容のExcelファイルは既にインポート済みです。",
     "409013": "倉庫の変更は移動操作から行ってください。",
     "409014": "この商品は既に削除されています。",
-    "409015": "この商品は削除されていないため復元できません。"
+    "409015": "この商品は削除されていないため復元できません。",
+    "400017": "設定値が正しくありません"
   },
   "yahoo": {
     "title": "ヤフー連携",
@@ -743,5 +750,46 @@
       "empty": "受注履歴はありません",
       "loadFailed": "受注履歴の読み込みに失敗しました。"
     }
+  },
+  "dashboard": {
+    "title": "ダッシュボード",
+    "fleetTitle": "全体サマリー",
+    "warehouseTitle": "倉庫別サマリー",
+    "warehouse": "倉庫",
+    "inStock": "在庫",
+    "inTransit": "入庫待ち",
+    "shipped": "出庫済み",
+    "monthInbound": "今月の入庫",
+    "monthOutbound": "今月の出庫",
+    "slowWarn": "滞留（黄色）",
+    "slowRed": "滞留（赤色）",
+    "stockValue": "在庫評価額",
+    "avgStockAgeDays": "平均在庫日数",
+    "ageDays": "{n}日",
+    "yahooTitle": "ヤフー連携",
+    "soldNotShipped": "落札済み・未出庫",
+    "canceledNotRelisted": "キャンセル・再出品待ち",
+    "withdrawNeeded": "出品取り下げ必要",
+    "lastImport": "最終インポート：{file}（{at}）",
+    "lastImportNone": "受注ファイルのインポートはまだありません",
+    "goPendingShipments": "出荷待ちへ",
+    "goYahoo": "ヤフー連携へ"
+  },
+  "settings": {
+    "title": "システム設定",
+    "slowTitle": "滞留しきい値",
+    "slowNote": "在庫日数が黄色しきい値を超えると注意、赤色しきい値を超えると要対応として商品一覧に表示されます。",
+    "warnDays": "黄色しきい値（日）",
+    "alarmDays": "赤色しきい値（日）",
+    "errDaysRange": "しきい値は {min}〜{max} 日の範囲で指定してください",
+    "errWarnLtAlarm": "黄色しきい値は赤色しきい値より小さくしてください",
+    "labelTitle": "ラベル規格",
+    "labelNote": "ラベル印刷の既定の規格です。「カスタム」では幅と高さを指定できます。",
+    "labelWidth": "ラベル幅（mm）",
+    "labelHeight": "ラベル高さ（mm）",
+    "errWidthRange": "ラベル幅は {min}〜{max} mm の範囲で指定してください",
+    "errHeightRange": "ラベル高さは {min}〜{max} mm の範囲で指定してください",
+    "saved": "保存しました",
+    "loadFailed": "設定の読み込みに失敗しました"
   }
 }
