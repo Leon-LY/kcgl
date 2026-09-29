@@ -28,10 +28,11 @@ public enum ErrorCode {
     IMAGE_PIXEL_LIMIT(400007, "画像の解像度が上限（8000×8000）を超えています"),
     IMAGE_COUNT_LIMIT(400008, "商品画像は1件につき9枚までです"),
 
-    YAHOO_FILE_TOO_LARGE(400009, "CSVファイルは50MB以内にしてください"),
-    YAHOO_FILE_EMPTY(400010, "CSVファイルが空です"),
-    YAHOO_ROW_LIMIT(400011, "CSVの行数が上限（20万行）を超えています"),
-    YAHOO_ENCODING_UNDETECTABLE(400012, "CSVファイルの文字コードを判定できませんでした"),
+    YAHOO_FILE_TOO_LARGE(400009, "受注ファイルは50MB以内にしてください"),
+    YAHOO_FILE_EMPTY(400010, "受注ファイルが空です"),
+    YAHOO_ROW_LIMIT(400011, "受注ファイルの行数が上限（10万行）を超えています"),
+    /** 受注导入=xlsx 单格式（D-069）：非 zip 容器/表头契约不符（.xls・CSV 引导转存）。 */
+    YAHOO_FILE_INVALID(400012, "受注ファイル（xlsx）が読み取れません。ヤフーの受注Excelをそのままアップロードしてください"),
 
     EXCEL_FILE_TOO_LARGE(400013, "Excelファイルは20MB以内にしてください"),
     EXCEL_FILE_INVALID(400014, "Excelファイルが読み取れません。テンプレートをダウンロードして正しい形式で作成してください"),
@@ -50,7 +51,7 @@ public enum ErrorCode {
     INVALID_TRANSITION(409008, "商品の現在の状態ではこの操作はできません。画面を再読み込みして確認してください"),
     STOCKTAKE_ACTIVE_EXISTS(409009, "この倉庫では実行中の棚卸があります。既存の棚卸を続けてください"),
     STOCKTAKE_STATUS_INVALID(409010, "この棚卸は現在の状態では操作できません。画面を再読み込みして確認してください"),
-    YAHOO_BATCH_DUPLICATE(409011, "同じ内容のCSVファイルは既にインポート済みです"),
+    YAHOO_BATCH_DUPLICATE(409011, "同じ内容の受注ファイルは既にインポート済みです"),
     EXCEL_BATCH_DUPLICATE(409012, "同じ内容のExcelファイルは既にインポート済みです"),
     /** 倉庫値の変更は移動操作から（D-063/D-066：同値提出は変更とみなさず許可——A16 在库补录费用）。 */
     WAREHOUSE_TRANSFER_REQUIRED(409013, "倉庫の変更は移動操作から行ってください"),

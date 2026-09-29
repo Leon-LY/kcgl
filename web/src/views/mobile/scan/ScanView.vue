@@ -14,6 +14,7 @@ import { newClientId } from '@/utils/id'
 import { normalizeItemCode, parseAmount } from '@/utils/normalize'
 import {
   fetchItemByCode,
+  markCanceledItem,
   markListedItem,
   returnItem,
   scrapItem,
@@ -27,7 +28,7 @@ import { ApiError } from '@/utils/api'
  * 扫码操作页（/scan，M3-④，docs/01 4.3）：后置摄像头扫管理号 QR → 定位卡
  * （缩略图/仓库/状态/备注一次往返直出，by-code 带 thumbUrl）→ 按当前状态只渲染
  * 合法动作（inventoryActions=后端边表前端镜像）→ 动作弹层（卖出=落札价选填/
- * 报废=理由必填/调拨=仓选择/退货=说明选填/上架标记=仅确认）。
+ * 报废=理由必填/调拨=仓选择/退货=说明选填/上架与取消标记=仅确认）。
  * 幂等契约（docs/01 7.0）：动作×商品幂等键生成后保留到成功为止，失败重试复用
  * 同键（服务端读回原结果 200 出清）。手动输入兜底（NFKC 归一仅在提交时——
  * 输入中转换会打断日文 IME）。作废件提示重录新号（docs/01 7.1）。
@@ -159,17 +160,29 @@ const scrapReason = ref('')
 const transferTo = ref(0)
 const returnNote = ref('')
 
-const dialogTitleKey = computed(() =>
-  activeAction.value === 'returnCustomer' || activeAction.value === 'returnVenue'
-    ? 'scan.return.title'
-    : `scan.${activeAction.value ?? ''}.title`,
-)
+/**
+ * 弹层文案块名：多动作共用块在此归并（return 双向→return、markListed→listed、
+ * markCanceled→canceled）；sell/scrap/transfer 动作名与块名一致直用。
+ * （回归：直拼 `scan.${action}.title` 曾让 markListed 弹层渲染原始键名——
+ * i18n 块名是 listed 而非 markListed，E2E 只断言过按钮从未开过弹层。）
+ */
+const dialogKey = computed(() => {
+  switch (activeAction.value) {
+    case 'returnCustomer':
+    case 'returnVenue':
+      return 'return'
+    case 'markListed':
+      return 'listed'
+    case 'markCanceled':
+      return 'canceled'
+    default:
+      return activeAction.value ?? ''
+  }
+})
 
-const dialogConfirmKey = computed(() =>
-  activeAction.value === 'returnCustomer' || activeAction.value === 'returnVenue'
-    ? 'scan.return.confirm'
-    : `scan.${activeAction.value ?? ''}.confirm`,
-)
+const dialogTitleKey = computed(() => `scan.${dialogKey.value}.title`)
+
+const dialogConfirmKey = computed(() => `scan.${dialogKey.value}.confirm`)
 
 function openAction(action: ScanAction): void {
   const current = item.value
@@ -242,6 +255,8 @@ async function onActionConfirm(): Promise<void> {
       result = await transferItem(itemId, clientReqId, transferTo.value)
     } else if (action === 'markListed') {
       result = await markListedItem(itemId, clientReqId)
+    } else if (action === 'markCanceled') {
+      result = await markCanceledItem(itemId, clientReqId)
     } else {
       const direction = action === 'returnCustomer' ? 1 : 2
       const note = returnNote.value.trim()
@@ -609,6 +624,13 @@ onBeforeUnmount(() => {
             class="scan-dialog-hint"
           >
             {{ t('scan.listed.note') }}
+          </p>
+
+          <p
+            v-if="activeAction === 'markCanceled'"
+            class="scan-dialog-hint"
+          >
+            {{ t('scan.canceled.note') }}
           </p>
 
           <p

@@ -10,7 +10,7 @@ import {
   fetchPendingShipments,
   fetchYahooBatches,
   fetchYahooReconcile,
-  uploadYahooCsv,
+  uploadYahooImport,
 } from '@/utils/api'
 import type {
   YahooImportBatch,
@@ -20,10 +20,11 @@ import type {
 } from '@/utils/api'
 
 /**
- * 雅虎联动桌面页（M4，docs/01 7.2/7.4）：三标签——CSV 导入（上传毫秒级受理+
- * 处理中批次 2s 轮询/SSE 双通道接力终态、错误行展开）、出荷待ち（拣货队列，
- * 行内直达扫码卖出）、照合三活视图（滞留红标/近期同步降灰）。上传仅编辑者
- * 以上；读取全员（服务端 @PreAuthorize 兜底）。
+ * 雅虎联动桌面页（M5-②b，docs/01 7.2/7.4）：三标签——受注インポート（受注
+ * xlsx 上传毫秒级受理+处理中批次 2s 轮询/SSE 双通道接力终态、错误行与
+ * まとめ売り補注展开）、出荷待ち（拣货队列，行内直达扫码卖出）、照合三活
+ * 视图（滞留红标/近期同步降灰）。上传仅编辑者以上；读取全员（服务端
+ * @PreAuthorize 兜底）。
  */
 
 const POLL_INTERVAL_MS = 2000
@@ -36,7 +37,7 @@ const canUpload = computed(() => auth.me != null && auth.me.role <= 2)
 
 const activeTab = ref('import')
 
-// ------------------------------------------------------------- CSV 导入
+// ------------------------------------------------------------- 受注インポート
 
 const batches = ref<YahooImportBatch[]>([])
 const batchesError = ref('')
@@ -97,7 +98,7 @@ async function onFileChange(event: Event): Promise<void> {
   try {
     const form = new FormData()
     form.append('file', file)
-    await uploadYahooCsv(form)
+    await uploadYahooImport(form)
     await loadBatches()
     // 极快完成竞态兜底：响应后重读已全终态（轮询未启动过）时直接收敛另两份数据
     if (!batches.value.some((batch) => batch.status === 0)) {
@@ -220,7 +221,7 @@ onBeforeUnmount(() => {
             <input
               ref="fileInput"
               type="file"
-              accept=".csv,text/csv"
+              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               class="yahoo-upload-input"
               @change="onFileChange"
             >
@@ -285,6 +286,12 @@ onBeforeUnmount(() => {
                   >
                     {{ t('yahoo.import.errorMessage') }}：{{ (row as YahooImportBatch).errorMessage }}
                   </p>
+                  <p
+                    v-if="(row as YahooImportBatch).note"
+                    class="kcgl-info-box"
+                  >
+                    {{ (row as YahooImportBatch).note }}
+                  </p>
                   <template v-if="(row as YahooImportBatch).errorRows.length > 0">
                     <p class="yahoo-errors-title">
                       {{ t('yahoo.import.errorRows') }}
@@ -332,14 +339,6 @@ onBeforeUnmount(() => {
                   class="yahoo-tag"
                   :class="statusClass((row as YahooImportBatch).status)"
                 >{{ statusText((row as YahooImportBatch).status) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column
-              :label="t('yahoo.import.encoding')"
-              width="110"
-            >
-              <template #default="{ row }">
-                {{ (row as YahooImportBatch).encodingDetected ?? '—' }}
               </template>
             </el-table-column>
             <el-table-column
@@ -476,6 +475,14 @@ onBeforeUnmount(() => {
                 </template>
               </el-table-column>
               <el-table-column
+                :label="t('yahoo.orderId')"
+                width="110"
+              >
+                <template #default="{ row }">
+                  {{ (row as YahooPendingShipment).orderId ?? '—' }}
+                </template>
+              </el-table-column>
+              <el-table-column
                 :label="t('yahoo.shipments.closedAt')"
                 width="150"
               >
@@ -580,6 +587,14 @@ onBeforeUnmount(() => {
               >
                 <template #default="{ row }">
                   {{ formatYen((row as YahooReconcileRow).soldPrice) }}
+                </template>
+              </el-table-column>
+              <el-table-column
+                :label="t('yahoo.orderId')"
+                width="110"
+              >
+                <template #default="{ row }">
+                  {{ (row as YahooReconcileRow).orderId ?? '—' }}
                 </template>
               </el-table-column>
               <el-table-column

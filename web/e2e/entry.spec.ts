@@ -26,6 +26,14 @@ async function login(page: Page, username: string): Promise<void> {
 
 test.describe('continuous entry (desktop-chromium)', () => {
   test('entering one item succeeds: full-width price normalization, code preview, and final management code/QR/daily count', async ({ page }) => {
+    // 压缩 Worker 的库加载必须同源（曾默认拉 cdn.jsdelivr.net：不可达时照片选择静默挂起）
+    const cdnRequests: string[] = []
+    page.on('request', (request) => {
+      if (request.url().includes('jsdelivr')) {
+        cdnRequests.push(request.url())
+      }
+    })
+
     await login(page, 'editor')
     await page.goto('/entry')
     await expect(page).toHaveTitle('商品登録｜在庫管理システム')
@@ -50,13 +58,16 @@ test.describe('continuous entry (desktop-chromium)', () => {
     await expect(page.locator('.entry-preview-note')).toContainText('確定番号は保存時に発行されます')
 
     // 相机入口选 1 张（7.5 全链路：浏览器压缩→Dexie→保存后绑定续传→后端校验重编码落盘）
+    // 压缩在 Web Worker 内执行，全套件并发/IDE 负载下可能超默认 5s——显式放宽
     await page.locator('input[type="file"][capture]').setInputFiles({
       name: 'photo.jpg',
       mimeType: 'image/jpeg',
       buffer: TEST_JPEG,
     })
-    await expect(page.locator('.entry-photo img')).toBeVisible()
-    await expect(page.locator('.entry-photo-count')).toHaveText('1/9')
+    await expect(page.locator('.entry-photo img')).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('.entry-photo-count')).toHaveText('1/9', { timeout: 10_000 })
+    // 压缩已实际完成=Worker 库加载走的是同源资产（防 libURL 回退 CDN 的回归锁）
+    expect(cdnRequests, `外源 CDN 请求: ${cdnRequests.join(', ')}`).toEqual([])
     // 拍照语义：撮影日自动=今天（JST 日界，YYYY/MM/DD 展示）
     const todayJst = new Intl.DateTimeFormat('ja-JP', {
       timeZone: 'Asia/Tokyo',
@@ -104,7 +115,7 @@ test.describe('continuous entry (desktop-chromium)', () => {
       mimeType: 'image/jpeg',
       buffer: TEST_JPEG,
     })
-    await expect(page.locator('.entry-photo-count')).toHaveText('1/9')
+    await expect(page.locator('.entry-photo-count')).toHaveText('1/9', { timeout: 10_000 })
     await page.locator('.van-field input').nth(2).fill('1000')
     await page.locator('button[type="submit"]').click()
     await expect(page.locator('.entry-success-code')).toBeVisible()

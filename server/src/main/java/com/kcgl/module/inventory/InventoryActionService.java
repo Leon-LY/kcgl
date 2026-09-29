@@ -8,6 +8,7 @@ import com.kcgl.common.sse.SyncEvent;
 import com.kcgl.common.web.BizException;
 import com.kcgl.common.web.ErrorCode;
 import com.kcgl.module.inventory.dto.ActionResult;
+import com.kcgl.module.inventory.dto.MarkCanceledRequest;
 import com.kcgl.module.inventory.dto.MarkListedRequest;
 import com.kcgl.module.inventory.dto.ReturnRequest;
 import com.kcgl.module.inventory.dto.ScrapRequest;
@@ -240,7 +241,7 @@ public class InventoryActionService {
 
     // ------------------------------------------------------------------ 上架标记
 
-    /** 手动上架标记（LIST_UP）：在库且未上架→在售；实物未动（wh 全 NULL qty=0）。 */
+    /** 手动上架标记（LIST_UP）：在库且未上架/已取消→在售；实物未动（wh 全 NULL qty=0）。 */
     public ActionResult markListed(MarkListedRequest req, long operatorId, String operatorName) {
         Executed done = act(InventoryAction.LIST_UP, TxnType.LIST_UP,
                 req.itemId(), req.clientReqId(), operatorId, operatorName,
@@ -257,6 +258,34 @@ public class InventoryActionService {
                     ledger.setQtyChange(0);
                     ledgerMapper.insert(ledger);
                     auditRecorder.record("ITEM_LIST_UP", "item", item.getId(),
+                            Map.of("itemCode", item.getItemCode()));
+                    return resultOf(item, outcome, item.getWarehouse());
+                });
+        return broadcastFresh(done, operatorId);
+    }
+
+    // ------------------------------------------------------------------ 取消标记
+
+    /**
+     * 手动取消标记（CANCEL_MARK，D-069）：在库且在售→取消（流拍/出品取消的登记口）。
+     * 受注表无取消信息，手动标记是 CANCEL_MARK 唯一来源；实物未动（wh 全 NULL qty=0）。
+     */
+    public ActionResult markCanceled(MarkCanceledRequest req, long operatorId, String operatorName) {
+        Executed done = act(InventoryAction.CANCEL_MARK, TxnType.CANCEL_MARK,
+                req.itemId(), req.clientReqId(), operatorId, operatorName,
+                (item, outcome, now) -> {
+                    if (updateVersioned(item, outcome, operatorId, now, w -> { }) == 0) {
+                        return null;
+                    }
+                    StockLedgerEntity ledger = baseLedger(TxnType.CANCEL_MARK, req.clientReqId(), item,
+                            operatorId, operatorName, now);
+                    ledger.setStockFrom(item.getStockStatus());
+                    ledger.setStockTo(outcome.stockTo());
+                    ledger.setSaleFrom(item.getSaleStatus());
+                    ledger.setSaleTo(outcome.saleTo());
+                    ledger.setQtyChange(0);
+                    ledgerMapper.insert(ledger);
+                    auditRecorder.record("ITEM_CANCEL_MARK", "item", item.getId(),
                             Map.of("itemCode", item.getItemCode()));
                     return resultOf(item, outcome, item.getWarehouse());
                 });

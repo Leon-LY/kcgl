@@ -64,25 +64,13 @@ kcgl:
     # 解码前读头校验的像素上限（防像素炸弹 OOM）
     max-pixels: ${KCGL_IMAGE_MAX_PIXELS:8000}
   yahoo:
-    # CSV 管线（docs/01 7.4）。列名/状态文本映射放部署配置而非 admin UI——
-    # 雅虎格式变更本需发版验证；A4 样张到位后改此段重启即适配
+    # 受注 xlsx 管线（docs/01 7.4，D-069）。列映射/表头契约钉死在 YahooOrderParser
+    # （受注导出 A-U 官方 21 列，样张已到位）——格式变更本需发版重验语义
     imports-dir: ${KCGL_YAHOO_IMPORTS_DIR:./data/imports}
-    max-file-bytes: ${KCGL_YAHOO_MAX_FILE_BYTES:52428800}   # 50MB：5 万商品全量导出约 12-20MB 的余量
-    max-rows: ${KCGL_YAHOO_MAX_ROWS:200000}
+    max-file-bytes: ${KCGL_YAHOO_MAX_FILE_BYTES:5242880}   # 5MB 防御上限（受注实际文件 KB 级；zip ~100:1 放大面自 50MB 收紧）
+    max-rows: ${KCGL_YAHOO_MAX_ROWS:100000}                  # 防御上限（受注年 ~2300 行）
     zombie-minutes: ${KCGL_YAHOO_ZOMBIE_MINUTES:30}          # processing 超阈值的僵尸批次启动自愈
     shipment-delay-warn-days: ${KCGL_YAHOO_SHIP_DELAY_DAYS:7} # 出荷待ち滞留红标/对账降灰阈值
-    columns:
-      auction-id: "オークションID"
-      item-code: "商品コード"
-      list-price: "現在価格"
-      sold-price: "落札価格"
-      status: "状態"
-      listed-at: "出品日時"
-      closed-at: "終了日時"
-    status-values:
-      on-sale: [ "出品中" ]
-      sold: [ "落札されました", "落札" ]
-      canceled: [ "落札されませんでした", "取消", "取り消し" ]
   excel:
     # Excel 双模式导入/流式导出（docs/01 3.1）。模板列名与雅虎 CSV 同理放部署配置——
     # 格式变更本需发版验证；列名需调整时改此段重启即适配

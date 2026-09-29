@@ -2,7 +2,7 @@ import { expect, test, type APIResponse, type Page } from '@playwright/test'
 
 /**
  * M5-① 商品一覧/商品詳細 E2E（docs/03 G5-①）：kw 搜索（管理号精确链）+
- * 仓库筛选与条件クリア；行点击进详情四段式展示+取引履歴/ヤフー出品两标签页；
+ * 仓库筛选与条件クリア；行点击进详情四段式展示+取引履歴/ヤフー受注两标签页；
  * 编辑弹层全量 PUT（商品名/備考/棚番号改后刷新；号内字段不动=无分歧徽标）；
  * 作废→?reEntry= 深链转录入重录横幅+作废件从搜索消失；
  * 管理员回收站削除→理由留痕→復元→列表回归；viewer 只读（无回收站标签/无操作按钮）。
@@ -134,11 +134,11 @@ test.describe('item list and detail (desktop-chromium)', () => {
     await expect(page.locator('.itemd-title .itemd-code')).toHaveText(itemA.itemCode)
     await expect(page.locator('.itemd-divergence')).toHaveCount(0)
 
-    // ---- 取引履歴：录入流水在场；ヤフー出品：空态
+    // ---- 取引履歴：录入流水在场；ヤフー受注：空态
     await page.locator('.el-tabs__item', { hasText: '取引履歴' }).click()
     await expect(page.locator('.el-table__row', { hasText: '新規登録' })).toHaveCount(1)
-    await page.locator('.el-tabs__item', { hasText: 'ヤフー出品' }).click()
-    await expect(page.getByText('出品履歴はありません')).toBeVisible()
+    await page.locator('.el-tabs__item', { hasText: 'ヤフー受注' }).click()
+    await expect(page.getByText('受注履歴はありません')).toBeVisible()
 
     // ---- 作废：理由必填拦截 → 填理由 → 跳录入页重录横幅（?reEntry= 深链）
     await page.locator('.el-tabs__item', { hasText: '基本情報' }).click()

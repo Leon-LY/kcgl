@@ -137,11 +137,12 @@ function ledgerRow(overrides: Partial<ItemLedgerRow> = {}): ItemLedgerRow {
 function listingRow(overrides: Partial<YahooListingRow> = {}): YahooListingRow {
   return {
     id: 20,
+    orderId: '10004866',
     yahooAuctionId: 'm100000',
-    listPrice: 3000,
+    listPrice: null,
     soldPrice: 8000,
     status: 2,
-    listedAt: '2026-09-10 20:00:00',
+    listedAt: null,
     closedAt: '2026-09-12 22:30:00',
     ...overrides,
   }
@@ -293,10 +294,11 @@ describe('item detail view (M5-1)', () => {
     expect(ledgerRowEl.text()).toContain('editor')
 
     apiMocks.fetchItemYahooListings.mockResolvedValue({ rows: [listingRow()] })
-    await wrapper.findAll('.el-tabs__item').find((n) => n.text() === 'ヤフー出品')!.trigger('click')
+    await wrapper.findAll('.el-tabs__item').find((n) => n.text() === 'ヤフー受注')!.trigger('click')
     await flushPromises()
     expect(apiMocks.fetchItemYahooListings).toHaveBeenCalledTimes(1)
     const listingRowEl = wrapper.find('#pane-listing .el-table__row')
+    expect(listingRowEl.text()).toContain('10004866')
     expect(listingRowEl.text()).toContain('m100000')
     expect(listingRowEl.text()).toContain('￥8,000')
     expect(listingRowEl.text()).toContain('落札済み')

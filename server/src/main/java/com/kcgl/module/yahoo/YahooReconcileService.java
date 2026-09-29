@@ -17,39 +17,47 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * 对账三活视图 + 出荷待ち（docs/01 7.2/六节）：只读拼装，无事务。
+ * 对账三活视图 + 出荷待ち（docs/01 7.2，D-069 语义重校）：只读拼装，无事务。
  * 商品侧条件驱动（销售/库存态×未冻结），listing 按 itemId 就近附着——
- * listing 缺行（如手动标记后 CSV 未回）时行仍展示，auctionId/closedAt 为空。
+ * listing 缺行时行仍展示，orderId/auctionId/closedAt 为空。
+ *
+ * <p>视图一/出荷待ち（成交未出库）：受注表正是其数据源。视图二（流拍未重上）：
+ * 手动取消标记（mark-canceled）驱动。视图三（已出库仍在售=撤架）：手动上架标记
+ * （mark-listed）驱动——受注表无在售信息，「仍在售」的唯一系统事实是 sale_status=1；
+ * lastSyncedAt 口径=最近一次受注导入完成时刻（导入后仍未成交=通过一次校验）。
  */
 @Service
 public class YahooReconcileService {
 
     private final ItemMapper itemMapper;
     private final YahooListingMapper listingMapper;
+    private final YahooImportBatchMapper batchMapper;
     private final FirstThumbReader firstThumbReader;
     private final YahooProperties props;
     private final Clock clock;
 
     public YahooReconcileService(ItemMapper itemMapper, YahooListingMapper listingMapper,
-            FirstThumbReader firstThumbReader, YahooProperties props, Clock clock) {
+            YahooImportBatchMapper batchMapper, FirstThumbReader firstThumbReader,
+            YahooProperties props, Clock clock) {
         this.itemMapper = itemMapper;
         this.listingMapper = listingMapper;
+        this.batchMapper = batchMapper;
         this.firstThumbReader = firstThumbReader;
         this.props = props;
         this.clock = clock;
     }
 
-    /** 三活视图：成交未出库／流拍未重上／已出库雅虎仍在售。 */
+    /** 三活视图：成交未出库／流拍未重上／已出库仍在售（撤架）。 */
     public ReconcileResponse reconcile() {
         LocalDateTime now = LocalDateTime.now(clock);
         List<ItemEntity> soldNotShippedItems = inStockBySale(2);
         List<ItemEntity> canceledItems = inStockBySale(3);
-        List<ItemEntity> shippedItems = shippedWithLiveListing();
+        List<ItemEntity> shippedStillListedItems = shippedStillListed();
 
         return new ReconcileResponse(
-                rows(soldNotShippedItems, 2, now),
-                rows(canceledItems, 3, now),
-                rows(shippedItems, 1, now));
+                rows(soldNotShippedItems, 2, null, now),
+                rows(canceledItems, 3, null, now),
+                rows(shippedStillListedItems, 1, latestImportFinishedAt(), now));
     }
 
     /** 出荷待ち：= 视图一 + 缩略图，按货架号排序（拣货动线）。 */
@@ -68,7 +76,8 @@ public class YahooReconcileService {
                     return new PendingShipmentResponse.PendingShipmentRow(
                             item.getId(), item.getItemCode(), thumbs.get(item.getId()),
                             item.getWarehouse(), item.getShelfNo(), soldPriceOf(item, listing),
-                            auctionIdOf(listing), closedAtOf(listing), isDelayed(listing, now));
+                            orderIdOf(listing), auctionIdOf(listing), closedAtOf(listing),
+                            isDelayed(listing, now));
                 })
                 .toList();
         return new PendingShipmentResponse(rows.size(), rows);
@@ -76,7 +85,7 @@ public class YahooReconcileService {
 
     // ------------------------------------------------------------- 视图查询
 
-    /** 在库未冻结的商品按销售态取集（视图一/出荷待ち共用）。 */
+    /** 在库未冻结的商品按销售态取集（视图一/二/出荷待ち共用）。 */
     private List<ItemEntity> inStockBySale(int saleStatus) {
         return itemMapper.selectList(new LambdaQueryWrapper<ItemEntity>()
                 .eq(ItemEntity::getSaleStatus, saleStatus)
@@ -85,26 +94,30 @@ public class YahooReconcileService {
                 .eq(ItemEntity::getDeleted, 0));
     }
 
-    /** 视图三（撤架）：已出库但仍有在售 listing——先取在售 listing 的 item_id 集合。 */
-    private List<ItemEntity> shippedWithLiveListing() {
-        List<Long> liveItemIds = listingMapper.selectList(new LambdaQueryWrapper<YahooListingEntity>()
-                        .eq(YahooListingEntity::getStatus, 1)
-                        .isNotNull(YahooListingEntity::getItemId))
-                .stream().map(YahooListingEntity::getItemId).distinct().toList();
-        if (liveItemIds.isEmpty()) {
-            return List.of();
-        }
+    /** 视图三（撤架）：已出库但仍标记在售（手动 LIST_UP 是在售的唯一系统事实）。 */
+    private List<ItemEntity> shippedStillListed() {
         return itemMapper.selectList(new LambdaQueryWrapper<ItemEntity>()
-                .in(ItemEntity::getId, liveItemIds)
+                .eq(ItemEntity::getSaleStatus, 1)
                 .eq(ItemEntity::getStockStatus, 2)
                 .eq(ItemEntity::getVoided, 0)
                 .eq(ItemEntity::getDeleted, 0));
     }
 
+    /** 最近一次受注导入完成时刻（视图三数据新鲜度口径；无成功批次=null）。 */
+    private LocalDateTime latestImportFinishedAt() {
+        List<YahooImportBatchEntity> latest = batchMapper.selectList(
+                new LambdaQueryWrapper<YahooImportBatchEntity>()
+                        .eq(YahooImportBatchEntity::getStatus, YahooImportBatchEntity.STATUS_DONE)
+                        .isNotNull(YahooImportBatchEntity::getFinishedAt)
+                        .orderByDesc(YahooImportBatchEntity::getFinishedAt)
+                        .last("LIMIT 1"));
+        return latest.isEmpty() ? null : latest.get(0).getFinishedAt();
+    }
+
     // ------------------------------------------------------------- 行拼装
 
     private List<ReconcileResponse.ReconcileRow> rows(List<ItemEntity> items, int listingStatus,
-            LocalDateTime now) {
+            LocalDateTime fallbackSyncedAt, LocalDateTime now) {
         if (items.isEmpty()) {
             return List.of();
         }
@@ -113,11 +126,13 @@ public class YahooReconcileService {
                 .sorted(SHELF_ORDER)
                 .map(item -> {
                     YahooListingEntity listing = listings.get(item.getId());
+                    LocalDateTime lastSyncedAt = lastSyncedAtOf(listing, fallbackSyncedAt);
                     return new ReconcileResponse.ReconcileRow(
                             item.getId(), item.getItemCode(), item.getWarehouse(),
-                            item.getShelfNo(), soldPriceOf(item, listing), auctionIdOf(listing),
-                            closedAtOf(listing), lastSyncedAtOf(listing),
-                            isDelayed(listing, now), isRecentlySynced(listing, now));
+                            item.getShelfNo(), soldPriceOf(item, listing),
+                            orderIdOf(listing), auctionIdOf(listing), closedAtOf(listing),
+                            lastSyncedAt, isDelayed(listing, now),
+                            isRecentlySynced(lastSyncedAt, now));
                 })
                 .toList();
     }
@@ -137,10 +152,14 @@ public class YahooReconcileService {
         return items.stream().map(ItemEntity::getId).toList();
     }
 
-    /** 成交价双源合并展示：CSV listing 优先，手填兜底（docs/01 7.2 sold_price 优先级）。 */
+    /** 成交价双源合并展示：受注 listing 优先，手填兜底（docs/01 7.2 sold_price 优先级）。 */
     private static Long soldPriceOf(ItemEntity item, YahooListingEntity listing) {
         return listing != null && listing.getSoldPrice() != null
                 ? listing.getSoldPrice() : item.getSoldPrice();
+    }
+
+    private static String orderIdOf(YahooListingEntity listing) {
+        return listing != null ? listing.getOrderId() : null;
     }
 
     private static String auctionIdOf(YahooListingEntity listing) {
@@ -151,11 +170,14 @@ public class YahooReconcileService {
         return listing != null ? listing.getClosedAt() : null;
     }
 
-    private static LocalDateTime lastSyncedAtOf(YahooListingEntity listing) {
-        return listing != null ? listing.getUpdatedAt() : null;
+    /** listing 缺行（视图二/三常态）时取视图级兜底（受注导入时刻）。 */
+    private static LocalDateTime lastSyncedAtOf(YahooListingEntity listing,
+            LocalDateTime fallbackSyncedAt) {
+        return listing != null && listing.getUpdatedAt() != null
+                ? listing.getUpdatedAt() : fallbackSyncedAt;
     }
 
-    /** 滞留红标：事件时刻（落札/终了）超阈值天数仍滞留当前视图。 */
+    /** 滞留红标：受注（成交）时刻超阈值天数仍滞留当前视图。 */
     private boolean isDelayed(YahooListingEntity listing, LocalDateTime now) {
         if (listing == null || listing.getClosedAt() == null) {
             return false;
@@ -163,10 +185,10 @@ public class YahooReconcileService {
         return listing.getClosedAt().plusDays(props.shipmentDelayWarnDays()).isBefore(now);
     }
 
-    /** 降灰提示：listing 阈值天数内更新过（CSV 滞后期假阳性，主用于撤架视图）。 */
-    private boolean isRecentlySynced(YahooListingEntity listing, LocalDateTime now) {
-        return listing != null && listing.getUpdatedAt() != null
-                && listing.getUpdatedAt().isAfter(now.minusDays(props.shipmentDelayWarnDays()));
+    /** 降灰提示：同步口径时刻在阈值天数内（主用于撤架视图的假阳性提示）。 */
+    private boolean isRecentlySynced(LocalDateTime lastSyncedAt, LocalDateTime now) {
+        return lastSyncedAt != null
+                && lastSyncedAt.isAfter(now.minusDays(props.shipmentDelayWarnDays()));
     }
 
     /** 拣货动线：货架号自然序（null 押后），同架按管理号。 */

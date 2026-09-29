@@ -80,9 +80,15 @@ class InventoryStateMachineTest {
         // 到仓：在途→在库，销售态保持
         assertThat(InventoryStateMachine.apply(InventoryAction.ARRIVAL, 0, 1))
                 .isEqualTo(new InventoryStateMachine.Outcome(1, 1));
-        // 取消标记：取消→在售（重新出品）允许；未上架→取消不存在
-        assertThat(InventoryStateMachine.apply(InventoryAction.CANCEL_MARK, 1, 3))
+        // 取消标记（手动，D-069）：在售→取消；取消→在售旧 CSV 边退场（重上走 LIST_UP）
+        assertThat(InventoryStateMachine.apply(InventoryAction.CANCEL_MARK, 1, 1))
+                .isEqualTo(new InventoryStateMachine.Outcome(1, 3));
+        // 上架标记：取消→在售（重新出品——受注表无在售信息，手动标记是唯一来源）
+        assertThat(InventoryStateMachine.apply(InventoryAction.LIST_UP, 1, 3))
                 .isEqualTo(new InventoryStateMachine.Outcome(1, 1));
+        // 成交标记（受注导入）：取消→成交（流拍后重新出品落札，D-069）
+        assertThat(InventoryStateMachine.apply(InventoryAction.SOLD_MARK, 1, 3))
+                .isEqualTo(new InventoryStateMachine.Outcome(1, 2));
         // 在途退回拍卖场：在途→已出库合法；在库卖出前的报废同边不同动作
         assertThat(InventoryStateMachine.apply(InventoryAction.RETURN_VENUE, 0, 1))
                 .isEqualTo(new InventoryStateMachine.Outcome(2, 3));

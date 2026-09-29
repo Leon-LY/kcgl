@@ -589,6 +589,62 @@ class InventoryActionIntegrationTest {
                 "SELECT COUNT(*) FROM stock_ledger WHERE txn_type = 9", Long.class)).isEqualTo(1);
     }
 
+    // ------------------------------------------------------------- 取消标记
+
+    @Test
+    void markCanceled_inStockOnSale_toCanceled_relistViaListUp() throws Exception {
+        MockHttpSession editor = loginAs("eichi");
+        long id = createItem(editor, "mc-a");
+        arrive(editor, id, "mc-a-arr", null);
+        postAction(editor, "mark-listed",
+                "{\"itemId\":" + id + ",\"clientReqId\":\"mc-a-up\"}");
+
+        String body = postAction(editor, "mark-canceled",
+                "{\"itemId\":" + id + ",\"clientReqId\":\"mc-a-key\"}");
+        assertThat(body).contains("\"saleStatus\":3").contains("\"stockStatus\":1");
+
+        // CANCEL_MARK 行：实物未动（wh 全 NULL qty=0），销售 1→3
+        Map<String, Object> row = ledger(id, 11);
+        assertThat(v(row, "stock_from")).isEqualTo(1);
+        assertThat(v(row, "stock_to")).isEqualTo(1);
+        assertThat(v(row, "sale_from")).isEqualTo(1);
+        assertThat(v(row, "sale_to")).isEqualTo(3);
+        assertThat(row.get("wh_from")).isNull();
+        assertThat(row.get("wh_to")).isNull();
+        assertThat(v(row, "qty_change")).isZero();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM operation_log WHERE action = 'ITEM_CANCEL_MARK'", Long.class))
+                .isEqualTo(1);
+        assertThat(consistency.check().ok()).as("取消标记后账实一致（实物未动）").isTrue();
+
+        // 已取消再标 → 409008（边 1→3 只认在售）；未上架直标 → 409008；在途件 → 409008
+        mockMvc.perform(post("/api/inventory/mark-canceled").session(editor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"itemId\":" + id + ",\"clientReqId\":\"mc-a-again\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(409008));
+        long fresh = createItem(editor, "mc-b");
+        arrive(editor, fresh, "mc-b-arr", null);
+        mockMvc.perform(post("/api/inventory/mark-canceled").session(editor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"itemId\":" + fresh + ",\"clientReqId\":\"mc-b-key\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(409008));
+        long transit = createItem(editor, "mc-c");
+        mockMvc.perform(post("/api/inventory/mark-canceled").session(editor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"itemId\":" + transit + ",\"clientReqId\":\"mc-c-key\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(409008));
+
+        // 流拍后重上：LIST_UP 3→1 例外边（D-069：重上登记口）
+        String relisted = postAction(editor, "mark-listed",
+                "{\"itemId\":" + id + ",\"clientReqId\":\"mc-a-relist\"}");
+        assertThat(relisted).contains("\"saleStatus\":1");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM stock_ledger WHERE txn_type = 11", Long.class)).isEqualTo(1);
+    }
+
     // ------------------------------------------------------------- 权限与冻结守卫
 
     @Test
@@ -606,8 +662,8 @@ class InventoryActionIntegrationTest {
         long deletedId = createItem(editor, "guard-c");
         jdbcTemplate.update("UPDATE item SET deleted = 1 WHERE id = ?", deletedId);
 
-        // 仅查看角色：五端点全 403 零副作用
-        for (String path : new String[]{"sell", "scrap", "transfer", "return", "mark-listed"}) {
+        // 仅查看角色：六端点全 403 零副作用
+        for (String path : new String[]{"sell", "scrap", "transfer", "return", "mark-listed", "mark-canceled"}) {
             String body = "{\"itemId\":" + id + ",\"clientReqId\":\"guard-v-" + path + "\""
                     + ("scrap".equals(path) ? ",\"reason\":\"廃棄\"" : "")
                     + ("transfer".equals(path) ? ",\"toWarehouse\":2" : "")
@@ -630,7 +686,7 @@ class InventoryActionIntegrationTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value(404001));
         assertThat(jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM stock_ledger WHERE txn_type IN (3,4,5,6,9)", Long.class)).isZero();
+                "SELECT COUNT(*) FROM stock_ledger WHERE txn_type IN (3,4,5,6,9,11)", Long.class)).isZero();
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT stock_status FROM item WHERE id = ?", Integer.class, id)).isEqualTo(1);
     }

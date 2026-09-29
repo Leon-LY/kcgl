@@ -10,6 +10,7 @@ const apiMocks = vi.hoisted(() => ({
   transferItem: vi.fn(),
   returnItem: vi.fn(),
   markListedItem: vi.fn(),
+  markCanceledItem: vi.fn(),
 }))
 
 // ApiError 保持真实实现（错误文案与 404 分支依赖 instanceof/code）；仅替换网络端点
@@ -23,6 +24,7 @@ vi.mock('@/utils/api', async (importOriginal) => {
     transferItem: apiMocks.transferItem,
     returnItem: apiMocks.returnItem,
     markListedItem: apiMocks.markListedItem,
+    markCanceledItem: apiMocks.markCanceledItem,
   }
 })
 
@@ -38,9 +40,10 @@ import { ApiError } from '@/utils/api'
 import type { ItemByCode, ItemResponse, MeResponse } from '@/utils/api'
 
 /**
- * 扫码操作页（M3-④）：手输定位/归一化/404 文案/作废提示（重录新号与未重录两态）/
- * viewer 只读/按状态渲染动作菜单（边表前端镜像）/报废理由必填/卖出价格校验/
- * 动作幂等键失败重试复用同键（docs/01 7.0）/成功后定位卡刷新。
+ * 扫码操作页（M3-④/M5-②b）：手输定位/归一化/404 文案/作废提示（重录新号与
+ * 未重录两态）/viewer 只读/按状态渲染动作菜单（边表前端镜像，含取消标记）/
+ * 报废理由必填/卖出价格校验/动作幂等键失败重试复用同键（docs/01 7.0）/
+ * 成功后定位卡刷新。
  */
 
 const meEditor: MeResponse = {
@@ -234,13 +237,14 @@ describe('scan action menu (边表前端镜像)', () => {
     expect(labels).toEqual(['売却', '移動', '廃棄', '出品済みにする', '会場へ返す'])
   })
 
-  it('在库在售：上架标记不出现', async () => {
+  it('在库在售：取消标记出现（D-069 流拍登记口），上架标记消失', async () => {
     apiMocks.fetchItemByCode.mockResolvedValue(itemByCode({ saleStatus: 1 }))
     const wrapper = await mountView()
 
     await locateByHand(wrapper, 'HT9-A1X')
 
-    expect(actionButtons(wrapper).map((b) => b.text())).toEqual(['売却', '移動', '廃棄', '会場へ返す'])
+    expect(actionButtons(wrapper).map((b) => b.text()))
+      .toEqual(['売却', '移動', '廃棄', '出品取り消し', '会場へ返す'])
   })
 
   it('已出库且成交：仅顾客退回', async () => {
@@ -344,7 +348,7 @@ describe('scan action dialogs (幂等键契约 docs/01 7.0)', () => {
     expect(apiMocks.sellItem).toHaveBeenCalledWith(201, expect.any(String), 15000)
   })
 
-  it('卖出：价格留空合法（雅虎 CSV 回填场景）', async () => {
+  it('卖出：价格留空合法（雅虎受注回填场景）', async () => {
     apiMocks.fetchItemByCode.mockResolvedValue(itemByCode())
     apiMocks.sellItem.mockResolvedValue(actionResult(itemByCode({ stockStatus: 2, saleStatus: 2 })))
     const wrapper = await mountView()
@@ -389,11 +393,38 @@ describe('scan action dialogs (幂等键契约 docs/01 7.0)', () => {
     await actionButtons(wrapper)[3].trigger('click') // 出品済みにする
     await flushPromises()
 
+    // 锚定 dialogKey 归并（回归：直拼动作名曾渲染原始键名 scan.markListed.title）
+    expect(wrapper.find('.scan-dialog-title').text()).toBe('出品済みにする')
+    expect(wrapper.find('.scan-dialog-ok').text()).toBe('出品中として記録する')
     expect(wrapper.text()).toContain('ヤフオク!')
     await wrapper.find('.scan-dialog-ok').trigger('click')
     await flushPromises()
 
     expect(apiMocks.markListedItem).toHaveBeenCalledWith(201, expect.any(String))
+  })
+
+  it('取消标记：在售态登记流拍/出品取消；成功后横幅+卡片刷新', async () => {
+    apiMocks.fetchItemByCode
+      .mockResolvedValueOnce(itemByCode({ saleStatus: 1 }))
+      .mockResolvedValueOnce(itemByCode({ saleStatus: 3 }))
+    apiMocks.markCanceledItem.mockResolvedValue(actionResult(itemByCode({ saleStatus: 3 })))
+    const wrapper = await mountView()
+
+    await locateByHand(wrapper, 'HT9-A1X')
+    await actionButtons(wrapper)[3].trigger('click') // 出品取り消し
+    await flushPromises()
+
+    expect(wrapper.find('.scan-dialog-title').text()).toBe('出品取り消し')
+    // 受注文件无取消信息 → 手动登记是唯一来源（弹层提示明示）
+    expect(wrapper.text()).toContain('キャンセル情報')
+    await wrapper.find('.scan-dialog-ok').trigger('click')
+    await flushPromises()
+
+    expect(apiMocks.markCanceledItem).toHaveBeenCalledWith(201, expect.any(String))
+    expect(wrapper.find('.scan-done').text()).toBe('出品取り消しを記録しました')
+    expect(apiMocks.fetchItemByCode).toHaveBeenCalledTimes(2)
+    // 刷新后的卡片销售态=キャンセル
+    expect(wrapper.text()).toContain('キャンセル')
   })
 
   it('顾客退回：说明随请求（direction=1）；说明留空不提交空串', async () => {

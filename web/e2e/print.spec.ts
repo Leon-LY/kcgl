@@ -39,7 +39,8 @@ test.describe('label printing (desktop-chromium)', () => {
       mimeType: 'image/jpeg',
       buffer: TEST_JPEG,
     })
-    await expect(page.locator('.entry-photo-count')).toHaveText('1/9')
+    // 压缩在 Web Worker 内执行，负载下可能超默认 5s——与 entry.spec 同口径显式放宽
+    await expect(page.locator('.entry-photo-count')).toHaveText('1/9', { timeout: 10_000 })
     await page.locator('.van-field input').nth(2).fill('1000')
     await page.locator('button[type="submit"]').click()
     await expect(page.locator('.entry-success-code')).toBeVisible()

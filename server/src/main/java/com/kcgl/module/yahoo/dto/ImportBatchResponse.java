@@ -7,21 +7,24 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 导入批次报告（docs/01 7.4）：上传同步段即回（processing 态），前端轮询/SSE
- * 失效后重取终态。status：0处理中/1完成/2失败；errorRows 为采样前 1000 条。
+ * 受注导入批次报告（docs/01 7.4）：上传同步段即回（processing 态），前端轮询/SSE
+ * 失效后重取终态。status：0处理中/1完成/2失败；errorRows 为采样前 1000 条；
+ * note=まとめ売り等批次级補足。rowCount=物理数据行，matched/unmatched 按子行
+ * （まとめ売り一行拆 N 子行）。
  */
 public record ImportBatchResponse(
-        Long id, String originalFilename, Integer status, String encodingDetected,
+        Long id, String originalFilename, Integer status,
         Integer rowCount, Integer matchedCount, Integer unmatchedCount, Integer updatedCount,
-        String errorMessage, Long uploadedBy, LocalDateTime createdAt, LocalDateTime finishedAt,
+        String note, String errorMessage, Long uploadedBy,
+        LocalDateTime createdAt, LocalDateTime finishedAt,
         List<YahooImportService.ErrorRow> errorRows) {
 
     public static ImportBatchResponse of(YahooImportBatchEntity batch,
             List<YahooImportService.ErrorRow> errorRows) {
         return new ImportBatchResponse(batch.getId(), batch.getOriginalFilename(),
-                batch.getStatus(), batch.getEncodingDetected(), batch.getRowCount(),
+                batch.getStatus(), batch.getRowCount(),
                 batch.getMatchedCount(), batch.getUnmatchedCount(), batch.getUpdatedCount(),
-                batch.getErrorMessage(), batch.getUploadedBy(), batch.getCreatedAt(),
-                batch.getFinishedAt(), errorRows);
+                batch.getNote(), batch.getErrorMessage(), batch.getUploadedBy(),
+                batch.getCreatedAt(), batch.getFinishedAt(), errorRows);
     }
 }

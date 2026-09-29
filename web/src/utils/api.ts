@@ -488,8 +488,10 @@ export function fetchItemLedgers(id: number): Promise<{ rows: ItemLedgerRow[] }>
   return request(`/api/items/${id}/ledgers`, { method: 'GET' })
 }
 
+/** 商品受注行（closed_at 倒序）：受注导入的行 listed_at/list_price 恒 NULL，status 恒 2。 */
 export interface YahooListingRow {
   id: number
+  orderId: string | null
   yahooAuctionId: string | null
   listPrice: number | null
   soldPrice: number | null
@@ -716,9 +718,14 @@ export function returnItem(
   return request('/api/inventory/return', jsonInit('POST', payload))
 }
 
-/** 手动上架标记（雅虎手工出品后即时登记，消除 CSV 回传窗口的滞销误报）。 */
+/** 手动上架标记（雅虎手工出品后即时登记；流拍后重上=在库已取消→在售）。 */
 export function markListedItem(itemId: number, clientReqId: string): Promise<ActionResult> {
   return request('/api/inventory/mark-listed', jsonInit('POST', { itemId, clientReqId }))
+}
+
+/** 手动取消标记（流拍/出品取消的登记口，D-069：受注表无取消信息，唯一来源=手动）。 */
+export function markCanceledItem(itemId: number, clientReqId: string): Promise<ActionResult> {
+  return request('/api/inventory/mark-canceled', jsonInit('POST', { itemId, clientReqId }))
 }
 
 // ------------------------------------------------------------------ 盘点（M3-⑥，docs/01 7.3）
@@ -846,7 +853,7 @@ export function resolveStocktakeDiff(
   )
 }
 
-// ------------------------------------------------------------------ 雅虎 CSV（M4，docs/01 7.4/7.2）
+// ------------------------------------------------------------------ 雅虎受注导入（M5-②b，docs/01 7.4/7.2，D-069）
 
 /** 错误行采样条目（后端前 1000 条采样）。 */
 export interface YahooImportErrorRow {
@@ -855,16 +862,20 @@ export interface YahooImportErrorRow {
   reason: string
 }
 
-/** 导入批次报告：status 0处理中 1完成 2失败；失败批次计数为 null。 */
+/**
+ * 导入批次报告：status 0处理中 1完成 2失败；失败批次计数为 null。
+ * rowCount=物理数据行；matched/unmatched 按子行（まとめ売り一行拆 N 子行）；
+ * note=まとめ売り等批次级補注（単価未分割）。
+ */
 export interface YahooImportBatch {
   id: number
   originalFilename: string
   status: number
-  encodingDetected: string | null
   rowCount: number | null
   matchedCount: number | null
   unmatchedCount: number | null
   updatedCount: number | null
+  note: string | null
   errorMessage: string | null
   uploadedBy: number
   createdAt: string | null
@@ -872,13 +883,14 @@ export interface YahooImportBatch {
   errorRows: YahooImportErrorRow[]
 }
 
-/** 对账三活视图行（docs/01 7.2）：delayed=滞留红标；recentlySynced=降灰（CSV 滞后期假阳性）。 */
+/** 对账三活视图行（docs/01 7.2）：delayed=滞留红标；recentlySynced=降灰（导入后仍未成交=通过一次校验）。 */
 export interface YahooReconcileRow {
   itemId: number
   itemCode: string
   warehouse: number
   shelfNo: string | null
   soldPrice: number | null
+  orderId: string | null
   auctionId: string | null
   closedAt: string | null
   lastSyncedAt: string | null
@@ -892,7 +904,7 @@ export interface YahooReconcile {
   withdrawNeeded: YahooReconcileRow[]
 }
 
-/** 出荷待ち行：已成交未出库的拣货队列（货架号序+缩略图）。 */
+/** 出荷待ち行：已成交未出库的拣货队列（货架号序+缩略图）；orderId=雅虎受注 ID 留痕。 */
 export interface YahooPendingShipment {
   itemId: number
   itemCode: string
@@ -900,6 +912,7 @@ export interface YahooPendingShipment {
   warehouse: number
   shelfNo: string | null
   soldPrice: number | null
+  orderId: string | null
   auctionId: string | null
   closedAt: string | null
   delayed: boolean
@@ -910,8 +923,8 @@ export interface YahooPendingShipmentList {
   items: YahooPendingShipment[]
 }
 
-/** 上传（同步段）：毫秒级返回 processing 批次；sha 重复 409011、队列满 429001。 */
-export function uploadYahooCsv(form: FormData): Promise<YahooImportBatch> {
+/** 上传受注 xlsx（同步段）：毫秒级返回 processing 批次；sha 重复 409011、非 xlsx 400012。 */
+export function uploadYahooImport(form: FormData): Promise<YahooImportBatch> {
   return request('/api/yahoo/imports', { method: 'POST', body: form })
 }
 

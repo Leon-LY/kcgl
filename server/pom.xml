@@ -95,20 +95,9 @@
       <artifactId>thumbnailator</artifactId>
       <version>0.4.20</version>
     </dependency>
-    <!-- 雅虎 CSV 解析（docs/01 7.4）：引号内逗号/换行由库处理 -->
-    <dependency>
-      <groupId>org.apache.commons</groupId>
-      <artifactId>commons-csv</artifactId>
-      <version>1.14.1</version>
-    </dependency>
-    <!-- 编码检测（docs/01 7.4）：SHIFT_JIS/MS932/UTF-8 候选链的探测输入 -->
-    <dependency>
-      <groupId>com.github.albfernandez</groupId>
-      <artifactId>juniversalchardet</artifactId>
-      <version>2.5.0</version>
-    </dependency>
     <!-- Excel 导入导出（docs/01 3.1）：FastExcel=EasyExcel 原班人马接棒（后者已官方归档），
-         默认流式低内存；POI 由其传递引入（≥5.4.1，满足 CVE-2025-31672），不直接依赖 -->
+         默认流式低内存；POI 由其传递引入（≥5.4.1，满足 CVE-2025-31672），不直接依赖。
+         雅虎受注导入同栈（D-069：xlsx 单格式，CSV/编码检测链整体退场） -->
     <dependency>
       <groupId>cn.idev.excel</groupId>
       <artifactId>fastexcel</artifactId>

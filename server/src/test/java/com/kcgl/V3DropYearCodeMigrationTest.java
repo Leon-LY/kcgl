@@ -65,10 +65,10 @@ class V3DropYearCodeMigrationTest {
                 "SELECT COUNT(*) FROM item WHERE item_code IN ('HTK9-A1X','HTL9-A2X','ZZZ9-AA2X')",
                 Integer.class)).isEqualTo(3);
 
-        // —— 旧结构退役
+        // —— 旧结构退役（断言 V3 成功执行过——链上追加 V(n) 不改写此语义）
         assertThat(jdbc.queryForObject(
-                "SELECT version FROM flyway_schema_history WHERE success = 1 "
-                        + "ORDER BY installed_rank DESC LIMIT 1", String.class)).isEqualTo("3");
+                "SELECT COUNT(*) FROM flyway_schema_history WHERE version = '3' AND success = 1",
+                Integer.class)).isEqualTo(1);
         assertThat(tableExists("year_code")).isFalse();
         assertThat(columnExists("item", "year")).isFalse();
         assertThat(columnExists("item", "year_code")).isFalse();

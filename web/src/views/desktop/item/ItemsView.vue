@@ -59,13 +59,14 @@ async function loadList(): Promise<void> {
   try {
     const data = await searchItems({
       kw: kw.value.trim() === '' ? undefined : kw.value.trim(),
-      warehouse: warehouse.value === ALL ? undefined : warehouse.value,
-      stockStatus: stockStatus.value === ALL ? undefined : stockStatus.value,
-      saleStatus: saleStatus.value === ALL ? undefined : saleStatus.value,
-      venueId: venueId.value === ALL ? undefined : venueId.value,
+      // 对象哨兵不可被 === 收窄（对象类型无名义恒等）：以 typeof 判别业务值分支
+      warehouse: typeof warehouse.value === 'number' ? warehouse.value : undefined,
+      stockStatus: typeof stockStatus.value === 'number' ? stockStatus.value : undefined,
+      saleStatus: typeof saleStatus.value === 'number' ? saleStatus.value : undefined,
+      venueId: typeof venueId.value === 'number' ? venueId.value : undefined,
       buyDateFrom: buyDateFrom.value ?? undefined,
       buyDateTo: buyDateTo.value ?? undefined,
-      warnLevel: warnLevel.value === ALL ? undefined : warnLevel.value,
+      warnLevel: typeof warnLevel.value === 'number' ? warnLevel.value : undefined,
       page: page.value,
       size: PAGE_SIZE,
     })
@@ -413,7 +414,7 @@ onMounted(() => {
               :data="rows"
               row-key="id"
               class="items-table"
-              @row-click="(row) => goDetail(row as ItemSearchRow)"
+              @row-click="(row: ItemSearchRow) => goDetail(row)"
             >
               <el-table-column
                 :label="t('items.column.item')"

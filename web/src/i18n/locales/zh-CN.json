@@ -236,6 +236,7 @@
       "scrap": "报废",
       "transfer": "调拨",
       "markListed": "标记已上架",
+      "markCanceled": "取消出品标记",
       "returnCustomer": "收到退货",
       "returnVenue": "退回拍卖场"
     },
@@ -268,14 +269,20 @@
     },
     "listed": {
       "title": "标记已上架",
-      "note": "在雅虎拍卖手动出品后请点此按钮，无需等待 CSV 导入即记录为「在售」。",
+      "note": "在雅虎拍卖出品时（含流拍后重新出品）请点此按钮，无需等待受注导入即记录为「在售」。",
       "confirm": "记录为在售"
+    },
+    "canceled": {
+      "title": "取消出品标记",
+      "note": "流拍或取消出品时记录。受注文件不含取消信息，此处的手动记录是唯一来源。",
+      "confirm": "记录为取消"
     },
     "done": {
       "sell": "已记录卖出",
       "scrap": "已记录报废",
       "transfer": "已完成调拨",
       "markListed": "已记录为在售",
+      "markCanceled": "已记录取消出品",
       "returnCustomer": "已收到退货",
       "returnVenue": "已记录退回拍卖场"
     }
@@ -459,11 +466,11 @@
     "500000": "系统发生错误",
     "NETWORK_ERROR": "无法连接服务器，请检查网络",
     "INVALID_RESPONSE": "服务器返回了无效响应",
-    "400009": "CSV 文件不得超过 50MB。",
-    "400010": "CSV 文件为空。",
-    "400011": "CSV 行数超过上限（20 万行）。",
-    "400012": "无法识别 CSV 文件的字符编码。",
-    "409011": "相同内容的 CSV 文件已导入过。",
+    "400009": "受注文件请控制在 5MB 以内。",
+    "400010": "受注文件为空。",
+    "400011": "受注文件行数超过上限（10 万行）。",
+    "400012": "无法读取受注文件（xlsx）。请直接上传雅虎的受注 Excel。",
+    "409011": "相同内容的受注文件已导入过。",
     "400013": "Excel 文件请控制在 20MB 以内。",
     "400014": "无法读取 Excel 文件。请下载模板并按正确格式制作。",
     "400015": "Excel 行数超过上限（2 万行）。",
@@ -476,14 +483,15 @@
   "yahoo": {
     "title": "雅虎联动",
     "itemCode": "管理号",
+    "orderId": "订单号",
     "auctionId": "拍卖 ID",
     "warehouse": "仓库",
     "shelfNo": "货架号",
     "import": {
-      "title": "CSV 导入",
-      "upload": "导入 CSV 文件",
+      "title": "受注导入",
+      "upload": "导入受注文件",
       "fileButton": "选择文件",
-      "hint": "雅虎出品管理的 CSV（≤50MB）。处理数秒完成，结果显示在历史列表。",
+      "hint": "雅虎受注管理下载的受注文件（xlsx，≤5MB）。处理数秒完成，结果显示在历史列表。",
       "uploading": "上传中…",
       "roleDenied": "导入需要编辑者及以上权限。",
       "listTitle": "导入历史",
@@ -493,7 +501,6 @@
       "statusProcessing": "处理中",
       "statusDone": "完成",
       "statusFailed": "失败",
-      "encoding": "字符编码",
       "rowCount": "总行数",
       "matched": "匹配",
       "unmatched": "未匹配",
@@ -507,14 +514,14 @@
       "errorReason": "原因",
       "emptyList": "暂无导入历史。",
       "loadFailed": "获取导入历史失败。",
-      "unmatchedNote": "未匹配行会连同 CSV 原文管理号保留在出品记录中（可作对照线索）。"
+      "unmatchedNote": "未匹配行会连同受注文件原文管理号保留在出品记录中（可作对照线索）。"
     },
     "shipments": {
       "title": "待发货",
       "count": "待发货 {n} 件",
       "empty": "没有待发货的商品。",
       "delayed": "发货滞留",
-      "closedAt": "落札时间",
+      "closedAt": "注文时间",
       "goSell": "卖出此商品",
       "loadFailed": "获取待发货清单失败。"
     },
@@ -527,10 +534,10 @@
       "delayed": "滞留",
       "recentlySynced": "近期已同步",
       "lastSyncedAt": "最后同步",
-      "closedAt": "结束时间",
+      "closedAt": "注文时间",
       "soldPrice": "落札价格",
       "loadFailed": "获取对账信息失败。",
-      "note": "「CSV 有而系统无」请在各导入报告的未匹配计数中确认。"
+      "note": "「受注有而系统无」请在各导入报告的未匹配计数中确认。"
     }
   },
   "excel": {
@@ -640,7 +647,7 @@
       "tab": {
         "basic": "基本信息",
         "ledger": "交易流水",
-        "listing": "雅虎出品"
+        "listing": "雅虎受注"
       },
       "section": {
         "basic": "基本信息",
@@ -725,15 +732,16 @@
     },
     "listing": {
       "column": {
+        "orderId": "订单号",
         "auctionId": "拍卖ID",
         "listPrice": "出品价格",
         "soldPrice": "落札价格",
         "status": "状态",
         "listedAt": "出品时间",
-        "closedAt": "结束时间"
+        "closedAt": "注文时间"
       },
-      "empty": "暂无出品记录",
-      "loadFailed": "出品记录加载失败。"
+      "empty": "暂无受注记录",
+      "loadFailed": "受注记录加载失败。"
     }
   }
 }

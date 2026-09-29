@@ -847,6 +847,14 @@ watch(() => route.params.id, (next, prev) => {
             class="itemd-table"
           >
             <el-table-column
+              :label="t('items.listing.column.orderId')"
+              min-width="110"
+            >
+              <template #default="{ row }">
+                {{ (row as YahooListingRow).orderId ?? '—' }}
+              </template>
+            </el-table-column>
+            <el-table-column
               :label="t('items.listing.column.auctionId')"
               min-width="120"
             >
@@ -961,7 +969,7 @@ watch(() => route.params.id, (next, prev) => {
             <span class="itemd-field-label">{{ t('items.detail.field.warehouse') }}</span>
             <el-select
               v-model="editForm.warehouse"
-              :disabled="editBusy || item.stockStatus !== 0"
+              :disabled="editBusy || item?.stockStatus !== 0"
             >
               <el-option
                 :label="t('common.warehouse.1')"

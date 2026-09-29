@@ -5,6 +5,7 @@ import com.kcgl.module.auth.KcglUserDetails;
 import com.kcgl.module.inventory.dto.ActionResult;
 import com.kcgl.module.inventory.dto.ArrivalRequest;
 import com.kcgl.module.inventory.dto.ArrivalResponse;
+import com.kcgl.module.inventory.dto.MarkCanceledRequest;
 import com.kcgl.module.inventory.dto.MarkListedRequest;
 import com.kcgl.module.inventory.dto.PendingArrivalResponse;
 import com.kcgl.module.inventory.dto.ReturnRequest;
@@ -94,12 +95,21 @@ public class InventoryController {
                 operator.getUserId(), operator.getDisplayName()));
     }
 
-    /** 手动上架标记（LIST_UP，在库且未上架→在售）：雅虎手工出品后即时登记。 */
+    /** 手动上架标记（LIST_UP，在库且未上架/已取消→在售）：雅虎手工出品后即时登记。 */
     @PostMapping("/mark-listed")
     @PreAuthorize("hasAnyRole('ADMIN','EDITOR')")
     public ApiResponse<ActionResult> markListed(@Valid @RequestBody MarkListedRequest req,
             @AuthenticationPrincipal KcglUserDetails operator) {
         return ApiResponse.ok(actionService.markListed(req,
+                operator.getUserId(), operator.getDisplayName()));
+    }
+
+    /** 手动取消标记（CANCEL_MARK，在库且在售→取消，D-069）：流拍/出品取消的登记口。 */
+    @PostMapping("/mark-canceled")
+    @PreAuthorize("hasAnyRole('ADMIN','EDITOR')")
+    public ApiResponse<ActionResult> markCanceled(@Valid @RequestBody MarkCanceledRequest req,
+            @AuthenticationPrincipal KcglUserDetails operator) {
+        return ApiResponse.ok(actionService.markCanceled(req,
                 operator.getUserId(), operator.getDisplayName()));
     }
 }

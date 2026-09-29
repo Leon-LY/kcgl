@@ -12,7 +12,7 @@ public record PendingShipmentResponse(int count, List<PendingShipmentRow> items)
 
     public record PendingShipmentRow(
             Long itemId, String itemCode, String thumbUrl, Integer warehouse,
-            String shelfNo, Long soldPrice, String auctionId, LocalDateTime closedAt,
-            boolean delayed) {
+            String shelfNo, Long soldPrice, String orderId, String auctionId,
+            LocalDateTime closedAt, boolean delayed) {
     }
 }

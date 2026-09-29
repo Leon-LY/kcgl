@@ -31,6 +31,7 @@ import {
   fetchYahooReconcile,
   fetchVenues,
   markChecklistPrintDone,
+  markCanceledItem,
   markListedItem,
   previewItemCode,
   resolveStocktakeDiff,
@@ -45,7 +46,7 @@ import {
   updateItem,
   uploadExcelWorkbook,
   uploadImage,
-  uploadYahooCsv,
+  uploadYahooImport,
 } from './api'
 
 /** 仅实现包装层用到的 status/json 两个成员的最小 Response 替身。 */
@@ -479,6 +480,10 @@ describe('module endpoint contracts (print / image / arrival / scan actions / st
     await markListedItem(1, 'req-m')
     expect(fetchMock.mock.calls[6]![0]).toBe('/api/inventory/mark-listed')
     expect(bodyOf(fetchMock.mock.calls[6]![1] as RequestInit)).toEqual({ itemId: 1, clientReqId: 'req-m' })
+
+    await markCanceledItem(1, 'req-mc')
+    expect(fetchMock.mock.calls[7]![0]).toBe('/api/inventory/mark-canceled')
+    expect(bodyOf(fetchMock.mock.calls[7]![1] as RequestInit)).toEqual({ itemId: 1, clientReqId: 'req-mc' })
   })
 
   it('stocktake lifecycle endpoints assemble queries and payloads', async () => {
@@ -519,7 +524,7 @@ describe('module endpoint contracts (print / image / arrival / scan actions / st
   it('yahoo import, reconcile, and shipment endpoints hit their paths', async () => {
     const fetchMock = stubOk(null)
     const form = new FormData()
-    await uploadYahooCsv(form)
+    await uploadYahooImport(form)
     expect(lastCall(fetchMock)).toEqual(['/api/yahoo/imports', { method: 'POST', body: form }])
     await fetchYahooBatches()
     expect(fetchMock.mock.calls[1]![0]).toBe('/api/yahoo/imports')

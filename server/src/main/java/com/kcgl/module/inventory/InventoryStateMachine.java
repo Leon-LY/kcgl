@@ -40,16 +40,21 @@ public final class InventoryStateMachine {
             // 退货·退回拍卖场：在途/在库→已出库，→取消
             new Transition(InventoryAction.RETURN_VENUE, 0, 2, null, 3),
             new Transition(InventoryAction.RETURN_VENUE, 1, 2, null, 3),
-            // 上架标记：在库（实物未动），未上架→在售
+            // 上架标记：在库（实物未动），未上架→在售；取消→在售（重新出品——
+            // 受注表无在售信息，手动标记是 LIST_UP 唯一来源，D-069）
             new Transition(InventoryAction.LIST_UP, 1, 1, 0, 1),
-            // 成交标记（CSV）：在库，在售→成交；未上架→成交（CSV 直报成交——
-            // 首次导入晚于出品导出窗口时系统从未记录 LIST_UP，跳过上架标记，
-            // 语义同 SELL 的 A10 未上架直卖；不补此边则 item 永不进 出荷待ち 且三视图不可见）
+            new Transition(InventoryAction.LIST_UP, 1, 1, 3, 1),
+            // 成交标记（受注导入）：在库，在售→成交；未上架→成交（受注直报——
+            // 首次导入晚于出品时系统从未记录 LIST_UP，语义同 SELL 的 A10 未上架直卖）；
+            // 取消→成交（受注表=成交事实集：流拍后重新出品落札的订单，不补此边
+            // 则该件永不进出荷待ち，D-069）
             new Transition(InventoryAction.SOLD_MARK, 1, 1, 1, 2),
             new Transition(InventoryAction.SOLD_MARK, 1, 1, 0, 2),
-            // 取消标记（CSV）：在库，在售→取消；取消→在售（重新出品，状态单调只前进的例外）
+            new Transition(InventoryAction.SOLD_MARK, 1, 1, 3, 2),
+            // 取消标记（手动，D-069）：在库，在售→取消（流拍/出品取消的登记口——
+            // 受注表无取消信息，手动标记是 CANCEL_MARK 唯一来源；
+            // 旧 CSV「取消→在售=重新出品」边随之退场，重上走 LIST_UP）
             new Transition(InventoryAction.CANCEL_MARK, 1, 1, 1, 3),
-            new Transition(InventoryAction.CANCEL_MARK, 1, 1, 3, 1),
             // 盘点调整：盘亏 在库→已出库；盘盈 已出库/在途→在库；仓错 在库→在库（仅仓变化）
             new Transition(InventoryAction.STOCKTAKE_LOSS, 1, 2, null, null),
             new Transition(InventoryAction.STOCKTAKE_GAIN, 2, 1, null, null),

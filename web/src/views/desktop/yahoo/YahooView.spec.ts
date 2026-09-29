@@ -5,7 +5,7 @@ import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
 const apiMocks = vi.hoisted(() => ({
   fetchYahooBatches: vi.fn(),
-  uploadYahooCsv: vi.fn(),
+  uploadYahooImport: vi.fn(),
   fetchPendingShipments: vi.fn(),
   fetchYahooReconcile: vi.fn(),
 }))
@@ -16,7 +16,7 @@ vi.mock('@/utils/api', async (importOriginal) => {
   return {
     ...actual,
     fetchYahooBatches: apiMocks.fetchYahooBatches,
-    uploadYahooCsv: apiMocks.uploadYahooCsv,
+    uploadYahooImport: apiMocks.uploadYahooImport,
     fetchPendingShipments: apiMocks.fetchPendingShipments,
     fetchYahooReconcile: apiMocks.fetchYahooReconcile,
   }
@@ -35,9 +35,10 @@ import type {
 } from '@/utils/api'
 
 /**
- * 雅虎联动桌面页（M4）：批次历史（状态/计数/失败计数占位）/viewer 禁传/
- * 上传后刷新历史/上传失败就地展示（409011）/处理中轮询起停/出荷待ち行内
- * 直达扫码卖出/照合三视图（滞留红标+近期同步降灰）。
+ * 雅虎联动桌面页（M5-②b 受注 xlsx）：批次历史（状态/计数/まとめ売り補注/
+ * 失败计数占位）/viewer 禁传/上传后刷新历史/上传失败就地展示（409011）/
+ * 处理中轮询起停/出荷待ち行内直达扫码卖出（注文番号列）/照合三视图
+ * （滞留红标+近期同步降灰）。
  */
 
 const meAdmin: MeResponse = {
@@ -61,13 +62,13 @@ const meViewer: MeResponse = {
 function batch(overrides: Partial<YahooImportBatch> = {}): YahooImportBatch {
   return {
     id: 1,
-    originalFilename: 'export.csv',
+    originalFilename: 'ストア9.20(1).xlsx',
     status: 1,
-    encodingDetected: 'MS932',
     rowCount: 3,
     matchedCount: 2,
     unmatchedCount: 1,
     updatedCount: 0,
+    note: null,
     errorMessage: null,
     uploadedBy: 2,
     createdAt: '2026-09-28 09:00:00',
@@ -85,6 +86,7 @@ function shipment(): YahooPendingShipment {
     warehouse: 1,
     shelfNo: 'A-03',
     soldPrice: 12000,
+    orderId: '10004866',
     auctionId: 'auc-101',
     closedAt: '2026-09-20 21:05:33',
     delayed: true,
@@ -98,6 +100,7 @@ function reconcileRow(overrides: Partial<YahooReconcileRow> = {}): YahooReconcil
     warehouse: 2,
     shelfNo: null,
     soldPrice: 25000,
+    orderId: '10007001',
     auctionId: 'auc-201',
     closedAt: '2026-09-01 21:00:00',
     lastSyncedAt: '2026-09-28 08:00:00',
@@ -157,28 +160,41 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('yahoo view (M4)', () => {
+describe('yahoo view (M5-②b)', () => {
   it('renders batch history with status tags and null-safe counts', async () => {
     apiMocks.fetchYahooBatches.mockResolvedValue([
       batch(),
-      batch({ id: 2, status: 0, encodingDetected: null, rowCount: null, matchedCount: null,
+      batch({ id: 2, status: 0, rowCount: null, matchedCount: null,
         unmatchedCount: null, updatedCount: null, finishedAt: null }),
-      batch({ id: 3, status: 2, errorMessage: '文字コードを判定できませんでした',
-        encodingDetected: null, rowCount: null, matchedCount: null, unmatchedCount: null,
+      batch({ id: 3, status: 2, errorMessage: 'B列は「YahooAuctionMerchantId」である必要があります',
+        rowCount: null, matchedCount: null, unmatchedCount: null,
         updatedCount: null, finishedAt: '2026-09-28 09:01:00',
-        errorRows: [{ line: 2, raw: 'auc-502,…', reason: '不明な状態' }] }),
+        errorRows: [{ line: 2, raw: 'auc-502,…', reason: '落札価格が読み取れません' }] }),
     ])
     const { wrapper } = await mountView()
 
     const rows = wrapper.findAll('#pane-import .el-table__row')
     expect(rows).toHaveLength(3)
-    expect(wrapper.text()).toContain('export.csv')
+    expect(wrapper.text()).toContain('ストア9.20(1).xlsx')
     const tags = wrapper.findAll('#pane-import .yahoo-tag')
     expect(tags.map((tag) => tag.text())).toEqual(['完了', '処理中', '失敗'])
     // 失败/处理中批次计数未落 → 占位符；完成批次显示真实计数
-    expect(rows[0]!.text()).toContain('MS932')
     expect(rows[0]!.text()).toContain('2')
     expect(rows[1]!.text()).toContain('—')
+  })
+
+  // まとめ売り補注（D-069 4）：批次 note 在展开区呈现（単価未分割提示）
+  it('shows the multi-item note in the batch expand', async () => {
+    apiMocks.fetchYahooBatches.mockResolvedValue([
+      batch({ note: '注文10004900（HT9-A1X・HT9-A2X）は複数商品のため単価が未分割です' }),
+    ])
+    const { wrapper } = await mountView()
+
+    await wrapper.find('#pane-import .el-table__expand-icon').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('#pane-import .yahoo-detail .kcgl-info-box').text())
+      .toContain('単価が未分割')
   })
 
   it('viewer cannot upload and sees the role note', async () => {
@@ -204,19 +220,21 @@ describe('yahoo view (M4)', () => {
     expect(warnings.filter((message) => message.includes('common.warehouse'))).toHaveLength(0)
   })
 
-  it('uploads the chosen CSV and refreshes the history', async () => {
+  it('uploads the chosen order file and refreshes the history', async () => {
     const { wrapper } = await mountView()
     expect(apiMocks.fetchYahooBatches).toHaveBeenCalledTimes(1)
 
-    apiMocks.uploadYahooCsv.mockResolvedValue(batch({ status: 0 }))
+    apiMocks.uploadYahooImport.mockResolvedValue(batch({ status: 0 }))
     const input = wrapper.find('.yahoo-upload-input')
-    const file = new File(['オークションID,…'], 'export.csv', { type: 'text/csv' })
+    const file = new File(['PK…'], 'ストア9.20(1).xlsx', {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
     Object.defineProperty(input.element, 'files', { value: [file] })
     await input.trigger('change')
     await flushPromises()
 
-    expect(apiMocks.uploadYahooCsv).toHaveBeenCalledTimes(1)
-    const form = apiMocks.uploadYahooCsv.mock.calls[0]![0] as FormData
+    expect(apiMocks.uploadYahooImport).toHaveBeenCalledTimes(1)
+    const form = apiMocks.uploadYahooImport.mock.calls[0]![0] as FormData
     expect(form.get('file')).toBe(file)
     expect(apiMocks.fetchYahooBatches).toHaveBeenCalledTimes(2)
     // 上传成功后错误清空、输入复位（同文件可再次触发 change）
@@ -226,9 +244,11 @@ describe('yahoo view (M4)', () => {
   it('upload failure (sha duplicate) shows the mapped message in place', async () => {
     const { wrapper } = await mountView()
 
-    apiMocks.uploadYahooCsv.mockRejectedValue(new ApiError(409011, 'duplicate'))
+    apiMocks.uploadYahooImport.mockRejectedValue(new ApiError(409011, 'duplicate'))
     const input = wrapper.find('.yahoo-upload-input')
-    const file = new File(['x'], 'export.csv', { type: 'text/csv' })
+    const file = new File(['PK…'], 'ストア9.20(1).xlsx', {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
     Object.defineProperty(input.element, 'files', { value: [file] })
     await input.trigger('change')
     await flushPromises()
@@ -282,13 +302,15 @@ describe('yahoo view (M4)', () => {
   // 回归（同上，竞态分支）：上传响应回来时批次已全部终态（处理极快、
   // 轮询从未启动）→ onFileChange 直接收敛另两份数据。
   it('reloads shipments and reconcile after upload when all batches are already terminal', async () => {
-    apiMocks.uploadYahooCsv.mockResolvedValue(batch({ status: 1 }))
+    apiMocks.uploadYahooImport.mockResolvedValue(batch({ status: 1 }))
     apiMocks.fetchYahooBatches.mockResolvedValue([batch({ status: 1 })])
     apiMocks.fetchPendingShipments.mockResolvedValue({ count: 1, items: [shipment()] })
     const { wrapper } = await mountView()
 
     const input = wrapper.find('.yahoo-upload-input')
-    const file = new File(['オークションID,…'], 'export.csv', { type: 'text/csv' })
+    const file = new File(['PK…'], 'ストア9.20(1).xlsx', {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
     Object.defineProperty(input.element, 'files', { value: [file] })
     await input.trigger('change')
     await flushPromises()
@@ -306,6 +328,7 @@ describe('yahoo view (M4)', () => {
     const row = wrapper.find('#pane-shipments .el-table__row')
     expect(row.text()).toContain('HT9-A1X')
     expect(row.text()).toContain('￥12,000')
+    expect(row.text()).toContain('10004866')
     expect(row.text()).toContain('出荷遅延')
     expect(wrapper.find('#pane-shipments .yahoo-section-count').text()).toBe('出荷待ち 1 件')
 

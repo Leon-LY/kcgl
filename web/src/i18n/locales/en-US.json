@@ -236,6 +236,7 @@
       "scrap": "Scrap",
       "transfer": "Transfer",
       "markListed": "Mark as listed",
+      "markCanceled": "Mark listing canceled",
       "returnCustomer": "Accept return",
       "returnVenue": "Return to venue"
     },
@@ -268,14 +269,20 @@
     },
     "listed": {
       "title": "Mark as listed",
-      "note": "Press this after manually listing the item on Yahoo Auction. It is recorded as listed without waiting for the CSV import.",
+      "note": "Press this after listing the item on Yahoo Auction (including relisting after an unsold close). It is recorded as listed without waiting for the order import.",
       "confirm": "Mark as listed"
+    },
+    "canceled": {
+      "title": "Mark listing canceled",
+      "note": "Record an unsold close or a listing cancellation. Order files contain no cancel information, so this manual record is the only source.",
+      "confirm": "Record as canceled"
     },
     "done": {
       "sell": "Sale recorded",
       "scrap": "Scrap recorded",
       "transfer": "Warehouse transferred",
       "markListed": "Marked as listed",
+      "markCanceled": "Listing cancellation recorded",
       "returnCustomer": "Return accepted",
       "returnVenue": "Return to venue recorded"
     }
@@ -459,11 +466,11 @@
     "500000": "A system error occurred",
     "NETWORK_ERROR": "Cannot reach the server. Please check your network",
     "INVALID_RESPONSE": "Received an invalid response from the server",
-    "400009": "CSV files must be 50MB or smaller.",
-    "400010": "The CSV file is empty.",
-    "400011": "The CSV exceeds the row limit (200,000).",
-    "400012": "The CSV file encoding could not be detected.",
-    "409011": "This exact CSV file has already been imported.",
+    "400009": "Order files must be 5MB or smaller.",
+    "400010": "The order file is empty.",
+    "400011": "The order file exceeds the row limit (100,000).",
+    "400012": "The order file (xlsx) could not be read. Upload the Yahoo order Excel as is.",
+    "409011": "This exact order file has already been imported.",
     "400013": "Excel files must be 20MB or smaller.",
     "400014": "The Excel file could not be read. Download the template and use the correct format.",
     "400015": "The Excel file exceeds the row limit (20,000 rows).",
@@ -476,14 +483,15 @@
   "yahoo": {
     "title": "Yahoo integration",
     "itemCode": "Item code",
+    "orderId": "Order ID",
     "auctionId": "Auction ID",
     "warehouse": "Warehouse",
     "shelfNo": "Shelf",
     "import": {
-      "title": "CSV import",
-      "upload": "Import CSV file",
+      "title": "Order import",
+      "upload": "Import order file",
       "fileButton": "Choose file",
-      "hint": "Yahoo listing CSV (up to 50MB). Processing takes a few seconds; results appear in the history below.",
+      "hint": "Order file (xlsx) downloaded from Yahoo Auction order management (up to 5MB). Processing takes a few seconds; results appear in the history below.",
       "uploading": "Uploading…",
       "roleDenied": "Importing requires Editor role or above.",
       "listTitle": "Import history",
@@ -493,7 +501,6 @@
       "statusProcessing": "Processing",
       "statusDone": "Done",
       "statusFailed": "Failed",
-      "encoding": "Encoding",
       "rowCount": "Rows",
       "matched": "Matched",
       "unmatched": "Unmatched",
@@ -507,14 +514,14 @@
       "errorReason": "Reason",
       "emptyList": "No imports yet.",
       "loadFailed": "Failed to load import history.",
-      "unmatchedNote": "Unmatched rows are kept in listing records with the raw code from the CSV."
+      "unmatchedNote": "Unmatched rows are kept in listing records with the raw code from the order file."
     },
     "shipments": {
       "title": "Pending shipments",
       "count": "{n} items pending",
       "empty": "No pending shipments.",
       "delayed": "Delayed",
-      "closedAt": "Closed at",
+      "closedAt": "Ordered at",
       "goSell": "Sell this item",
       "loadFailed": "Failed to load pending shipments."
     },
@@ -527,10 +534,10 @@
       "delayed": "Stalled",
       "recentlySynced": "Synced recently",
       "lastSyncedAt": "Last synced",
-      "closedAt": "Closed at",
+      "closedAt": "Ordered at",
       "soldPrice": "Sold price",
       "loadFailed": "Failed to load reconciliation.",
-      "note": "Rows in the CSV but not in the system appear in each import report as unmatched."
+      "note": "Rows in the order file but not in the system appear in each import report as unmatched."
     }
   },
   "excel": {
@@ -640,7 +647,7 @@
       "tab": {
         "basic": "Basic info",
         "ledger": "Ledger",
-        "listing": "Yahoo listings"
+        "listing": "Yahoo orders"
       },
       "section": {
         "basic": "Basic info",
@@ -725,15 +732,16 @@
     },
     "listing": {
       "column": {
+        "orderId": "Order ID",
         "auctionId": "Auction ID",
         "listPrice": "List price",
         "soldPrice": "Sold price",
         "status": "Status",
         "listedAt": "Listed at",
-        "closedAt": "Closed at"
+        "closedAt": "Ordered at"
       },
-      "empty": "No listing history",
-      "loadFailed": "Failed to load listing history."
+      "empty": "No order history",
+      "loadFailed": "Failed to load order history."
     }
   }
 }

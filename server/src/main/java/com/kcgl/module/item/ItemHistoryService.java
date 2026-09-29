@@ -14,7 +14,8 @@ import java.util.List;
 /**
  * 单件历史（GET /api/items/{id}/ledgers、/{id}/yahoo-listings，D-061）。
  * 404 语义复用 ItemService.getById（软删=不存在；作废件可读——终态件的历史仍需可查）。
- * ledgers 按 id 倒序（毫秒并列时 id=写入序决胜负）；yahoo-listings 按 listed_at 倒序。
+ * ledgers 按 id 倒序（毫秒并列时 id=写入序决胜负）；yahoo-listings 按 closed_at 倒序
+ * （受注导入的 listed_at 恒 NULL，closed_at=受注时刻，D-069）。
  */
 @Service
 public class ItemHistoryService {
@@ -49,10 +50,11 @@ public class ItemHistoryService {
         List<YahooListingListResponse.Row> rows = yahooListingMapper.selectList(
                         new LambdaQueryWrapper<YahooListingEntity>()
                                 .eq(YahooListingEntity::getItemId, itemId)
-                                .orderByDesc(YahooListingEntity::getListedAt)).stream()
+                                .orderByDesc(YahooListingEntity::getClosedAt)
+                                .orderByDesc(YahooListingEntity::getId)).stream()
                 .map(l -> new YahooListingListResponse.Row(
-                        l.getId(), l.getYahooAuctionId(), l.getListPrice(), l.getSoldPrice(),
-                        l.getStatus(), l.getListedAt(), l.getClosedAt()))
+                        l.getId(), l.getOrderId(), l.getYahooAuctionId(), l.getListPrice(),
+                        l.getSoldPrice(), l.getStatus(), l.getListedAt(), l.getClosedAt()))
                 .toList();
         return new YahooListingListResponse(rows);
     }

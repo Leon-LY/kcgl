@@ -136,7 +136,7 @@ test.describe('scan page actions (desktop-chromium)', () => {
     expect(sold.totalCost).toBe(1000)
     expect(sold.profit).toBe(2000)
 
-    // 顾客退货 → 回到在库（销售态=取消，不再给上架标记入口）
+    // 顾客退货 → 回到在库（销售态=取消；D-069 取消后可重新出品 → 菜单含出品済みにする）
     await page.getByRole('button', { name: '返品を受け取る' }).click()
     await expect(page.locator('.scan-dialog')).toBeVisible()
     await page.fill('#scan-return-note', '梱包破損のため返品')
@@ -148,6 +148,7 @@ test.describe('scan page actions (desktop-chromium)', () => {
       '売却',
       '移動',
       '廃棄',
+      '出品済みにする',
       '会場へ返す',
     ])
   })

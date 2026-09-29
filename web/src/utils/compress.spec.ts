@@ -18,6 +18,14 @@ describe('compression spec contract (docs/01 7.5: ≤0.3MB / 1920px / JPEG / Web
     expect(IMAGE_COMPRESS_OPTIONS.useWebWorker).toBe(true)
   })
 
+  it('serves the worker lib same-origin, never the default CDN (importScripts hang risk)', () => {
+    // 库默认 libURL=cdn.jsdelivr.net：Worker 内 importScripts 静默悬挂（无超时），
+    // 公网 CDN 不可达即照片选择无限等待——libURL 必须恒为同源资产
+    expect(IMAGE_COMPRESS_OPTIONS.libURL).toBeTruthy()
+    expect(IMAGE_COMPRESS_OPTIONS.libURL).not.toContain('jsdelivr')
+    expect(IMAGE_COMPRESS_OPTIONS.libURL).not.toContain('http')
+  })
+
   it('passes the spec through in compressImage and returns ArrayBuffer + mime', async () => {
     const file = new File([new Uint8Array([1, 2, 3])], 'a.jpg', { type: 'image/jpeg' })
     libMock.compress.mockResolvedValue(

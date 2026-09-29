@@ -1,22 +1,56 @@
+import ExcelJS from 'exceljs'
 import { expect, test, type APIResponse, type Page } from '@playwright/test'
 
 /**
- * M4 雅虎管线 E2E（docs/03 G4）：MS932 CSV 上传→批次报告（编码/四计数）→
- * 出荷待ち拣货队列（滞留红标）→照合三视图→「この商品を売り上げる」深链扫码页
- * 成交出库→队列经 SSE/轮询清空→同文件重传 409 就地提示；viewer 只读；
- * 移动端出荷待ち卡片+深链定位。MS932 字节由固定片段表拼装（Node 无该编码器，
- * 动态段——管理号/价格/日期——纯 ASCII）。
+ * M5-②b 雅虎受注管线 E2E（docs/03 G4，D-069）：受注 xlsx 上传→批次报告
+ * （四计数）→出荷待ち拣货队列（滞留红标）→照合三视图→「この商品を
+ * 売り上げる」深链扫码页成交出库→队列经 SSE/轮询清空→同文件重传 409
+ * 就地提示；viewer 只读；移动端出荷待ち卡片+深链定位。
+ * 夹具用 exceljs（D-060 E）：受注导出 A-U 官方 21 列布局，消费列
+ * A/B/C/D/P 实名（OrderId/YahooAuctionMerchantId/OrderTime/
+ * YahooAuctionId/UnitPrice）；OrderTime 写文本序列数走解析器确定性
+ * 文本分支（无时区/显示格式歧义）。
  */
 const E2E_PASSWORD = 'e2e-pass-123456'
 const FIXTURE_BUY_DATE = '2026-01-15'
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
-// MS932 片段（Python round-trip 校验；重生成脚本见 docs/03 M4-D 注记）
-const MS932_HEADER = Buffer.from(
-  'g0mBW4NOg1aDh4OTSUQsj6SVaYNSgVuDaCyMu43dib+KaSyXjo5Eib+KaSyP85HULI9vlWmT+o6eLI9Jl7mT+o6eDQo=',
-  'base64',
-)
-const MS932_SOLD = Buffer.from('l46ORIKzguqC3IK1gr0=', 'base64')
-const MS932_ONSALE = Buffer.from('j2+VaZKG', 'base64')
+/** 受注导出 A-U 官方 21 列布局（消费列 A/B/C/D/P 实名，其余占位被解析器忽略）。 */
+const HEADER = [
+  'OrderId', 'YahooAuctionMerchantId', 'OrderTime', 'YahooAuctionId',
+  'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12', 'F13', 'F14', 'F15',
+  'UnitPrice', 'F17', 'F18', 'F19', 'F20', 'F21',
+] as const
+
+/** 单数据行（与后端集成测试同构：仅消费列有值）。 */
+function orderRow(
+  orderId: string,
+  codes: string,
+  serialTime: string,
+  auctionId: string,
+  unitPrice: string,
+): string[] {
+  const cells = Array.from({ length: 21 }, () => '')
+  cells[0] = orderId
+  cells[1] = codes
+  cells[2] = serialTime
+  cells[3] = auctionId
+  cells[15] = unitPrice
+  return cells
+}
+
+/**
+ * 受注 xlsx 夹具：成交行（命中 item；注文 2026-01-12 21:00=序列 46034.875
+ * → 出荷待ち滞留红标）+ 旧码行（unmatched）。
+ */
+async function orderXlsx(auctionId: string, itemCode: string): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook()
+  const sheet = workbook.addWorksheet('受注')
+  sheet.addRow([...HEADER])
+  sheet.addRow(orderRow('10004866', itemCode, '46034.875', auctionId, '25000'))
+  sheet.addRow(orderRow('10004867', 'ZZZZ-ZZ9X', '46034.875', `${auctionId}-x`, '2000'))
+  return Buffer.from(await workbook.xlsx.writeBuffer())
+}
 
 interface VenueRow {
   id: number
@@ -53,7 +87,7 @@ async function seededVenueId(page: Page): Promise<number> {
   return venues.find((venue) => venue.code === 'HT')!.id
 }
 
-/** 录一件并入库（在库是 CSV 商品侧标记的前提，docs/01 7.2）。 */
+/** 录一件并入库（在库是受注商品侧 SOLD_MARK 的前提，docs/01 7.2）。 */
 async function createInStockItem(page: Page): Promise<ItemSummary> {
   const item = await unwrap<ItemSummary>(
     await page.request.post('/api/items', {
@@ -74,24 +108,11 @@ async function createInStockItem(page: Page): Promise<ItemSummary> {
   return item
 }
 
-/** 成交行（命中 item）+ 在售行（unmatched）：终了日 2026/1/12 → 滞留红标。 */
-function soldCsvBytes(auctionId: string, itemCode: string): Buffer {
-  return Buffer.concat([
-    MS932_HEADER,
-    Buffer.from(`${auctionId},${itemCode},5000,25000,`, 'latin1'),
-    MS932_SOLD,
-    Buffer.from(',2026/1/10 10:00,2026/1/12 21:00\r\n', 'latin1'),
-    Buffer.from(`${auctionId}-x,ZZZZ-ZZ9X,2000,,`, 'latin1'),
-    MS932_ONSALE,
-    Buffer.from(',2026/1/10 11:00,\r\n', 'latin1'),
-  ])
-}
-
 /** API 直传（移动端用例走接口备货，UI 上传链路由桌面用例覆盖）。 */
-async function uploadCsv(page: Page, bytes: Buffer): Promise<ImportBatch> {
+async function uploadOrderFile(page: Page, bytes: Buffer): Promise<ImportBatch> {
   return unwrap<ImportBatch>(
     await page.request.post('/api/yahoo/imports', {
-      multipart: { file: { name: 'export.csv', mimeType: 'text/csv', buffer: bytes } },
+      multipart: { file: { name: 'ストア9.20(1).xlsx', mimeType: XLSX_MIME, buffer: bytes } },
     }),
   )
 }
@@ -113,39 +134,39 @@ test.afterEach(() => {
   intlifyWarnings.length = 0
 })
 
-test.describe('yahoo csv pipeline (desktop-chromium)', () => {
+test.describe('yahoo order pipeline (desktop-chromium)', () => {
   test.beforeEach(() => {
     test.skip(test.info().project.name !== 'desktop-chromium', '仅 desktop-chromium 项目执行')
   })
 
-  test('editor imports MS932 CSV: report, pending queue, reconcile views, sell deep link, sha 409', async ({ page }) => {
+  test('editor imports the order xlsx: report, pending queue, reconcile views, sell deep link, sha 409', async ({ page }) => {
     await login(page, 'editor')
     const item = await createInStockItem(page)
-    const csv = soldCsvBytes('auc-e2e-01', item.itemCode)
+    const xlsx = await orderXlsx('auc-e2e-01', item.itemCode)
 
-    // 上传（同步段毫秒级受理）→ 轮询/SSE 接力终态 → 报告行：MS932 + 2/1/1
+    // 上传（同步段毫秒级受理）→ 轮询/SSE 接力终态 → 报告行：2/1/1/0
     await page.goto('/yahoo')
     await page.setInputFiles('.yahoo-upload-input', {
-      name: 'export.csv',
-      mimeType: 'text/csv',
-      buffer: csv,
+      name: 'ストア9.20(1).xlsx',
+      mimeType: XLSX_MIME,
+      buffer: xlsx,
     })
     const reportRow = page.locator('#pane-import .el-table__row')
     await expect(reportRow).toContainText('完了')
-    // 列序：展开/文件/状态/编码/总行/一致/不一致/既存更新/上传/完了時刻
+    // 列序：展开/文件/状态/総行数/一致/不一致/既存更新/アップロード/完了時刻
     const cells = reportRow.locator('td')
-    await expect(cells.nth(3)).toHaveText('MS932')
-    await expect(cells.nth(4)).toHaveText('2')
+    await expect(cells.nth(3)).toHaveText('2')
+    await expect(cells.nth(4)).toHaveText('1')
     await expect(cells.nth(5)).toHaveText('1')
-    await expect(cells.nth(6)).toHaveText('1')
-    await expect(cells.nth(7)).toHaveText('0')
+    await expect(cells.nth(6)).toHaveText('0')
 
-    // 出荷待ち：成交未出库 1 件，滞留红标（成交于 2026/1/12）
+    // 出荷待ち：成交未出库 1 件，注文番号留痕，滞留红标（注文于 2026-01-12）
     await page.getByRole('tab', { name: '出荷待ち' }).click()
     await expect(page.locator('#pane-shipments .yahoo-section-count')).toHaveText('出荷待ち 1 件')
     const queueRow = page.locator('#pane-shipments .el-table__row')
     await expect(queueRow).toContainText(item.itemCode)
     await expect(queueRow).toContainText('￥25,000')
+    await expect(queueRow).toContainText('10004866')
     await expect(queueRow).toContainText('出荷遅延')
 
     // 照合：落札済み・未出庫 1（滞留）；撤架视图空
@@ -174,14 +195,14 @@ test.describe('yahoo csv pipeline (desktop-chromium)', () => {
     })
 
     // 同文件重传：sha 重复 409 就地提示（不弹新批次）
-    await page.getByRole('tab', { name: 'CSVインポート' }).click()
+    await page.getByRole('tab', { name: '受注インポート' }).click()
     await page.setInputFiles('.yahoo-upload-input', {
-      name: 'export.csv',
-      mimeType: 'text/csv',
-      buffer: csv,
+      name: 'ストア9.20(1).xlsx',
+      mimeType: XLSX_MIME,
+      buffer: xlsx,
     })
     await expect(page.locator('.yahoo-upload .kcgl-error-box')).toHaveText(
-      '同じ内容のCSVファイルは既にインポート済みです。',
+      '同じ内容の受注ファイルは既にインポート済みです。',
     )
     await expect(page.locator('#pane-import .el-table__row')).toHaveCount(1)
 
@@ -215,7 +236,7 @@ test.describe('pending shipments mobile (mobile-chromium)', () => {
     const item = await createInStockItem(page)
 
     // 接口直传备货（UI 上传链路由桌面用例锚定）；轮询至终态
-    const batch = await uploadCsv(page, soldCsvBytes('auc-e2e-m1', item.itemCode))
+    const batch = await uploadOrderFile(page, await orderXlsx('auc-e2e-m1', item.itemCode))
     for (let i = 0; i < 50; i++) {
       const current = await unwrap<ImportBatch>(
         await page.request.get(`/api/yahoo/imports/${batch.id}`),
