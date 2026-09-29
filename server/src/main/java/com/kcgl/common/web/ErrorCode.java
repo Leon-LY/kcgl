@@ -54,6 +54,10 @@ public enum ErrorCode {
     STOCKTAKE_STATUS_INVALID(409010, "この棚卸は現在の状態では操作できません。画面を再読み込みして確認してください"),
     YAHOO_BATCH_DUPLICATE(409011, "同じ内容のCSVファイルは既にインポート済みです"),
     EXCEL_BATCH_DUPLICATE(409012, "同じ内容のExcelファイルは既にインポート済みです"),
+    /** 倉庫値の変更は移動操作から（D-063/D-066：同値提出は変更とみなさず許可——A16 在库补录费用）。 */
+    WAREHOUSE_TRANSFER_REQUIRED(409013, "倉庫の変更は移動操作から行ってください"),
+    ITEM_ALREADY_DELETED(409014, "この商品は既に削除されています"),
+    ITEM_NOT_DELETED(409015, "この商品は削除されていないため復元できません"),
     /** 乐观锁 version 冲突（通用：对象在操作窗口内被他人变更）。 */
     CONFLICT(409000, "操作対象が更新されています。画面を再読み込みしてもう一度お試しください"),
 

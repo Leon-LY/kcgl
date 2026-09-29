@@ -53,9 +53,10 @@ test.describe('dictionary admin (desktop-chromium)', () => {
     await expect(page.locator('.home-setup-step.is-done')).toHaveCount(4)
     await expect(page.getByRole('button', { name: '印刷できた' })).toHaveCount(0)
 
-    // 顶栏导航：管理员可见全部八个链接（ホーム/ヤフー/エクセル/ラベル印刷/会場/価格帯/年代号/アカウント）
+    // 顶栏导航：管理员可见全部九个链接（ホーム/商品/ヤフー/エクセル/ラベル印刷/会場/価格帯/年代号/アカウント）
     const nav = page.locator('.shell-nav-link')
-    await expect(nav).toHaveCount(8)
+    await expect(nav).toHaveCount(9)
+    await expect(nav.filter({ hasText: '商品' })).toHaveCount(1)
     await expect(nav.filter({ hasText: 'エクセル' })).toHaveCount(1)
     await expect(nav.filter({ hasText: 'ヤフー' })).toHaveCount(1)
     await expect(nav.filter({ hasText: '価格帯' })).toHaveCount(1)
@@ -146,9 +147,10 @@ test.describe('dictionary admin (desktop-chromium)', () => {
   test('editor can manage venues but not price bands or year codes', async ({ page }) => {
     await login(page, 'editor')
 
-    // 导航：编辑者=ホーム/ヤフー/エクセル/ラベル印刷/会場 五链接（无价格档位/年代号/账号）
+    // 导航：编辑者=ホーム/商品/ヤフー/エクセル/ラベル印刷/会場 六链接（无价格档位/年代号/账号）
     const nav = page.locator('.shell-nav-link')
-    await expect(nav).toHaveCount(5)
+    await expect(nav).toHaveCount(6)
+    await expect(nav.filter({ hasText: '商品' })).toHaveCount(1)
     await expect(nav.filter({ hasText: 'エクセル' })).toHaveCount(1)
     await expect(nav.filter({ hasText: 'ヤフー' })).toHaveCount(1)
     await expect(nav.filter({ hasText: '価格帯' })).toHaveCount(0)
@@ -174,9 +176,10 @@ test.describe('dictionary admin (desktop-chromium)', () => {
   test('viewer has no admin links and is bounced home from admin URLs', async ({ page }) => {
     await login(page, 'viewer')
 
-    // 导航：查看者=ホーム/ヤフー/エクセル/ラベル印刷 四链接（雅虎/Excel 报告与导出全员可达）
+    // 导航：查看者=ホーム/商品/ヤフー/エクセル/ラベル印刷 五链接（列表/雅虎/Excel 报告与导出全员可达）
     const nav = page.locator('.shell-nav-link')
-    await expect(nav).toHaveCount(4)
+    await expect(nav).toHaveCount(5)
+    await expect(nav.filter({ hasText: '商品' })).toHaveCount(1)
     await expect(nav.filter({ hasText: 'エクセル' })).toHaveCount(1)
     await expect(nav.filter({ hasText: 'ヤフー' })).toHaveCount(1)
     await expect(nav.filter({ hasText: '会場' })).toHaveCount(0)

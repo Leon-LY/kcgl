@@ -290,7 +290,7 @@ export interface CreateItemPayload {
   remark?: string
 }
 
-/** 录入成功响应（生成列 totalCost 已回填；未售时 profit 为 null 不出现）。 */
+/** 录入成功响应（生成列 totalCost/profit 已回填；未售时 profit 为 null 不出现）。 */
 export interface ItemResponse {
   id: number
   itemCode: string
@@ -309,12 +309,19 @@ export interface ItemResponse {
   tax: number | null
   soldPrice: number | null
   totalCost: number
+  profit: number | null
   priceBandCode: string
   warehouse: number
   shelfNo: string | null
   warehouseInDate: string | null
   groupNo: string | null
   remark: string | null
+  itemName: string | null
+  category: string | null
+  authorKiln: string | null
+  sizeText: string | null
+  weightG: number | null
+  salesChannel: string | null
   stockStatus: number
   saleStatus: number
   voided: boolean
@@ -323,6 +330,8 @@ export interface ItemResponse {
   /** 作废重录互链：本件为 {reEntryOf} 的再登録件。 */
   reEntryOf: number | null
   deleted: boolean
+  /** 乐观锁版本号（编辑弹层 PUT 时原样携带；409000 后重读取新值）。 */
+  version: number
   createdAt: string
 }
 
@@ -341,6 +350,175 @@ export function fetchItem(id: number): Promise<ItemResponse> {
  */
 export function voidItem(id: number, clientReqId: string, reason: string): Promise<ItemResponse> {
   return request(`/api/items/${id}/void`, jsonInit('POST', { clientReqId, reason }))
+}
+
+// ------------------------------------------------- 搜索/编辑/回收站/历史（M5-①）
+
+/** 搜索行（D-061）：作废/软删件已被服务端排除；slowMoveLevel 0 无/1 黄/2 红（D-065）。 */
+export interface ItemSearchRow {
+  id: number
+  itemCode: string
+  thumbUrl: string | null
+  itemName: string | null
+  venueName: string | null
+  buyDate: string
+  purchasePrice: number
+  totalCost: number
+  profit: number | null
+  warehouse: number
+  stockStatus: number
+  saleStatus: number
+  soldPrice: number | null
+  shelfNo: string | null
+  warehouseInDate: string | null
+  slowMoveLevel: number
+}
+
+export interface ItemSearchResult {
+  total: number
+  page: number
+  size: number
+  rows: ItemSearchRow[]
+}
+
+export interface ItemSearchParams {
+  /** kw 优先级链（D-062）：管理号整串 ＞ 日期 ＞ 模糊 LIKE；假名宽松匹配（ア/ぁ 命中 あ）。 */
+  kw?: string
+  warehouse?: number
+  stockStatus?: number
+  saleStatus?: number
+  venueId?: number
+  buyDateFrom?: string
+  buyDateTo?: string
+  warnLevel?: number
+  page?: number
+  size?: number
+}
+
+export function searchItems(params: ItemSearchParams): Promise<ItemSearchResult> {
+  const query = new URLSearchParams()
+  if (params.kw != null && params.kw !== '') {
+    query.set('kw', params.kw)
+  }
+  for (const key of ['warehouse', 'stockStatus', 'saleStatus', 'venueId', 'warnLevel'] as const) {
+    const value = params[key]
+    if (value != null) {
+      query.set(key, String(value))
+    }
+  }
+  for (const key of ['buyDateFrom', 'buyDateTo'] as const) {
+    const value = params[key]
+    if (value != null && value !== '') {
+      query.set(key, value)
+    }
+  }
+  if (params.page != null) {
+    query.set('page', String(params.page))
+  }
+  if (params.size != null) {
+    query.set('size', String(params.size))
+  }
+  return request(`/api/items/search?${query}`, { method: 'GET' })
+}
+
+/**
+ * 编辑（D-063/D-066 snapshot 单模式）：全量语义——可选字段显式 null=清空
+ * （缺省与 null 服务端等价，这里全量携带让意图显式）；
+ * 仓值仅在途可改（非在途同值放行=契约 W）；version 乐观锁（409 时重读即可）。
+ */
+export interface UpdateItemPayload {
+  version: number
+  venueId: number
+  buyDate: string
+  purchasePrice: number
+  warehouse: number
+  photoDate?: string | null
+  fee?: number | null
+  shippingFee?: number | null
+  tax?: number | null
+  shelfNo?: string | null
+  warehouseInDate?: string | null
+  groupNo?: string | null
+  remark?: string | null
+  itemName?: string | null
+  category?: string | null
+  authorKiln?: string | null
+  sizeText?: string | null
+  weightG?: number | null
+  salesChannel?: string | null
+}
+
+export function updateItem(id: number, payload: UpdateItemPayload): Promise<ItemResponse> {
+  return request(`/api/items/${id}`, jsonInit('PUT', payload))
+}
+
+/** 回收站软删（A-only，D-064）：幂等键 clientReqId；reason 可选（数据治理动作）。 */
+export function deleteItem(id: number, clientReqId: string, reason?: string): Promise<ItemResponse> {
+  return request(`/api/items/${id}`, jsonInit('DELETE', { clientReqId, reason: reason ?? null }))
+}
+
+/** 回收站恢复（A-only）：stock_status 保序回软删前原值，作废标志不动。 */
+export function restoreItem(id: number, clientReqId: string): Promise<ItemResponse> {
+  return request(`/api/items/${id}/restore`, jsonInit('POST', { clientReqId }))
+}
+
+export interface RecycleBinRow {
+  id: number
+  itemCode: string
+  thumbUrl: string | null
+  itemName: string | null
+  venueName: string | null
+  warehouse: number
+  stockStatus: number
+  saleStatus: number
+  voided: boolean
+  deletedAt: string
+  reason: string | null
+}
+
+export interface RecycleBinResult {
+  total: number
+  page: number
+  size: number
+  rows: RecycleBinRow[]
+}
+
+export function fetchRecycleBin(page = 1, size = 20): Promise<RecycleBinResult> {
+  return request(`/api/items/recycle-bin?page=${page}&size=${size}`, { method: 'GET' })
+}
+
+/** 单件流水行（id 倒序）：txnType 数值=TxnType 枚举（1 录入…13/14 回收站）。 */
+export interface ItemLedgerRow {
+  id: number
+  txnType: number
+  whFrom: number | null
+  whTo: number | null
+  qtyChange: number
+  stockFrom: number | null
+  stockTo: number | null
+  saleFrom: number | null
+  saleTo: number | null
+  reason: string | null
+  operatorName: string | null
+  createdAt: string
+}
+
+export function fetchItemLedgers(id: number): Promise<{ rows: ItemLedgerRow[] }> {
+  return request(`/api/items/${id}/ledgers`, { method: 'GET' })
+}
+
+export interface YahooListingRow {
+  id: number
+  yahooAuctionId: string | null
+  listPrice: number | null
+  soldPrice: number | null
+  status: number
+  listedAt: string | null
+  closedAt: string | null
+}
+
+export function fetchItemYahooListings(id: number): Promise<{ rows: YahooListingRow[] }> {
+  return request(`/api/items/${id}/yahoo-listings`, { method: 'GET' })
 }
 
 // ------------------------------------------------------------------ 打印列表（M2-7）

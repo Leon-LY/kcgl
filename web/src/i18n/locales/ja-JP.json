@@ -72,6 +72,7 @@
   "nav": {
     "label": "ナビゲーション",
     "home": "ホーム",
+    "items": "商品",
     "entry": "商品登録",
     "arrival": "入庫確認",
     "scan": "スキャン",
@@ -484,7 +485,10 @@
     "400014": "Excelファイルが読み取れません。テンプレートをダウンロードして正しい形式で作成してください。",
     "400015": "Excelの行数が上限（2万行）を超えています。",
     "400016": "アップロードサイズが上限を超えています。",
-    "409012": "同じ内容のExcelファイルは既にインポート済みです。"
+    "409012": "同じ内容のExcelファイルは既にインポート済みです。",
+    "409013": "倉庫の変更は移動操作から行ってください。",
+    "409014": "この商品は既に削除されています。",
+    "409015": "この商品は削除されていないため復元できません。"
   },
   "yahoo": {
     "title": "ヤフー連携",
@@ -588,6 +592,165 @@
       "downloading": "エクスポート中…",
       "hint": "帳票形式（25列）で出力します。作成日の範囲は必須で、原価合計・利益の列を含みます。",
       "rangeInverted": "作成日の開始が終了より後になっています。"
+    }
+  },
+  "items": {
+    "title": "商品一覧",
+    "searchPlaceholder": "管理番号・商品名・会場・棚番号などで検索",
+    "searchHint": "ひらがな・カタカナ・小文字は区別されません",
+    "search": "検索",
+    "clear": "条件をクリア",
+    "filterAll": "すべて",
+    "warehouseAll": "すべての倉庫",
+    "stockFilter": "在庫状態",
+    "saleFilter": "販売状態",
+    "venueAll": "すべての会場",
+    "buyDateFrom": "落札日（から）",
+    "buyDateTo": "落札日（まで）",
+    "slowAll": "滞留：すべて",
+    "slowYellow": "滞留（黄・赤）",
+    "slowRed": "長期滞留（赤）",
+    "empty": "該当する商品がありません",
+    "loadFailed": "商品一覧の読み込みに失敗しました。",
+    "column": {
+      "item": "商品",
+      "itemName": "商品名",
+      "venue": "会場",
+      "buyDate": "落札日",
+      "purchasePrice": "仕入単価",
+      "totalCost": "原価合計",
+      "profit": "利益",
+      "warehouse": "倉庫",
+      "shelfNo": "棚番号",
+      "status": "状態",
+      "slowMove": "滞留"
+    },
+    "slowYellowBadge": "滞留",
+    "slowRedBadge": "長期滞留",
+    "totalCount": "全 {n} 件",
+    "recycle": {
+      "tabTitle": "削除済み商品",
+      "note": "削除された商品はここから復元できます。",
+      "empty": "削除済みの商品はありません",
+      "loadFailed": "削除済み商品の読み込みに失敗しました。",
+      "column": {
+        "item": "商品",
+        "itemName": "商品名",
+        "venue": "会場",
+        "warehouse": "倉庫",
+        "status": "状態",
+        "deletedAt": "削除日時",
+        "reason": "理由"
+      },
+      "restore": "復元する"
+    },
+    "detail": {
+      "title": "商品詳細",
+      "back": "一覧に戻る",
+      "notFound": "この商品は存在しないか、削除されています。",
+      "loadFailed": "商品詳細の読み込みに失敗しました。",
+      "divergence": "管理番号発行時の内容と現在の値が異なります",
+      "voidedBanner": "取り消し済みの商品です（理由：{reason}）。",
+      "voidedNoReasonBanner": "取り消し済みの商品です。",
+      "photoCount": "写真 {n} 枚",
+      "noPhoto": "写真はありません",
+      "tab": {
+        "basic": "基本情報",
+        "ledger": "取引履歴",
+        "listing": "ヤフー出品"
+      },
+      "section": {
+        "basic": "基本情報",
+        "stock": "在庫・保管",
+        "detail": "詳細情報",
+        "system": "システム情報"
+      },
+      "field": {
+        "itemCode": "管理番号",
+        "venue": "会場",
+        "buyDate": "落札日",
+        "purchasePrice": "仕入単価",
+        "fee": "手数料",
+        "shippingFee": "送料",
+        "tax": "税金",
+        "totalCost": "原価合計",
+        "soldPrice": "落札価格",
+        "profit": "利益",
+        "warehouse": "倉庫",
+        "shelfNo": "棚番号",
+        "warehouseInDate": "入庫日",
+        "groupNo": "組番号",
+        "remark": "備考",
+        "itemName": "商品名",
+        "category": "分類",
+        "authorKiln": "作者・窯元",
+        "sizeText": "サイズ",
+        "weightG": "重量（g）",
+        "salesChannel": "販売チャネル",
+        "photoDate": "撮影日",
+        "createdAt": "登録日時",
+        "seq": "発番情報",
+        "stockStatus": "在庫状態",
+        "saleStatus": "販売状態"
+      },
+      "seqValue": "{venue} {year}年{month}月 {seq} 価格帯 {band}",
+      "edit": "編集する",
+      "delete": "削除する",
+      "deleteTitle": "商品の削除",
+      "deleteNote": "この商品を削除済みにします。削除済みの商品は「削除済み商品」から復元できます。",
+      "deleteReasonLabel": "理由（任意）",
+      "deleteConfirm": "削除する"
+    },
+    "edit": {
+      "title": "商品の編集",
+      "note": "管理番号は変更されません。",
+      "warehouseHint": "倉庫の変更は移動中の商品のみ可能です。在庫中はスキャン画面の「移動」で行ってください。",
+      "save": "保存する",
+      "versionConflict": "他の人がこの商品を更新しています。最新の内容を再読み込みしてください。",
+      "validationRequired": "会場・落札日・仕入単価・倉庫は必須です。",
+      "validationPrice": "仕入単価は1以上99,999,999以下の整数で入力してください。"
+    },
+    "ledger": {
+      "type": {
+        "1": "新規登録",
+        "2": "入庫",
+        "3": "売却",
+        "4": "廃棄",
+        "5": "倉庫移動",
+        "6": "返品",
+        "7": "棚卸調整",
+        "8": "取り消し",
+        "9": "出品記録",
+        "10": "落札記録",
+        "11": "キャンセル記録",
+        "12": "手動修正",
+        "13": "削除",
+        "14": "復元"
+      },
+      "column": {
+        "at": "日時",
+        "type": "種類",
+        "warehouse": "倉庫",
+        "qty": "数量",
+        "stock": "在庫",
+        "sale": "販売",
+        "reason": "理由",
+        "operator": "操作者"
+      },
+      "empty": "取引履歴はありません",
+      "loadFailed": "取引履歴の読み込みに失敗しました。"
+    },
+    "listing": {
+      "column": {
+        "auctionId": "オークションID",
+        "listPrice": "出品価格",
+        "soldPrice": "落札価格",
+        "status": "状態",
+        "listedAt": "出品日時",
+        "closedAt": "終了日時"
+      },
+      "empty": "出品履歴はありません",
+      "loadFailed": "出品履歴の読み込みに失敗しました。"
     }
   }
 }

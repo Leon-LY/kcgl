@@ -77,6 +77,21 @@ const router = createRouter({
       meta: { titleKey: 'yahoo.shipments.title' },
     },
     {
+      // 商品列表（M5-①，D-061）：全局搜索+筛选+滞销徽标，全员可读；编辑按钮
+      // 仅编辑者以上（服务端 @PreAuthorize 兜底）
+      path: '/items',
+      name: 'items',
+      component: () => import('@/views/desktop/item/ItemsView.vue'),
+      meta: { titleKey: 'items.title' },
+    },
+    {
+      // 商品详情（M5-①）：全字段+分歧徽标+流水/出品历史；软删件 404 回列表
+      path: '/items/:id',
+      name: 'item-detail',
+      component: () => import('@/views/desktop/item/ItemDetailView.vue'),
+      meta: { titleKey: 'items.detail.title' },
+    },
+    {
       path: '/stocktake/:id',
       name: 'stocktake-session',
       component: () => import('@/views/mobile/stocktake/StocktakeScanView.vue'),

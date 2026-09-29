@@ -72,6 +72,7 @@
   "nav": {
     "label": "Navigation",
     "home": "Home",
+    "items": "Items",
     "entry": "Entry",
     "arrival": "Arrivals",
     "scan": "Scan",
@@ -484,7 +485,10 @@
     "400014": "The Excel file could not be read. Download the template and use the correct format.",
     "400015": "The Excel file exceeds the row limit (20,000 rows).",
     "400016": "The upload exceeds the size limit.",
-    "409012": "This exact Excel file has already been imported."
+    "409012": "This exact Excel file has already been imported.",
+    "409013": "Warehouse changes must be made through a move operation.",
+    "409014": "This item has already been deleted.",
+    "409015": "This item is not deleted and cannot be restored."
   },
   "yahoo": {
     "title": "Yahoo integration",
@@ -588,6 +592,165 @@
       "downloading": "Exporting…",
       "hint": "Exports a report (25 columns). The created date range is required; the file includes total cost and profit.",
       "rangeInverted": "The start date is after the end date."
+    }
+  },
+  "items": {
+    "title": "Item List",
+    "searchPlaceholder": "Search by item code, name, venue, shelf no., etc.",
+    "searchHint": "Kana variants and small letters are not distinguished",
+    "search": "Search",
+    "clear": "Clear filters",
+    "filterAll": "All",
+    "warehouseAll": "All warehouses",
+    "stockFilter": "Stock status",
+    "saleFilter": "Sale status",
+    "venueAll": "All venues",
+    "buyDateFrom": "Won date (from)",
+    "buyDateTo": "Won date (to)",
+    "slowAll": "Slow-moving: all",
+    "slowYellow": "Slow-moving (yellow/red)",
+    "slowRed": "Long-term slow (red)",
+    "empty": "No matching items",
+    "loadFailed": "Failed to load the item list.",
+    "column": {
+      "item": "Item",
+      "itemName": "Name",
+      "venue": "Venue",
+      "buyDate": "Won date",
+      "purchasePrice": "Purchase price",
+      "totalCost": "Total cost",
+      "profit": "Profit",
+      "warehouse": "Warehouse",
+      "shelfNo": "Shelf no.",
+      "status": "Status",
+      "slowMove": "Slow-moving"
+    },
+    "slowYellowBadge": "Slow",
+    "slowRedBadge": "Long-term slow",
+    "totalCount": "{n} items total",
+    "recycle": {
+      "tabTitle": "Deleted items",
+      "note": "Deleted items can be restored from here.",
+      "empty": "No deleted items",
+      "loadFailed": "Failed to load deleted items.",
+      "column": {
+        "item": "Item",
+        "itemName": "Name",
+        "venue": "Venue",
+        "warehouse": "Warehouse",
+        "status": "Status",
+        "deletedAt": "Deleted at",
+        "reason": "Reason"
+      },
+      "restore": "Restore"
+    },
+    "detail": {
+      "title": "Item Details",
+      "back": "Back to list",
+      "notFound": "This item does not exist or has been deleted.",
+      "loadFailed": "Failed to load item details.",
+      "divergence": "Current values differ from those issued with the item code",
+      "voidedBanner": "This item has been voided (reason: {reason}).",
+      "voidedNoReasonBanner": "This item has been voided.",
+      "photoCount": "{n} photos",
+      "noPhoto": "No photos",
+      "tab": {
+        "basic": "Basic info",
+        "ledger": "Ledger",
+        "listing": "Yahoo listings"
+      },
+      "section": {
+        "basic": "Basic info",
+        "stock": "Stock & storage",
+        "detail": "Details",
+        "system": "System info"
+      },
+      "field": {
+        "itemCode": "Item code",
+        "venue": "Venue",
+        "buyDate": "Won date",
+        "purchasePrice": "Purchase price",
+        "fee": "Fee",
+        "shippingFee": "Shipping",
+        "tax": "Tax",
+        "totalCost": "Total cost",
+        "soldPrice": "Sold price",
+        "profit": "Profit",
+        "warehouse": "Warehouse",
+        "shelfNo": "Shelf no.",
+        "warehouseInDate": "Stock-in date",
+        "groupNo": "Group no.",
+        "remark": "Remark",
+        "itemName": "Item name",
+        "category": "Category",
+        "authorKiln": "Author・kiln",
+        "sizeText": "Size",
+        "weightG": "Weight (g)",
+        "salesChannel": "Sales channel",
+        "photoDate": "Photo date",
+        "createdAt": "Created at",
+        "seq": "Code issuance",
+        "stockStatus": "Stock status",
+        "saleStatus": "Sale status"
+      },
+      "seqValue": "{venue} {year}/{month} {seq} Band {band}",
+      "edit": "Edit",
+      "delete": "Delete",
+      "deleteTitle": "Delete item",
+      "deleteNote": "This item will be marked as deleted. Deleted items can be restored from \"Deleted items\".",
+      "deleteReasonLabel": "Reason (optional)",
+      "deleteConfirm": "Delete"
+    },
+    "edit": {
+      "title": "Edit item",
+      "note": "The item code will not change.",
+      "warehouseHint": "Only items in transit can change warehouse. For in-stock items, use \"Move\" on the scan screen.",
+      "save": "Save",
+      "versionConflict": "Someone else has updated this item. Please reload the latest data.",
+      "validationRequired": "Venue, won date, purchase price, and warehouse are required.",
+      "validationPrice": "Enter a purchase price between 1 and 99,999,999."
+    },
+    "ledger": {
+      "type": {
+        "1": "Create",
+        "2": "Arrival",
+        "3": "Sell",
+        "4": "Scrap",
+        "5": "Transfer",
+        "6": "Return",
+        "7": "Stocktake adjust",
+        "8": "Void",
+        "9": "Listed mark",
+        "10": "Sold mark",
+        "11": "Cancel mark",
+        "12": "Manual adjust",
+        "13": "Recycle delete",
+        "14": "Recycle restore"
+      },
+      "column": {
+        "at": "Time",
+        "type": "Type",
+        "warehouse": "Warehouse",
+        "qty": "Qty",
+        "stock": "Stock",
+        "sale": "Sale",
+        "reason": "Reason",
+        "operator": "Operator"
+      },
+      "empty": "No ledger entries",
+      "loadFailed": "Failed to load the ledger."
+    },
+    "listing": {
+      "column": {
+        "auctionId": "Auction ID",
+        "listPrice": "List price",
+        "soldPrice": "Sold price",
+        "status": "Status",
+        "listedAt": "Listed at",
+        "closedAt": "Closed at"
+      },
+      "empty": "No listing history",
+      "loadFailed": "Failed to load listing history."
     }
   }
 }

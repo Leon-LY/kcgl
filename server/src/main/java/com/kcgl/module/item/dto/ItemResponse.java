@@ -43,6 +43,7 @@ public record ItemResponse(
         String voidReason,
         Long reEntryOf,
         boolean deleted,
+        Integer version,
         LocalDateTime createdAt) {
 
     public static ItemResponse from(ItemEntity e) {
@@ -61,6 +62,7 @@ public record ItemResponse(
                 e.getVoidReason(),
                 e.getReEntryOf(),
                 e.getDeleted() != null && e.getDeleted() == 1,
+                e.getVersion(),
                 e.getCreatedAt());
     }
 }
