@@ -5,6 +5,7 @@ import com.kcgl.module.auth.KcglUserDetails;
 import com.kcgl.module.inventory.dto.ActionResult;
 import com.kcgl.module.inventory.dto.ArrivalRequest;
 import com.kcgl.module.inventory.dto.ArrivalResponse;
+import com.kcgl.module.inventory.dto.LedgerBrowseResponse;
 import com.kcgl.module.inventory.dto.MarkCanceledRequest;
 import com.kcgl.module.inventory.dto.MarkListedRequest;
 import com.kcgl.module.inventory.dto.PendingArrivalResponse;
@@ -13,6 +14,7 @@ import com.kcgl.module.inventory.dto.ScrapRequest;
 import com.kcgl.module.inventory.dto.SellRequest;
 import com.kcgl.module.inventory.dto.TransferRequest;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,9 +24,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDateTime;
+
 /**
- * 库存端点（M2-8a 到货核对；M3-⑤ 动作端点=边表展开：卖出/报废/调拨/退货双向/上架标记）。
- * 动作全部 E+（docs/01 六节权限矩阵）；统一幂等契约（clientReqId，docs/01 7.0）。
+ * 库存端点（M2-8a 到货核对；M3-⑤ 动作端点=边表展开：卖出/报废/调拨/退货双向/上架标记；
+ * M5-④ 全库流水浏览）。动作全部 E+（docs/01 六节权限矩阵）；统一幂等契约
+ * （clientReqId，docs/01 7.0）；流水浏览=管理员治理面。
  */
 @RestController
 @RequestMapping("/api/inventory")
@@ -32,10 +37,33 @@ public class InventoryController {
 
     private final ArrivalService arrivalService;
     private final InventoryActionService actionService;
+    private final LedgerBrowseService ledgerBrowseService;
 
-    public InventoryController(ArrivalService arrivalService, InventoryActionService actionService) {
+    public InventoryController(ArrivalService arrivalService, InventoryActionService actionService,
+            LedgerBrowseService ledgerBrowseService) {
         this.arrivalService = arrivalService;
         this.actionService = actionService;
+        this.ledgerBrowseService = ledgerBrowseService;
+    }
+
+    /** 全库流水浏览（M5-④）：管理员治理视角；筛选全可选，id 倒序分页。 */
+    @GetMapping("/ledgers")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<LedgerBrowseResponse> ledgers(
+            @RequestParam(required = false) Integer txnType,
+            @RequestParam(required = false) String itemCode,
+            @RequestParam(required = false) String operatorName,
+            @RequestParam(required = false) Integer warehouse,
+            @RequestParam(required = false) Long itemId,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.ok(ledgerBrowseService.browse(
+                new LedgerBrowseService.LedgerBrowseQuery(
+                        txnType, itemCode, operatorName, warehouse, itemId, from, to, page, size)));
     }
 
     /** 在途清单（到货核对页）：可选预计仓库筛选，卡片=缩略图+管理号+落札日+预计仓库。 */

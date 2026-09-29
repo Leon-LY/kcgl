@@ -8,8 +8,10 @@ import {
   createItem,
   createStocktake,
   deleteItem,
+  downloadDiagnosticsExport,
   downloadExcelExport,
   downloadExcelTemplate,
+  fetchAlerts,
   fetchChecklist,
   fetchDashboardStats,
   fetchExcelBatches,
@@ -19,6 +21,8 @@ import {
   fetchItemLedgers,
   fetchItemYahooListings,
   fetchItemsForPrint,
+  fetchLedgers,
+  fetchOperationLogs,
   fetchPendingArrivals,
   fetchPendingShipments,
   fetchPriceBands,
@@ -27,12 +31,14 @@ import {
   fetchStocktake,
   fetchStocktakeDiffs,
   fetchStocktakes,
+  fetchSystemStatus,
   fetchTodaySession,
   fetchWarehouseStats,
   fetchYahooBatches,
   fetchYahooBatch,
   fetchYahooReconcile,
   fetchVenues,
+  markAlertRead,
   markChecklistPrintDone,
   markCanceledItem,
   markListedItem,
@@ -40,6 +46,7 @@ import {
   resolveStocktakeDiff,
   restoreItem,
   returnItem,
+  runSelfCheck,
   scanStocktakeItem,
   scrapItem,
   searchItems,
@@ -681,5 +688,92 @@ describe('settings and stats endpoints (M5-③)', () => {
     const [path, init] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect(path).toBe('/api/stats/warehouses')
     expect(init.method).toBe('GET')
+  })
+})
+
+describe('governance and monitoring endpoints (M5-④)', () => {
+  function stubOk(data: unknown): ReturnType<typeof vi.fn> {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ code: 0, message: 'ok', data }))
+    vi.stubGlobal('fetch', fetchMock)
+    return fetchMock
+  }
+
+  it('fetchLedgers omits empty filters and assembles the inclusive to-date as next-day 00:00', async () => {
+    const fetchMock = stubOk({ total: 0, page: 1, size: 20, rows: [] })
+    await fetchLedgers({
+      txnType: 3,
+      itemCode: '  HTK5  ',
+      warehouse: 2,
+      dateFrom: '2026-09-01',
+      dateTo: '2026-09-10',
+      page: 2,
+      size: 50,
+    })
+    // 到日含端：服务端 [from, to) 半开，本层把 9/10 组装为 9/11 零点
+    expect(fetchMock.mock.calls[0]![0]).toBe(
+      '/api/inventory/ledgers?txnType=3&itemCode=HTK5&warehouse=2&from=2026-09-01T00%3A00%3A00&to=2026-09-11T00%3A00%3A00&page=2&size=50',
+    )
+    expect((fetchMock.mock.calls[0] as [string, RequestInit])[1].method).toBe('GET')
+  })
+
+  it('fetchLedgers drops blank operator names and unspecified filters entirely', async () => {
+    const fetchMock = stubOk({ total: 0, page: 1, size: 20, rows: [] })
+    await fetchLedgers({ operatorName: '   ', itemCode: '' })
+    expect(fetchMock.mock.calls[0]![0]).toBe('/api/inventory/ledgers')
+  })
+
+  it('fetchOperationLogs assembles filters with the same date convention', async () => {
+    const fetchMock = stubOk({ total: 0, page: 1, size: 20, rows: [] })
+    await fetchOperationLogs({
+      action: 'ITEM_',
+      entityType: 'item',
+      operatorName: '管理者',
+      dateFrom: '2026-09-01',
+      dateTo: '2026-09-01',
+      page: 3,
+    })
+    expect(fetchMock.mock.calls[0]![0]).toBe(
+      '/api/operation-logs?action=ITEM_&entityType=item&operatorName=%E7%AE%A1%E7%90%86%E8%80%85&from=2026-09-01T00%3A00%3A00&to=2026-09-02T00%3A00%3A00&page=3',
+    )
+  })
+
+  it('fetchSystemStatus → GET /api/stats/system', async () => {
+    const status = { appVersion: 'dev' }
+    const fetchMock = stubOk(status)
+    await expect(fetchSystemStatus()).resolves.toEqual(status)
+    const [path, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(path).toBe('/api/stats/system')
+    expect(init.method).toBe('GET')
+  })
+
+  it('fetchAlerts / markAlertRead / runSelfCheck hit their governance paths', async () => {
+    const fetchMock = stubOk({ list: [], total: 0, page: 1, size: 50 })
+    await fetchAlerts(2, 30)
+    expect(fetchMock.mock.calls[0]![0]).toBe('/api/alerts?page=2&size=30')
+
+    const markMock = stubOk(null)
+    await markAlertRead(9)
+    const [path, init] = markMock.mock.calls[0] as [string, RequestInit]
+    expect(path).toBe('/api/alerts/9/read')
+    expect(init.method).toBe('PATCH')
+
+    const checkMock = stubOk({ ranAt: '2026-09-30T09:00:00', ok: true })
+    await runSelfCheck()
+    expect((checkMock.mock.calls[0] as [string, RequestInit])[0]).toBe('/api/self-check')
+    expect((checkMock.mock.calls[0] as [string, RequestInit])[1].method).toBe('POST')
+  })
+
+  it('downloadDiagnosticsExport fetches the blob with an attachment filename', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      status: 200,
+      ok: true,
+      headers: new Headers({ 'Content-Disposition': 'attachment; filename="kcgl-diagnostics-20260930-090000.json"' }),
+      blob: async () => new Blob(['{}'], { type: 'application/json' }),
+    } as unknown as Response)
+    vi.stubGlobal('fetch', fetchMock)
+    const result = await downloadDiagnosticsExport()
+    expect(fetchMock.mock.calls[0]![0]).toBe('/api/diagnostics/export')
+    expect(result.filename).toBe('kcgl-diagnostics-20260930-090000.json')
+    expect(result.blob.type).toBe('application/json')
   })
 })

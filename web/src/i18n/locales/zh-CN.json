@@ -86,7 +86,11 @@
     "dashboard": "仪表盘",
     "settings": "系统设置",
     "groupOps": "运营",
-    "groupAdmin": "管理"
+    "groupAdmin": "管理",
+    "groupMonitor": "监控",
+    "ledgers": "流水台账",
+    "operationLogs": "操作日志",
+    "system": "系统状况"
   },
   "entry": {
     "title": "商品录入",
@@ -791,5 +795,112 @@
     "errHeightRange": "标签高度须在 {min}～{max} mm 范围内",
     "saved": "已保存",
     "loadFailed": "设置读取失败"
+  },
+  "ledgers": {
+    "title": "流水台账",
+    "typeAll": "全部类型",
+    "itemCodePlaceholder": "管理号（前缀匹配）",
+    "operatorPlaceholder": "操作人",
+    "dateFrom": "开始日期",
+    "dateTo": "结束日期",
+    "hint": "时间范围含开始与结束日期；点击行进入商品详情。",
+    "totalCount": "{n} 条",
+    "column": {
+      "at": "时间",
+      "itemCode": "管理号",
+      "type": "类型",
+      "warehouse": "仓库",
+      "qty": "数量",
+      "stock": "库存",
+      "sale": "销售",
+      "reason": "理由",
+      "operator": "操作人"
+    },
+    "empty": "没有符合条件的流水"
+  },
+  "oplogs": {
+    "title": "操作日志",
+    "actionPlaceholder": "动作（前缀匹配）",
+    "entityPlaceholder": "对象类型",
+    "hint": "日志只增不改不删；展开行查看详情 JSON。",
+    "column": {
+      "action": "动作",
+      "entity": "对象",
+      "ip": "IP"
+    },
+    "empty": "没有符合条件的日志"
+  },
+  "system": {
+    "title": "系统状况",
+    "loadFailed": "系统状况加载失败",
+    "overviewTitle": "基本信息",
+    "appVersion": "应用版本",
+    "flywayVersion": "数据库版本",
+    "startedAt": "启动时刻",
+    "uptime": "运行时长",
+    "uptimeDays": "{d} 天 {h} 小时",
+    "uptimeHours": "{h} 小时 {m} 分",
+    "uptimeMinutes": "{m} 分",
+    "sseConnections": "SSE 连接数",
+    "openAlerts": "未读告警",
+    "resourceTitle": "资源",
+    "heap": "JVM 堆",
+    "pool": "连接池",
+    "poolValue": "{active} 使用 / {idle} 空闲（共 {total}·等待 {waiting}）",
+    "disk": "磁盘（图片卷）",
+    "diskValue": "{used} / {total}（{percent}%）",
+    "unavailable": "不可用",
+    "volumeTitle": "数据量·号引擎",
+    "volumeItems": "商品数",
+    "volumeLedgers": "流水数",
+    "volumeOperationLogs": "操作日志数",
+    "volumeClientErrors": "前端错误数",
+    "codeIssued": "发号数",
+    "codeSkipped": "跳号数",
+    "clientErrorsTitle": "近 7 日前端错误",
+    "batchTitle": "Excel 导入（共 {total}·完成 {done}·失败 {failed}）",
+    "batchFile": "文件",
+    "batchStatus": "状态",
+    "batchStatusItem": {
+      "0": "处理中",
+      "1": "完成",
+      "2": "失败"
+    },
+    "batchRows": "行数",
+    "batchErrors": "错误",
+    "batchCreatedAt": "登记时间",
+    "alertTitle": "统一告警（未读 {n}）",
+    "alertLevel": "级别",
+    "alertLevelItem": {
+      "1": "提示",
+      "2": "警告",
+      "3": "错误"
+    },
+    "alertMessage": "内容",
+    "alertMarkRead": "标记已读",
+    "alertRead": "已读",
+    "alertEmpty": "没有告警",
+    "check": {
+      "run": "执行帳実自检",
+      "running": "执行中…",
+      "reportTitle": "自检结果",
+      "allOk": "无异常",
+      "foundNg": "检出异常（见下）",
+      "ledger": "账实对账",
+      "ledgerOk": "一致",
+      "ledgerNg": "不一致 {n} 条",
+      "counters": "号码计数器",
+      "countersOk": "一致",
+      "countersNg": "落后 {n} 条",
+      "volumes": "数据量",
+      "volumesValue": "商品 {items}／流水 {ledgers}／日志 {logs}",
+      "disk": "磁盘",
+      "imageAudit": "图片文件",
+      "imageValue": "缺失 {missing}·孤立 {orphan}"
+    },
+    "export": {
+      "run": "导出诊断信息",
+      "running": "导出中…"
+    }
   }
 }

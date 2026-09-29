@@ -53,10 +53,10 @@ test.describe('dictionary admin (desktop-chromium)', () => {
     await expect(page.locator('.setup-step.is-done')).toHaveCount(4)
     await expect(page.getByRole('button', { name: '印刷できた' })).toHaveCount(0)
 
-    // 侧边栏导航（M5-③ 分组）：管理员可见全部九链接
-    // （ダッシュボード/商品/ヤフー/エクセル/ラベル印刷/会場/価格帯/アカウント/設定）
+    // 侧边栏导航（M5-③ 分组 + M5-④ 監視组）：管理员可见全部十二链接
+    // （ダッシュボード/商品/ヤフー/エクセル/ラベル印刷/会場/価格帯/アカウント/設定/台帳/操作ログ/システム状況）
     const nav = page.locator('.shell-nav-link')
-    await expect(nav).toHaveCount(9)
+    await expect(nav).toHaveCount(12)
     await expect(nav.filter({ hasText: 'ダッシュボード' })).toHaveCount(1)
     await expect(nav.filter({ hasText: '商品' })).toHaveCount(1)
     await expect(nav.filter({ hasText: 'エクセル' })).toHaveCount(1)
@@ -64,6 +64,9 @@ test.describe('dictionary admin (desktop-chromium)', () => {
     await expect(nav.filter({ hasText: '価格帯' })).toHaveCount(1)
     await expect(nav.filter({ hasText: 'アカウント' })).toHaveCount(1)
     await expect(nav.filter({ hasText: '設定' })).toHaveCount(1)
+    await expect(nav.filter({ hasText: '台帳' })).toHaveCount(1)
+    await expect(nav.filter({ hasText: '操作ログ' })).toHaveCount(1)
+    await expect(nav.filter({ hasText: 'システム状況' })).toHaveCount(1)
 
     // ---- 会场：新增 → 改名 → 停用（尾部停用=恢复 enabled 下拉种子态）
     await nav.filter({ hasText: '会場' }).click()
@@ -131,7 +134,7 @@ test.describe('dictionary admin (desktop-chromium)', () => {
     await login(page, 'editor')
 
     // 导航：编辑者=ダッシュボード/商品/ヤフー/エクセル/ラベル印刷/会場 六链接
-    // （无价格档位/账号/設定）
+    // （无价格档位/账号/設定；監視三页亦为管理员专属，M5-④）
     const nav = page.locator('.shell-nav-link')
     await expect(nav).toHaveCount(6)
     await expect(nav.filter({ hasText: 'ダッシュボード' })).toHaveCount(1)
@@ -141,6 +144,9 @@ test.describe('dictionary admin (desktop-chromium)', () => {
     await expect(nav.filter({ hasText: '価格帯' })).toHaveCount(0)
     await expect(nav.filter({ hasText: 'アカウント' })).toHaveCount(0)
     await expect(nav.filter({ hasText: '設定' })).toHaveCount(0)
+    await expect(nav.filter({ hasText: '台帳' })).toHaveCount(0)
+    await expect(nav.filter({ hasText: '操作ログ' })).toHaveCount(0)
+    await expect(nav.filter({ hasText: 'システム状況' })).toHaveCount(0)
     // 编辑者大盘无 checklist 卡片（管理员引导）
     await expect(page.locator('.setup-card')).toHaveCount(0)
 
@@ -169,6 +175,8 @@ test.describe('dictionary admin (desktop-chromium)', () => {
     await expect(nav.filter({ hasText: 'ヤフー' })).toHaveCount(1)
     await expect(nav.filter({ hasText: '会場' })).toHaveCount(0)
     await expect(nav.filter({ hasText: '設定' })).toHaveCount(0)
+    await expect(nav.filter({ hasText: '台帳' })).toHaveCount(0)
+    await expect(nav.filter({ hasText: 'システム状況' })).toHaveCount(0)
 
     await page.goto('/admin/venues')
     await expect(page).toHaveURL(/\/dashboard$/)

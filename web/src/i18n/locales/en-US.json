@@ -86,7 +86,11 @@
     "dashboard": "Dashboard",
     "settings": "Settings",
     "groupOps": "Operations",
-    "groupAdmin": "Administration"
+    "groupAdmin": "Administration",
+    "groupMonitor": "Monitoring",
+    "ledgers": "Ledger",
+    "operationLogs": "Operation logs",
+    "system": "System status"
   },
   "entry": {
     "title": "Item Entry",
@@ -791,5 +795,112 @@
     "errHeightRange": "Label height must be between {min} and {max} mm",
     "saved": "Saved",
     "loadFailed": "Failed to load settings"
+  },
+  "ledgers": {
+    "title": "Ledger browser",
+    "typeAll": "All types",
+    "itemCodePlaceholder": "Item code (prefix)",
+    "operatorPlaceholder": "Operator",
+    "dateFrom": "From",
+    "dateTo": "To",
+    "hint": "The range includes both the from and to dates. Click a row to open the item.",
+    "totalCount": "{n} records",
+    "column": {
+      "at": "Time",
+      "itemCode": "Item code",
+      "type": "Type",
+      "warehouse": "Warehouse",
+      "qty": "Qty",
+      "stock": "Stock",
+      "sale": "Sale",
+      "reason": "Reason",
+      "operator": "Operator"
+    },
+    "empty": "No matching records"
+  },
+  "oplogs": {
+    "title": "Operation log",
+    "actionPlaceholder": "Action (prefix)",
+    "entityPlaceholder": "Entity type",
+    "hint": "Logs are append-only. Expand a row to view the detail JSON.",
+    "column": {
+      "action": "Action",
+      "entity": "Entity",
+      "ip": "IP"
+    },
+    "empty": "No matching logs"
+  },
+  "system": {
+    "title": "System status",
+    "loadFailed": "Failed to load system status",
+    "overviewTitle": "Overview",
+    "appVersion": "App version",
+    "flywayVersion": "DB version",
+    "startedAt": "Started at",
+    "uptime": "Uptime",
+    "uptimeDays": "{d} d {h} h",
+    "uptimeHours": "{h} h {m} min",
+    "uptimeMinutes": "{m} min",
+    "sseConnections": "SSE connections",
+    "openAlerts": "Open alerts",
+    "resourceTitle": "Resources",
+    "heap": "JVM heap",
+    "pool": "Connection pool",
+    "poolValue": "{active} active / {idle} idle (total {total}, waiting {waiting})",
+    "disk": "Disk (image volume)",
+    "diskValue": "{used} / {total} ({percent}%)",
+    "unavailable": "Unavailable",
+    "volumeTitle": "Data volumes & code engine",
+    "volumeItems": "Items",
+    "volumeLedgers": "Ledgers",
+    "volumeOperationLogs": "Operation logs",
+    "volumeClientErrors": "Client errors",
+    "codeIssued": "Codes issued",
+    "codeSkipped": "Codes skipped",
+    "clientErrorsTitle": "Client errors (last 7 days)",
+    "batchTitle": "Excel imports (total {total}, done {done}, failed {failed})",
+    "batchFile": "File",
+    "batchStatus": "Status",
+    "batchStatusItem": {
+      "0": "Processing",
+      "1": "Done",
+      "2": "Failed"
+    },
+    "batchRows": "Rows",
+    "batchErrors": "Errors",
+    "batchCreatedAt": "Created at",
+    "alertTitle": "Alerts (open {n})",
+    "alertLevel": "Level",
+    "alertLevelItem": {
+      "1": "Info",
+      "2": "Warning",
+      "3": "Error"
+    },
+    "alertMessage": "Message",
+    "alertMarkRead": "Mark read",
+    "alertRead": "Read",
+    "alertEmpty": "No alerts",
+    "check": {
+      "run": "Run self-check",
+      "running": "Running…",
+      "reportTitle": "Self-check result",
+      "allOk": "All checks passed",
+      "foundNg": "Issues found (see below)",
+      "ledger": "Ledger consistency",
+      "ledgerOk": "Consistent",
+      "ledgerNg": "{n} mismatches",
+      "counters": "Code counters",
+      "countersOk": "Consistent",
+      "countersNg": "{n} behind",
+      "volumes": "Data volumes",
+      "volumesValue": "Items {items}／ledgers {ledgers}／logs {logs}",
+      "disk": "Disk",
+      "imageAudit": "Image files",
+      "imageValue": "{missing} missing, {orphan} orphan"
+    },
+    "export": {
+      "run": "Export diagnostics",
+      "running": "Exporting…"
+    }
   }
 }

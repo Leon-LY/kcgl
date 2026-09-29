@@ -86,7 +86,11 @@
     "dashboard": "ダッシュボード",
     "settings": "システム設定",
     "groupOps": "運営",
-    "groupAdmin": "管理"
+    "groupAdmin": "管理",
+    "groupMonitor": "監視",
+    "ledgers": "台帳",
+    "operationLogs": "操作ログ",
+    "system": "システム状況"
   },
   "entry": {
     "title": "商品登録",
@@ -791,5 +795,112 @@
     "errHeightRange": "ラベル高さは {min}〜{max} mm の範囲で指定してください",
     "saved": "保存しました",
     "loadFailed": "設定の読み込みに失敗しました"
+  },
+  "ledgers": {
+    "title": "台帳ブラウズ",
+    "typeAll": "すべての種類",
+    "itemCodePlaceholder": "管理番号（前方一致）",
+    "operatorPlaceholder": "操作者",
+    "dateFrom": "開始日",
+    "dateTo": "終了日",
+    "hint": "期間は開始日から終了日まで（両端を含む）です。行をクリックすると商品詳細へ移動します。",
+    "totalCount": "{n} 件",
+    "column": {
+      "at": "日時",
+      "itemCode": "管理番号",
+      "type": "種類",
+      "warehouse": "倉庫",
+      "qty": "数量",
+      "stock": "在庫",
+      "sale": "販売",
+      "reason": "理由",
+      "operator": "操作者"
+    },
+    "empty": "該当する取引はありません"
+  },
+  "oplogs": {
+    "title": "操作ログ",
+    "actionPlaceholder": "アクション（前方一致）",
+    "entityPlaceholder": "対象種別",
+    "hint": "ログは追記のみで編集・削除はできません。行を展開すると詳細 JSON を表示します。",
+    "column": {
+      "action": "アクション",
+      "entity": "対象",
+      "ip": "IP"
+    },
+    "empty": "該当するログはありません"
+  },
+  "system": {
+    "title": "システム状況",
+    "loadFailed": "システム状況の読み込みに失敗しました",
+    "overviewTitle": "基本情報",
+    "appVersion": "アプリ版",
+    "flywayVersion": "DB版",
+    "startedAt": "起動時刻",
+    "uptime": "稼働時間",
+    "uptimeDays": "{d} 日 {h} 時間",
+    "uptimeHours": "{h} 時間 {m} 分",
+    "uptimeMinutes": "{m} 分",
+    "sseConnections": "SSE接続数",
+    "openAlerts": "未読アラート",
+    "resourceTitle": "リソース",
+    "heap": "JVMヒープ",
+    "pool": "接続プール",
+    "poolValue": "{active} 使用 / {idle} 待機（計 {total}・待ち {waiting}）",
+    "disk": "ディスク（画像ボリューム）",
+    "diskValue": "{used} / {total}（{percent}%）",
+    "unavailable": "利用不可",
+    "volumeTitle": "データ量・番号エンジン",
+    "volumeItems": "商品数",
+    "volumeLedgers": "取引数",
+    "volumeOperationLogs": "操作ログ数",
+    "volumeClientErrors": "フロントエラー数",
+    "codeIssued": "発番数",
+    "codeSkipped": "スキップ数",
+    "clientErrorsTitle": "直近7日のフロントエラー",
+    "batchTitle": "Excel取り込み（計 {total}・完了 {done}・失敗 {failed}）",
+    "batchFile": "ファイル",
+    "batchStatus": "状態",
+    "batchStatusItem": {
+      "0": "処理中",
+      "1": "完了",
+      "2": "失敗"
+    },
+    "batchRows": "行数",
+    "batchErrors": "エラー",
+    "batchCreatedAt": "登録日時",
+    "alertTitle": "統一アラート（未読 {n}）",
+    "alertLevel": "レベル",
+    "alertLevelItem": {
+      "1": "情報",
+      "2": "警告",
+      "3": "エラー"
+    },
+    "alertMessage": "内容",
+    "alertMarkRead": "既読",
+    "alertRead": "既読済み",
+    "alertEmpty": "アラートはありません",
+    "check": {
+      "run": "帳実自検を実行",
+      "running": "実行中…",
+      "reportTitle": "自検結果",
+      "allOk": "異常なし",
+      "foundNg": "異常が検出されました（下記参照）",
+      "ledger": "帳実照合",
+      "ledgerOk": "整合",
+      "ledgerNg": "不一致 {n} 件",
+      "counters": "番号カウンタ",
+      "countersOk": "整合",
+      "countersNg": "遅延 {n} 件",
+      "volumes": "データ量",
+      "volumesValue": "商品 {items}／取引 {ledgers}／ログ {logs}",
+      "disk": "ディスク",
+      "imageAudit": "画像ファイル",
+      "imageValue": "欠損 {missing}・孤立 {orphan}"
+    },
+    "export": {
+      "run": "診断情報をエクスポート",
+      "running": "エクスポート中…"
+    }
   }
 }

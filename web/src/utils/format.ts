@@ -40,3 +40,18 @@ export function toDateInputValue(value: string | null | undefined): string {
   if (!value) return ''
   return dayjsLib.tz(value, JST_TZ).format('YYYY-MM-DD')
 }
+
+/** 字节数：MB/GB/TB 自适应（1024 进位，ja-JP 千分位）；0 也显示（磁盘全零=目录不可用语义）。 */
+export function formatBytes(bytes: number | null | undefined): string {
+  if (bytes === null || bytes === undefined) return '—'
+  if (bytes === 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
+  const value = bytes / 1024 ** exponent
+  // KB 以上固定 1 位小数（256.0 MB），裸字节数取整——监控页对齐感优先
+  const formatter =
+    exponent === 0
+      ? new Intl.NumberFormat('ja-JP')
+      : new Intl.NumberFormat('ja-JP', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+  return `${formatter.format(value)} ${units[exponent]}`
+}

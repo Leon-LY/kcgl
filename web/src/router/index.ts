@@ -141,6 +141,29 @@ const router = createRouter({
       meta: { titleKey: 'settings.title', roles: [1] },
     },
     {
+      // 台帳ブラウズ（M5-④）：全库流水治理翻查，仅管理员
+      // （流水不可删改=查询是唯一面；GET /api/inventory/ledgers URL 级 RBAC 兜底）
+      path: '/ledgers',
+      name: 'ledgers',
+      component: () => import('@/views/desktop/admin/ledger/LedgersView.vue'),
+      meta: { titleKey: 'ledgers.title', roles: [1] },
+    },
+    {
+      // 操作ログ（M5-④）：全系统操作留痕查询，仅管理员（验收 9：日志不可删改仅可查）
+      path: '/admin/logs',
+      name: 'admin-logs',
+      component: () => import('@/views/desktop/admin/log/OperationLogsView.vue'),
+      meta: { titleKey: 'oplogs.title', roles: [1] },
+    },
+    {
+      // システム状況（M5-④）：排障速览+告警+自检+诊断导出，仅管理员
+      // （含池/磁盘等运行时内部信息，GET /api/stats/system URL 级 RBAC 兜底）
+      path: '/admin/system',
+      name: 'admin-system',
+      component: () => import('@/views/desktop/admin/system/SystemView.vue'),
+      meta: { titleKey: 'system.title', roles: [1] },
+    },
+    {
       // 标签打印（M2-7）：桌面为主、全员可打印（录入手与贴标手常不同人）
       path: '/print',
       name: 'print',

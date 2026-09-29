@@ -8,8 +8,8 @@ import LangSwitch from '@/components/LangSwitch.vue'
 
 /**
  * 桌面壳（M1 骨架 → M5-③ 侧边栏化，D-040 触发：导航链接达 9 个）：
- * 左侧栏 = 系统名 + 分组导航（運営/管理）+ 底部切回移动壳；顶栏 = 用户名 +
- * 语言切换 + 登出。导航按角色过滤（会场=E+，价格档位/账号/设置=管理员）；
+ * 左侧栏 = 系统名 + 分组导航（運営/管理/監視）+ 底部切回移动壳；顶栏 = 用户名 +
+ * 语言切换 + 登出。导航按角色过滤（会场=E+，价格档位/账号/设置/監視组=管理员）；
  * 桌面壳不再展示移动首页——'/' 落地大盘（D-072），切壳入口由侧栏底部承担。
  * .shell-nav-link 类名是 E2E 稳定契约（admin.spec 链接计数），重构保持不变。
  */
@@ -50,6 +50,15 @@ const NAV_GROUPS: NavGroup[] = [
       { name: 'admin-price-bands', labelKey: 'nav.priceBands', roles: [1] },
       { name: 'admin-users', labelKey: 'nav.users', roles: [1] },
       { name: 'admin-settings', labelKey: 'nav.settings', roles: [1] },
+    ],
+  },
+  {
+    // 監視（M5-④）：治理与排障三页——台帳/操作日志/システム状況，全部仅管理员
+    labelKey: 'nav.groupMonitor',
+    items: [
+      { name: 'ledgers', labelKey: 'nav.ledgers', roles: [1] },
+      { name: 'admin-logs', labelKey: 'nav.operationLogs', roles: [1] },
+      { name: 'admin-system', labelKey: 'nav.system', roles: [1] },
     ],
   },
 ]
