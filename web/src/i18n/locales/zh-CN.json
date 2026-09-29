@@ -80,7 +80,6 @@
     "print": "标签打印",
     "venues": "会场",
     "priceBands": "价格档位",
-    "yearCodes": "年代号",
     "users": "账号",
     "yahoo": "雅虎联动",
     "excel": "Excel"
@@ -172,7 +171,7 @@
       "large": "70×25（33张）"
     },
     "reprintLabel": "按管理号重打",
-    "reprintPlaceholder": "例）HTK9-A12X",
+    "reprintPlaceholder": "例）HT9-A12X",
     "reprintNotFound": "未找到可按此管理号打印的商品（不含已作废/已删除）"
   },
   "arrival": {
@@ -210,7 +209,7 @@
     "cameraInsecure": "使用摄像头需要 HTTPS 连接。请使用手动输入",
     "cameraFailed": "摄像头启动失败。请使用手动输入查询",
     "manualLabel": "手动输入管理号查询",
-    "manualPlaceholder": "例如）HTK9-A12X",
+    "manualPlaceholder": "例如）HT9-A12X",
     "manualSubmit": "查询",
     "notFound": "未找到该管理号的商品",
     "buyDate": "落札日 {date}",
@@ -402,20 +401,6 @@
       "rangeInvalid": "下限需小于上限",
       "empty": "还没有登记档位"
     },
-    "yearCode": {
-      "title": "年代号管理",
-      "note": "年代号用于管理号第 3 位；2016=A〜2041=Z 已预置。",
-      "createButton": "新增年代号",
-      "createTitle": "新增年代号",
-      "editTitle": "编辑年代号",
-      "year": "年份",
-      "yearPlaceholder": "例）2042",
-      "yearInvalid": "年份需为 2016〜2999 的整数",
-      "code": "年代号",
-      "codePlaceholder": "例）A",
-      "codeInvalid": "年代号需为 1 位大写英文字母（A-Z）",
-      "empty": "还没有登记年代号"
-    },
     "user": {
       "title": "账号管理",
       "note": "账号不可删除（只能停用）。停用后立即无法登录。",
@@ -459,13 +444,11 @@
     "404001": "对象不存在",
     "404002": "没有匹配该价格的价格档位，请先在管理后台配置价格档位",
     "404003": "所选拍卖场不存在",
-    "404004": "落札日期所在年份的年代号尚未登记，请先在管理后台登记年代号",
     "409000": "操作对象已被更新，请刷新页面后重试",
     "409001": "用户名已存在",
     "409002": "该会场代码已存在",
     "409003": "该价格档位代码已存在",
     "409004": "价格档位区间与已有档位重叠",
-    "409005": "该年份或年代号已存在",
     "409006": "该商品已作废",
     "409007": "重录源商品尚未作废，请先作废",
     "409008": "商品当前状态不允许此操作，请刷新页面后确认",
@@ -693,7 +676,7 @@
         "stockStatus": "库存状态",
         "saleStatus": "销售状态"
       },
-      "seqValue": "{venue} {year}年{month}月 {seq} 价格档 {band}",
+      "seqValue": "{venue} {month}月 {seq} 价格档 {band}",
       "edit": "编辑",
       "delete": "删除",
       "deleteTitle": "删除商品",

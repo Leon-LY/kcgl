@@ -13,34 +13,34 @@ describe('createScanGate', () => {
 
   it('首扫放行；冷却窗内任意码丢弃（扫码枪连发回声）', () => {
     const gate = createScanGate()
-    expect(gate.accept('HTK9-A1X')).toBe(true)
+    expect(gate.accept('HT9-A1X')).toBe(true)
     vi.advanceTimersByTime(100)
-    expect(gate.accept('HTK9-A2X')).toBe(false)
+    expect(gate.accept('HT9-A2X')).toBe(false)
     vi.advanceTimersByTime(700)
-    expect(gate.accept('HTK9-A2X')).toBe(true)
+    expect(gate.accept('HT9-A2X')).toBe(true)
   })
 
   it('冷却窗外同码仍封锁 3s（慢速回声/双端重复触发）', () => {
     const gate = createScanGate()
-    expect(gate.accept('HTK9-A1X')).toBe(true)
+    expect(gate.accept('HT9-A1X')).toBe(true)
     vi.advanceTimersByTime(900) // 过冷却
-    expect(gate.accept('HTK9-A1X')).toBe(false)
+    expect(gate.accept('HT9-A1X')).toBe(false)
     vi.advanceTimersByTime(2100) // 同码窗累计 3s
-    expect(gate.accept('HTK9-A1X')).toBe(true)
+    expect(gate.accept('HT9-A1X')).toBe(true)
   })
 
   it('换码不受同码窗约束（连续扫不同件）', () => {
     const gate = createScanGate()
-    expect(gate.accept('HTK9-A1X')).toBe(true)
+    expect(gate.accept('HT9-A1X')).toBe(true)
     vi.advanceTimersByTime(800)
-    expect(gate.accept('HTK9-A2X')).toBe(true)
+    expect(gate.accept('HT9-A2X')).toBe(true)
   })
 
   it('reset 解锁同码重扫（动作完成后重新定位同一件）', () => {
     const gate = createScanGate()
-    expect(gate.accept('HTK9-A1X')).toBe(true)
+    expect(gate.accept('HT9-A1X')).toBe(true)
     gate.reset()
-    expect(gate.accept('HTK9-A1X')).toBe(true)
+    expect(gate.accept('HT9-A1X')).toBe(true)
   })
 
   it('自定义窗参数生效（短窗便于测试与特殊扫码枪适配）', () => {

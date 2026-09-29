@@ -56,6 +56,10 @@ function syncPolling(): void {
   } else if (!hasProcessing && pollTimer !== undefined) {
     window.clearInterval(pollTimer)
     pollTimer = undefined
+    // 轮询见证批次终态：导入回写已可见——补齐本页另两份数据
+    // （自己的 YAHOO_IMPORT 回声被 D-070 抑制，轮询是自端终态感知的主路径）
+    void loadShipments()
+    void loadReconcile()
   }
 }
 
@@ -95,6 +99,11 @@ async function onFileChange(event: Event): Promise<void> {
     form.append('file', file)
     await uploadYahooCsv(form)
     await loadBatches()
+    // 极快完成竞态兜底：响应后重读已全终态（轮询未启动过）时直接收敛另两份数据
+    if (!batches.value.some((batch) => batch.status === 0)) {
+      void loadShipments()
+      void loadReconcile()
+    }
   } catch (error) {
     uploadError.value = toDisplayMessage(error, t)
   } finally {

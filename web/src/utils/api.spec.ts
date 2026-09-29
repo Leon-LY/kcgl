@@ -137,7 +137,7 @@ describe('api.login', () => {
   it('submits form-encoded credentials (framework formLogin contract, D-021)', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(jsonResponse({ code: 0, message: 'ok', data: { username: 'taro', displayName: '太郎', role: 2, locale: 'ja-JP', mustChangePwd: false } }))
+      .mockResolvedValue(jsonResponse({ code: 0, message: 'ok', data: { id: 101, username: 'taro', displayName: '太郎', role: 2, locale: 'ja-JP', mustChangePwd: false } }))
     vi.stubGlobal('fetch', fetchMock)
 
     await api.login('taro', 'pass-word-123')
@@ -234,10 +234,10 @@ describe('dictionary and item entry endpoint contracts', () => {
   it('previewItemCode → GET with assembled preview query params', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(jsonResponse({ code: 0, message: 'ok', data: { code: 'HTK9-A1X', bandCode: 'X', seqPrefix: 'A', seqNo: 1 } }))
+      .mockResolvedValue(jsonResponse({ code: 0, message: 'ok', data: { code: 'HT9-A1X', bandCode: 'X', seqPrefix: 'A', seqNo: 1 } }))
     vi.stubGlobal('fetch', fetchMock)
     await expect(previewItemCode(7, '2026-09-15', 1000)).resolves.toEqual({
-      code: 'HTK9-A1X',
+      code: 'HT9-A1X',
       bandCode: 'X',
       seqPrefix: 'A',
       seqNo: 1,
@@ -250,7 +250,7 @@ describe('dictionary and item entry endpoint contracts', () => {
   it('createItem → POSTs a JSON payload (clientReqId idempotency key passed through)', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(jsonResponse({ code: 0, message: 'ok', data: { id: 1, itemCode: 'HTK9-A1X' } }))
+      .mockResolvedValue(jsonResponse({ code: 0, message: 'ok', data: { id: 1, itemCode: 'HT9-A1X' } }))
     vi.stubGlobal('fetch', fetchMock)
     await createItem({
       clientReqId: 'req-abc',
@@ -288,7 +288,7 @@ describe('item search, edit, recycle bin, and history endpoint contracts (M5-1)'
   it('searchItems assembles the full query in canonical order', async () => {
     const fetchMock = stubOk({ total: 0, page: 3, size: 50, rows: [] })
     await searchItems({
-      kw: 'HTK9',
+      kw: 'HT9',
       warehouse: 2,
       stockStatus: 1,
       saleStatus: 2,
@@ -301,7 +301,7 @@ describe('item search, edit, recycle bin, and history endpoint contracts (M5-1)'
     })
     const [path, init] = lastCall(fetchMock)
     expect(path).toBe(
-      '/api/items/search?kw=HTK9&warehouse=2&stockStatus=1&saleStatus=2&venueId=5'
+      '/api/items/search?kw=HT9&warehouse=2&stockStatus=1&saleStatus=2&venueId=5'
       + '&warnLevel=2&buyDateFrom=2026-01-01&buyDateTo=2026-01-31&page=3&size=50',
     )
     expect(init.method).toBe('GET')
@@ -315,7 +315,7 @@ describe('item search, edit, recycle bin, and history endpoint contracts (M5-1)'
   })
 
   it('updateItem → PUTs the full-payload edit body with version (D-066 snapshot edit)', async () => {
-    const fetchMock = stubOk({ id: 7, itemCode: 'HTK9-A1X' })
+    const fetchMock = stubOk({ id: 7, itemCode: 'HT9-A1X' })
     await updateItem(7, {
       version: 3,
       venueId: 1,
@@ -400,9 +400,9 @@ describe('module endpoint contracts (print / image / arrival / scan actions / st
 
   it('fetchItemsForPrint assembles date range plus optional filters', async () => {
     const fetchMock = stubOk({ total: 0, page: 2, size: 100, rows: [] })
-    await fetchItemsForPrint({ createdFrom: '2026-09-01', createdTo: '2026-09-30', venueId: 1, code: 'HTK9-A1X', page: 2, size: 100 })
+    await fetchItemsForPrint({ createdFrom: '2026-09-01', createdTo: '2026-09-30', venueId: 1, code: 'HT9-A1X', page: 2, size: 100 })
     expect(lastCall(fetchMock)[0]).toBe(
-      '/api/items?createdFrom=2026-09-01&createdTo=2026-09-30&venueId=1&code=HTK9-A1X&page=2&size=100',
+      '/api/items?createdFrom=2026-09-01&createdTo=2026-09-30&venueId=1&code=HT9-A1X&page=2&size=100',
     )
     await fetchItemsForPrint({ createdFrom: '2026-09-01', createdTo: '2026-09-30', code: '' })
     expect(fetchMock.mock.calls[1]![0]).toBe('/api/items?createdFrom=2026-09-01&createdTo=2026-09-30')
@@ -450,12 +450,12 @@ describe('module endpoint contracts (print / image / arrival / scan actions / st
     expect(fetchMock.mock.calls[1]![0]).toBe('/api/checklist')
     await markChecklistPrintDone()
     expect(fetchMock.mock.calls[2]![0]).toBe('/api/checklist/print-done')
-    await fetchItemByCode('HTK9-A1X')
-    expect(fetchMock.mock.calls[3]![0]).toBe('/api/items/by-code/HTK9-A1X')
+    await fetchItemByCode('HT9-A1X')
+    expect(fetchMock.mock.calls[3]![0]).toBe('/api/items/by-code/HT9-A1X')
   })
 
   it('inventory action wrappers pass idempotency keys and action payloads', async () => {
-    const fetchMock = stubOk({ itemId: 1, itemCode: 'HTK9-A1X', stockStatus: 1, saleStatus: 0, warehouse: 1 })
+    const fetchMock = stubOk({ itemId: 1, itemCode: 'HT9-A1X', stockStatus: 1, saleStatus: 0, warehouse: 1 })
     await sellItem(1, 'req-s')
     expect(lastCall(fetchMock)[0]).toBe('/api/inventory/sell')
     expect(bodyOf(lastCall(fetchMock)[1])).toEqual({ itemId: 1, clientReqId: 'req-s' })
@@ -497,9 +497,9 @@ describe('module endpoint contracts (print / image / arrival / scan actions / st
     await fetchStocktake(4)
     expect(fetchMock.mock.calls[3]![0]).toBe('/api/stocktakes/4')
 
-    await scanStocktakeItem(4, 'HTK9-A1X')
+    await scanStocktakeItem(4, 'HT9-A1X')
     expect(fetchMock.mock.calls[4]![0]).toBe('/api/stocktakes/4/scans')
-    expect(bodyOf(fetchMock.mock.calls[4]![1] as RequestInit)).toEqual({ code: 'HTK9-A1X' })
+    expect(bodyOf(fetchMock.mock.calls[4]![1] as RequestInit)).toEqual({ code: 'HT9-A1X' })
 
     await closeStocktake(4)
     expect(fetchMock.mock.calls[5]![0]).toBe('/api/stocktakes/4/close')
@@ -571,9 +571,9 @@ describe('binary downloads (requestBlob: template and export)', () => {
   it('downloadExcelExport assembles the filter query and trims the code', async () => {
     const fetchMock = vi.fn().mockResolvedValue(blobResponse({}))
     vi.stubGlobal('fetch', fetchMock)
-    await downloadExcelExport({ createdFrom: '2026-09-01', createdTo: '2026-09-30', venueId: 2, code: '  HTK9-A1X  ' })
+    await downloadExcelExport({ createdFrom: '2026-09-01', createdTo: '2026-09-30', venueId: 2, code: '  HT9-A1X  ' })
     expect(fetchMock.mock.calls[0]![0]).toBe(
-      '/api/excel/items/export?createdFrom=2026-09-01&createdTo=2026-09-30&venueId=2&code=HTK9-A1X',
+      '/api/excel/items/export?createdFrom=2026-09-01&createdTo=2026-09-30&venueId=2&code=HT9-A1X',
     )
     await downloadExcelExport({ createdFrom: '2026-09-01', createdTo: '2026-09-30', code: '' })
     expect(fetchMock.mock.calls[1]![0]).toBe('/api/excel/items/export?createdFrom=2026-09-01&createdTo=2026-09-30')

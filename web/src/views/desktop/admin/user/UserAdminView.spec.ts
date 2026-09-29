@@ -37,6 +37,7 @@ import type { AdminUser, MeResponse } from '@/utils/api'
  */
 
 const meAdmin: MeResponse = {
+  id: 1,
   username: 'boss',
   displayName: '管理者',
   role: 1,

@@ -124,8 +124,6 @@ class ExcelIntegrationTest {
                 """, ENCODER.encode(PASSWORD), ENCODER.encode(PASSWORD), ENCODER.encode(PASSWORD));
         jdbcTemplate.update("DELETE FROM auction_venue");
         jdbcTemplate.update("DELETE FROM price_band");
-        jdbcTemplate.update("DELETE FROM year_code");
-        jdbcTemplate.update("INSERT INTO year_code(`year`, code) VALUES (2016,'A'),(2026,'K'),(2027,'L')");
         jdbcTemplate.update(
                 "INSERT INTO price_band(code, lower_bound, upper_bound, enabled) VALUES ('X', 0, 3000, 1), ('Y', 3000, 1000000, 1)");
         jdbcTemplate.update("INSERT INTO auction_venue(code, name, enabled) VALUES ('HT', '飛騨古民具市', 1)");
@@ -228,7 +226,7 @@ class ExcelIntegrationTest {
 
     private String counterOf() {
         return jdbcTemplate.queryForObject(
-                "SELECT CONCAT(cur_prefix, cur_seq) FROM seq_item_code WHERE venue_id = ? AND `year` = 2026 AND month = 9",
+                "SELECT CONCAT(cur_prefix, cur_seq) FROM seq_item_code WHERE venue_id = ? AND month = 9",
                 String.class, venueId);
     }
 
@@ -305,16 +303,16 @@ class ExcelIntegrationTest {
         MockHttpSession editor = loginAs("eichi");
         // 行 1：旧号导入（金额为数值单元格——真实文件里 Excel 把数字存 double 的经典形态）
         long batchId = upload(editor, xlsx(null, List.of(
-                dataRow("HTK9-A5X", "HT", "2026-09-01", 12000, "名古屋"),
+                dataRow("HT9-A5X", "HT", "2026-09-01", 12000, "名古屋"),
                 dataRow("", "HT", "2026/9/2", "8000", "福岡"))), "dual.xlsx");
         String report = awaitBatch(editor, batchId);
         assertThat(report).contains("\"status\":1").contains("\"rowCount\":2")
                 .contains("\"generatedCount\":1").contains("\"importedCount\":1")
                 .contains("\"errorCount\":0");
 
-        // 旧号 A5X 落库；生成件接续计数器（8000→Y 档→HTK9-A6Y）
-        assertThat(itemCodeCount("HTK9-A5X")).isEqualTo(1);
-        assertThat(itemCodeCount("HTK9-A6Y")).isEqualTo(1);
+        // 旧号 A5X 落库；生成件接续计数器（8000→Y 档→HT9-A6Y）
+        assertThat(itemCodeCount("HT9-A5X")).isEqualTo(1);
+        assertThat(itemCodeCount("HT9-A6Y")).isEqualTo(1);
         assertThat(counterOf()).isEqualTo("A6");
         // 跳变说明：桶从 A0 被旧号推到 A5
         assertThat(jdbcTemplate.queryForObject(
@@ -338,8 +336,8 @@ class ExcelIntegrationTest {
         MockHttpSession editor = loginAs("eichi");
         // A9 先进（跳变 A0→A9），A5 后进（≤cur 历史件，不回拨不产生第二条跳变）
         long batchId = upload(editor, xlsx(null, List.of(
-                dataRow("HTK9-A9X", "HT", "2026-09-01", 12000, "1"),
-                dataRow("HTK9-A5Z", "HT", "2026-09-01", 8000, "1"))), "history.xlsx");
+                dataRow("HT9-A9X", "HT", "2026-09-01", 12000, "1"),
+                dataRow("HT9-A5Z", "HT", "2026-09-01", 8000, "1"))), "history.xlsx");
         String report = awaitBatch(editor, batchId);
         assertThat(report).contains("\"status\":1").contains("\"importedCount\":2")
                 .contains("\"errorCount\":0");
@@ -348,8 +346,8 @@ class ExcelIntegrationTest {
                 "SELECT note FROM excel_import_batch WHERE id = ?", String.class, batchId);
         assertThat(note).contains("A0→A9").doesNotContain("A5→");
         // 同前缀同流水、不同价格码字母=两件并存（档位字母变体合法性）
-        assertThat(itemCodeCount("HTK9-A9X")).isEqualTo(1);
-        assertThat(itemCodeCount("HTK9-A5Z")).isEqualTo(1);
+        assertThat(itemCodeCount("HT9-A9X")).isEqualTo(1);
+        assertThat(itemCodeCount("HT9-A5Z")).isEqualTo(1);
     }
 
     @Test
@@ -380,7 +378,7 @@ class ExcelIntegrationTest {
         MockHttpSession editor = loginAs("eichi");
         byte[] bytes = xlsx(List.of("商品番号"), List.of(
                 dataRow("", "HT", "2026-09-01", "1000", "1"),
-                dataRow("HTK9-A5X", "HT", "2026-09-01", "1000", "1")));
+                dataRow("HT9-A5X", "HT", "2026-09-01", "1000", "1")));
         long batchId = upload(editor, bytes, "wrong-header.xlsx");
         String report = awaitBatch(editor, batchId);
         assertThat(report).contains("\"status\":2");
@@ -415,7 +413,7 @@ class ExcelIntegrationTest {
     void badRowSampled_goodRowsContinue() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         long batchId = upload(editor, xlsx(null, List.of(
-                dataRow("HTK9-A5X", "HT", "2026-09-01", "1000", "1"),
+                dataRow("HT9-A5X", "HT", "2026-09-01", "1000", "1"),
                 dataRow("", "HT", "2026-09-01", "1000", "3"),   // 倉庫 3=行错误
                 dataRow("", "HT", "2026-09-02", "1000", "1"))), "mixed.xlsx");
         String report = awaitBatch(editor, batchId);
@@ -498,14 +496,14 @@ class ExcelIntegrationTest {
         assertThat(rows.get(0).stream().filter(Objects::nonNull).count()).isEqualTo(25);
         assertThat(ExcelRowParser.cellText(rows.get(0).get(0))).isEqualTo("管理番号");
         assertThat(rows.get(1).stream().map(ExcelRowParser::cellText))
-                .contains("HTK9-A1X", "名古屋", "移動中", "未出品", "1000", "1500")
-                .doesNotContain("HTK9-A2X");
+                .contains("HT9-A1X", "名古屋", "移動中", "未出品", "1000", "1500")
+                .doesNotContain("HT9-A2X");
 
         // 空结果区间=仅表头行（倒挂+无码是 400，见下方同步断言——不与成功路径混用）
         byte[] empty = export(editor, "2027-01-01", "2027-12-31", null);
         assertThat(readAll(empty, 0)).hasSize(1);
 
-        byte[] single = export(editor, "2026-12-31", "2026-01-01", "HTK9-A1X");
+        byte[] single = export(editor, "2026-12-31", "2026-01-01", "HT9-A1X");
         assertThat(readAll(single, 0)).hasSize(2);
 
         // 无码条件时倒挂区间=400（校验在响应头提交前同步抛出，不经 async）
@@ -526,7 +524,7 @@ class ExcelIntegrationTest {
         // 类级 max-rows=3（绑定修复后真正生效）：导入侧 3 行旧号
         List<List<Object>> rows = new ArrayList<>();
         for (int seq = 10; seq <= 12; seq++) {
-            rows.add(dataRow("HTK9-A" + seq + "Z", "HT", "2026-09-01", 12000, "1"));
+            rows.add(dataRow("HT9-A" + seq + "Z", "HT", "2026-09-01", 12000, "1"));
         }
         long batchId = upload(editor, xlsx(null, rows), "concurrent.xlsx");
 
@@ -565,10 +563,10 @@ class ExcelIntegrationTest {
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) - COUNT(DISTINCT item_code) FROM item", Long.class)).isZero();
         Integer maxSeq = jdbcTemplate.queryForObject(
-                "SELECT MAX(seq_no) FROM item WHERE venue_id = ? AND `year` = 2026 AND buy_month = 9",
+                "SELECT MAX(seq_no) FROM item WHERE venue_id = ? AND buy_month = 9",
                 Integer.class, venueId);
         Integer curSeq = jdbcTemplate.queryForObject(
-                "SELECT cur_seq FROM seq_item_code WHERE venue_id = ? AND `year` = 2026 AND month = 9",
+                "SELECT cur_seq FROM seq_item_code WHERE venue_id = ? AND month = 9",
                 Integer.class, venueId);
         assertThat(curSeq).isEqualTo(maxSeq);
     }

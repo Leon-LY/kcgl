@@ -54,6 +54,7 @@ import type { MeResponse, StocktakeDiffList, StocktakeDiffRow, StocktakeSummary 
 type ResolveCall = [number, number, 'CONFIRM' | 'IGNORE', string]
 
 const meEditor: MeResponse = {
+  id: 2,
   username: 'eichi',
   displayName: '編集者',
   role: 2,
@@ -62,6 +63,7 @@ const meEditor: MeResponse = {
 }
 
 const meViewer: MeResponse = {
+  id: 3,
   username: 'miru',
   displayName: '閲覧者',
   role: 3,
@@ -92,7 +94,7 @@ function diffRow(overrides: Partial<StocktakeDiffRow> = {}): StocktakeDiffRow {
   return {
     id: 11,
     itemId: 201,
-    itemCode: 'HTK9-A1X',
+    itemCode: 'HT9-A1X',
     diffType: 1,
     expectedWarehouse: 1,
     actualWarehouse: null,

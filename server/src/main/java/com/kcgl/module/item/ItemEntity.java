@@ -10,7 +10,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 商品主表（docs/01 5.1）。号内快照列（venue_code/year_code/buy_month/seq_prefix/seq_no/
+ * 商品主表（docs/01 5.1）。号内快照列（venue_code/buy_month/seq_prefix/seq_no/
  * price_band_code）由管理号引擎在生成时写入，此后恒不变（A0 快照单模式，D 决策）。
  * total_cost/profit 为 STORED 生成列：insert/update 一律 NEVER（MySQL 3105 经典坑，
  * 集成测试读改写覆盖）。
@@ -23,8 +23,6 @@ public class ItemEntity {
     private String itemCode;
     private Long venueId;
     private String venueCode;
-    private Integer year;
-    private String yearCode;
     private Integer buyMonth;
     private String seqPrefix;
     private Integer seqNo;
@@ -80,10 +78,6 @@ public class ItemEntity {
     public void setVenueId(Long venueId) { this.venueId = venueId; }
     public String getVenueCode() { return venueCode; }
     public void setVenueCode(String venueCode) { this.venueCode = venueCode; }
-    public Integer getYear() { return year; }
-    public void setYear(Integer year) { this.year = year; }
-    public String getYearCode() { return yearCode; }
-    public void setYearCode(String yearCode) { this.yearCode = yearCode; }
     public Integer getBuyMonth() { return buyMonth; }
     public void setBuyMonth(Integer buyMonth) { this.buyMonth = buyMonth; }
     public String getSeqPrefix() { return seqPrefix; }

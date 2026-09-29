@@ -90,8 +90,6 @@ class YahooImportIntegrationTest {
                 """, ENCODER.encode(PASSWORD), ENCODER.encode(PASSWORD), ENCODER.encode(PASSWORD));
         jdbcTemplate.update("DELETE FROM auction_venue");
         jdbcTemplate.update("DELETE FROM price_band");
-        jdbcTemplate.update("DELETE FROM year_code");
-        jdbcTemplate.update("INSERT INTO year_code(`year`, code) VALUES (2016,'A'),(2026,'K'),(2027,'L')");
         jdbcTemplate.update("INSERT INTO price_band(code, lower_bound, upper_bound, enabled) VALUES ('X', 0, 3000, 1)");
         jdbcTemplate.update("INSERT INTO auction_venue(code, name, enabled) VALUES ('HT', '飛騨古民具市', 1)");
         venueId = jdbcTemplate.queryForObject("SELECT id FROM auction_venue WHERE code = 'HT'", Long.class);
@@ -182,8 +180,8 @@ class YahooImportIntegrationTest {
 
         // item1 在售标记（全角管理号+￥千分位清洗，含逗号单元格引号包裹）；item2 未上架直报成交（0→2 边）
         long batchId = upload(editor, csv(
-                "auc-101,ＨＴＫ９－Ａ１Ｘ,\"￥3,500円\",,出品中,2026/9/18 10:00,",
-                "auc-102,HTK9-A2X,5000,\"12,000\",落札されました,2026/9/18 11:00,2026/9/20 21:05:33",
+                "auc-101,ＨＴ９－Ａ１Ｘ,\"￥3,500円\",,出品中,2026/9/18 10:00,",
+                "auc-102,HT9-A2X,5000,\"12,000\",落札されました,2026/9/18 11:00,2026/9/20 21:05:33",
                 "auc-103,ZZZZ-ZZ9X,2000,,出品中,2026/9/18 12:00,"));
         String report = awaitBatch(editor, batchId);
 
@@ -226,7 +224,7 @@ class YahooImportIntegrationTest {
     @Test
     void reuploadSameBytes_409() throws Exception {
         MockHttpSession editor = loginAs("eichi");
-        byte[] bytes = csv("auc-201,HTK9-A1X,1000,,出品中,2026/9/18 10:00,");
+        byte[] bytes = csv("auc-201,HT9-A1X,1000,,出品中,2026/9/18 10:00,");
         upload(editor, bytes);
         mockMvc.perform(multipart("/api/yahoo/imports").session(editor)
                         .file(new MockMultipartFile("file", "export.csv", "text/csv", bytes)))
@@ -240,13 +238,13 @@ class YahooImportIntegrationTest {
         long item = createInStockItem(editor, "yho-b1");
 
         long soldBatch = upload(editor, csv(
-                "auc-301,HTK9-A1X,5000,30000,落札されました,2026/9/10 10:00,2026/9/15 21:00"));
+                "auc-301,HT9-A1X,5000,30000,落札されました,2026/9/10 10:00,2026/9/15 21:00"));
         awaitBatch(editor, soldBatch);
         assertThat(saleStatusOf(item)).isEqualTo(2);
 
         // 陈旧批次：更早事件时刻的「出品中」——状态/价格/商品侧均不得回退
         long staleBatch = upload(editor, csv(
-                "auc-301,HTK9-A1X,1000,,出品中,2026/9/10 10:00,"));
+                "auc-301,HT9-A1X,1000,,出品中,2026/9/10 10:00,"));
         String report = awaitBatch(editor, staleBatch);
         assertThat(report).contains("\"matchedCount\":1");
         assertThat(saleStatusOf(item)).isEqualTo(2);
@@ -265,18 +263,18 @@ class YahooImportIntegrationTest {
 
         // 前置：先在售（LIST_UP 0→1）——取消边要求 saleFrom=1
         long listBatch = upload(editor, csv(
-                "auc-401,HTK9-A1X,1000,,出品中,2026/9/8 10:00,"));
+                "auc-401,HT9-A1X,1000,,出品中,2026/9/8 10:00,"));
         awaitBatch(editor, listBatch);
         assertThat(saleStatusOf(item)).isEqualTo(1);
 
         long cancelBatch = upload(editor, csv(
-                "auc-401,HTK9-A1X,1000,,落札されませんでした,2026/9/8 10:00,2026/9/12 21:00"));
+                "auc-401,HT9-A1X,1000,,落札されませんでした,2026/9/8 10:00,2026/9/12 21:00"));
         awaitBatch(editor, cancelBatch);
         assertThat(saleStatusOf(item)).isEqualTo(3);
 
         // 重新出品：listing 3→1 允许；商品侧走 CANCEL_MARK 3→1 例外边
         long relistBatch = upload(editor, csv(
-                "auc-401,HTK9-A1X,1500,,出品中,2026/9/14 10:00,"));
+                "auc-401,HT9-A1X,1500,,出品中,2026/9/14 10:00,"));
         awaitBatch(editor, relistBatch);
         assertThat(saleStatusOf(item)).isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject(
@@ -293,8 +291,8 @@ class YahooImportIntegrationTest {
         createInStockItem(editor, "yho-e1"); // auc-501 的匹配目标
         // 坏状态文本行 → 错误行采样（行号/原文/原因），matched 不计数
         long batchId = upload(editor, csv(
-                "auc-501,HTK9-A1X,1000,,出品中,2026/9/18 10:00,",
-                "auc-502,HTK9-A2X,1000,,不明な状態,2026/9/18 10:00,"));
+                "auc-501,HT9-A1X,1000,,出品中,2026/9/18 10:00,",
+                "auc-502,HT9-A2X,1000,,不明な状態,2026/9/18 10:00,"));
         String report = awaitBatch(editor, batchId);
         assertThat(report).contains("\"status\":1").contains("\"matchedCount\":1")
                 .contains("\"rowCount\":2");
@@ -317,7 +315,7 @@ class YahooImportIntegrationTest {
         MockHttpSession viewer = loginAs("miru");
         mockMvc.perform(multipart("/api/yahoo/imports").session(viewer)
                         .file(new MockMultipartFile("file", "export.csv", "text/csv",
-                                csv("auc-601,HTK9-A1X,1000,,出品中,2026/9/18 10:00,"))))
+                                csv("auc-601,HT9-A1X,1000,,出品中,2026/9/18 10:00,"))))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/yahoo/imports").session(viewer)).andExpect(status().isOk());
         mockMvc.perform(get("/api/yahoo/reconcile").session(viewer)).andExpect(status().isOk());
@@ -332,8 +330,8 @@ class YahooImportIntegrationTest {
 
         // soldItem：SOLD_MARK → 出荷待ち候选；liveItem：LIST_UP 后被线下卖出（stock=2）
         long batchId = upload(editor, csv(
-                "auc-701,HTK9-A1X,5000,25000,落札されました,2026/9/1 10:00,2026/9/2 21:00",
-                "auc-702,HTK9-A2X,1000,,出品中,2026/9/1 10:00,"));
+                "auc-701,HT9-A1X,5000,25000,落札されました,2026/9/1 10:00,2026/9/2 21:00",
+                "auc-702,HT9-A2X,1000,,出品中,2026/9/1 10:00,"));
         awaitBatch(editor, batchId);
         jdbcTemplate.update(
                 "UPDATE item SET stock_status = 2, sale_status = 2 WHERE id = ?", liveItem);
@@ -341,7 +339,7 @@ class YahooImportIntegrationTest {
         String pending = mockMvc.perform(get("/api/yahoo/pending-shipments").session(editor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.count").value(1))
-                .andExpect(jsonPath("$.data.items[0].itemCode").value("HTK9-A1X"))
+                .andExpect(jsonPath("$.data.items[0].itemCode").value("HT9-A1X"))
                 .andExpect(jsonPath("$.data.items[0].auctionId").value("auc-701"))
                 .andExpect(jsonPath("$.data.items[0].soldPrice").value(25000))
                 .andReturn().getResponse().getContentAsString();
@@ -355,7 +353,7 @@ class YahooImportIntegrationTest {
                 .andExpect(jsonPath("$.data.withdrawNeeded.length()").value(1))
                 .andReturn().getResponse().getContentAsString();
         // 撤架视图：已出库但雅虎仍在售；listing 刚同步 → recentlySynced 降灰
-        assertThat(reconcile).contains("\"itemCode\":\"HTK9-A2X\"").contains("\"recentlySynced\":true");
+        assertThat(reconcile).contains("\"itemCode\":\"HT9-A2X\"").contains("\"recentlySynced\":true");
 
         // 卖出清账后出荷待ち清空
         jdbcTemplate.update("UPDATE item SET stock_status = 2 WHERE id = ?", soldItem);

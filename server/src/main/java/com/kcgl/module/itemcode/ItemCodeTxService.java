@@ -10,8 +10,6 @@ import com.kcgl.module.dict.PriceBandService;
 import com.kcgl.module.dict.dto.PriceBandResponse;
 import com.kcgl.module.dict.VenueEntity;
 import com.kcgl.module.dict.VenueMapper;
-import com.kcgl.module.dict.YearCodeEntity;
-import com.kcgl.module.dict.YearCodeMapper;
 import com.kcgl.module.inventory.StockLedgerEntity;
 import com.kcgl.module.inventory.StockLedgerMapper;
 import com.kcgl.module.inventory.TxnType;
@@ -55,7 +53,6 @@ public class ItemCodeTxService {
     private final StockLedgerMapper ledgerMapper;
     private final ImageMapper imageMapper;
     private final VenueMapper venueMapper;
-    private final YearCodeMapper yearCodeMapper;
     private final PriceBandService priceBandService;
     private final AuditRecorder auditRecorder;
     private final ItemCodeProperties properties;
@@ -63,14 +60,13 @@ public class ItemCodeTxService {
 
     public ItemCodeTxService(SeqItemCodeMapper seqMapper, ItemMapper itemMapper,
             StockLedgerMapper ledgerMapper, ImageMapper imageMapper, VenueMapper venueMapper,
-            YearCodeMapper yearCodeMapper, PriceBandService priceBandService,
+            PriceBandService priceBandService,
             AuditRecorder auditRecorder, ItemCodeProperties properties, Clock clock) {
         this.seqMapper = seqMapper;
         this.itemMapper = itemMapper;
         this.ledgerMapper = ledgerMapper;
         this.imageMapper = imageMapper;
         this.venueMapper = venueMapper;
-        this.yearCodeMapper = yearCodeMapper;
         this.priceBandService = priceBandService;
         this.auditRecorder = auditRecorder;
         this.properties = properties;
@@ -92,11 +88,10 @@ public class ItemCodeTxService {
         }
 
         VenueEntity venue = requireVenue(cmd.venueId());
-        YearCodeEntity yearCode = requireYearCode(cmd.buyDate().getYear());
         PriceBandResponse band = priceBandService.match(cmd.purchasePrice());
         int month = cmd.buyDate().getMonthValue();
 
-        SeqItemCodeEntity bucket = lockOrCreateBucket(cmd.venueId(), cmd.buyDate().getYear(), month);
+        SeqItemCodeEntity bucket = lockOrCreateBucket(cmd.venueId(), month);
 
         String prefix = bucket.getCurPrefix();
         int seq = bucket.getCurSeq();
@@ -109,7 +104,7 @@ public class ItemCodeTxService {
             } else {
                 seq = seq + 1;
             }
-            String candidate = ItemCodeFormatter.format(venue.getCode(), yearCode.getCode(),
+            String candidate = ItemCodeFormatter.format(venue.getCode(),
                     month, prefix, seq, band.code(), properties.withPriceCode());
             if (codeIsFree(candidate)) {
                 code = candidate;
@@ -123,7 +118,7 @@ public class ItemCodeTxService {
             audit("ITEM_CODE_SKIP", "item_code", null, Map.of(
                     "code", candidate,
                     "venueId", cmd.venueId(),
-                    "bucket", cmd.buyDate().getYear() + "-" + month,
+                    "bucket", String.valueOf(month),
                     "reason", "uk_item_code_conflict"), cmd);
         }
 
@@ -132,13 +127,12 @@ public class ItemCodeTxService {
         bucket.setUpdatedAt(LocalDateTime.now(clock));
         seqMapper.updateById(bucket);
 
-        ItemEntity item = buildItem(cmd, venue, yearCode, band, code, prefix, seq, month);
+        ItemEntity item = buildItem(cmd, venue, band, code, prefix, seq, month);
         itemMapper.insert(item);
         ledgerMapper.insert(buildCreateLedger(cmd, item));
         audit("ITEM_CREATE", "item", item.getId(), Map.of(
                 "itemCode", code,
                 "venueCode", venue.getCode(),
-                "year", cmd.buyDate().getYear(),
                 "buyMonth", month,
                 "seqPrefix", prefix,
                 "seqNo", seq,
@@ -159,7 +153,7 @@ public class ItemCodeTxService {
     /**
      * Excel 旧号导入（D-058 C/D）：管理号取自文件而非生成。与 {@link #allocateAndInsert}
      * 共用校验/落库/流水/审计内部件，差异在取号段——不搜候选号，而是校验号与行数据
-     * 一致（会场段=会場コード列、年代号/月=落札日）后按位置序推进计数器。行级错误
+     * 一致（会场段=会場コード列、月=落札日）后按位置序推进计数器。行级错误
      * 抛 VALIDATION（调用方逐行捕获记错误行，坏行不连坐全批）。
      * 不支持 reEntryOf：Excel 无该列，结构上不可达（linkReEntry 审计仍走会话版）。
      * 价格码不回验（档位快照语义同生成路径，D-001）：号的末位字母按行单价重新匹配
@@ -186,34 +180,27 @@ public class ItemCodeTxService {
         }
 
         VenueEntity venue = requireVenueByCode(parsed.venueCode());
-        YearCodeEntity yearCode = requireYearCode(cmd.buyDate().getYear());
-        if (!yearCode.getCode().equals(parsed.yearCode())) {
-            throw new BizException(ErrorCode.VALIDATION,
-                    "管理番号の年代号（" + parsed.yearCode() + "）が落札日と一致しません");
-        }
         if (parsed.month() != cmd.buyDate().getMonthValue()) {
             throw new BizException(ErrorCode.VALIDATION,
                     "管理番号の月（" + parsed.month() + "）が落札日と一致しません");
         }
         PriceBandResponse band = priceBandService.match(cmd.purchasePrice());
 
-        SeqItemCodeEntity bucket = lockOrCreateBucket(venue.getId(),
-                cmd.buyDate().getYear(), parsed.month());
+        SeqItemCodeEntity bucket = lockOrCreateBucket(venue.getId(), parsed.month());
         if (!codeIsFree(normalized)) {
             throw new BizException(ErrorCode.VALIDATION, "管理番号は既に使用されています: " + normalized);
         }
         String transition = advanceCounterForImport(bucket, parsed.prefix(), parsed.seq());
         String jumpNote = transition == null ? null
-                : venue.getCode() + cmd.buyDate().getYear() + "-" + parsed.month() + " " + transition;
+                : venue.getCode() + "-" + parsed.month() + " " + transition;
 
-        ItemEntity item = buildItem(cmd, venue, yearCode, band, normalized,
+        ItemEntity item = buildItem(cmd, venue, band, normalized,
                 parsed.prefix(), parsed.seq(), parsed.month());
         itemMapper.insert(item);
         ledgerMapper.insert(buildCreateLedger(cmd, item));
         Map<String, Object> detail = new HashMap<>();
         detail.put("itemCode", normalized);
         detail.put("venueCode", venue.getCode());
-        detail.put("year", cmd.buyDate().getYear());
         detail.put("buyMonth", parsed.month());
         detail.put("seqPrefix", parsed.prefix());
         detail.put("seqNo", parsed.seq());
@@ -234,12 +221,10 @@ public class ItemCodeTxService {
      */
     public ItemCodePreviewResponse preview(long venueId, LocalDate buyDate, long price) {
         VenueEntity venue = requireVenue(venueId);
-        YearCodeEntity yearCode = requireYearCode(buyDate.getYear());
         PriceBandResponse band = priceBandService.match(price);
         int month = buyDate.getMonthValue();
         SeqItemCodeEntity bucket = seqMapper.selectOne(new LambdaQueryWrapper<SeqItemCodeEntity>()
                 .eq(SeqItemCodeEntity::getVenueId, venueId)
-                .eq(SeqItemCodeEntity::getYear, buyDate.getYear())
                 .eq(SeqItemCodeEntity::getMonth, month));
         String prefix = "A";
         int seq = 1;
@@ -251,7 +236,7 @@ public class ItemCodeTxService {
                 seq = bucket.getCurSeq() + 1;
             }
         }
-        String code = ItemCodeFormatter.format(venue.getCode(), yearCode.getCode(), month,
+        String code = ItemCodeFormatter.format(venue.getCode(), month,
                 prefix, seq, band.code(), properties.withPriceCode());
         return new ItemCodePreviewResponse(code, band.code(), prefix, seq);
     }
@@ -383,26 +368,17 @@ public class ItemCodeTxService {
         return venue;
     }
 
-    private YearCodeEntity requireYearCode(int year) {
-        YearCodeEntity yearCode = yearCodeMapper.selectOne(
-                new LambdaQueryWrapper<YearCodeEntity>().eq(YearCodeEntity::getYear, year));
-        if (yearCode == null) {
-            throw new BizException(ErrorCode.YEAR_CODE_NOT_FOUND);
-        }
-        return yearCode;
-    }
-
-    private SeqItemCodeEntity lockOrCreateBucket(long venueId, int year, int month) {
-        SeqItemCodeEntity bucket = seqMapper.lockBucket(venueId, year, month);
+    private SeqItemCodeEntity lockOrCreateBucket(long venueId, int month) {
+        SeqItemCodeEntity bucket = seqMapper.lockBucket(venueId, month);
         if (bucket != null) {
             return bucket;
         }
         try {
-            seqMapper.insertIgnoreBucket(venueId, year, month);
+            seqMapper.insertIgnoreBucket(venueId, month);
         } catch (DuplicateKeyException e) {
             // 并发建桶竞争：IGNORE 兜住，重锁读胜者
         }
-        bucket = seqMapper.lockBucket(venueId, year, month);
+        bucket = seqMapper.lockBucket(venueId, month);
         if (bucket == null) {
             throw new BizException(ErrorCode.INTERNAL, "採番カウンタ行の作成に失敗しました");
         }
@@ -460,14 +436,12 @@ public class ItemCodeTxService {
                 cmd.operatorId(), cmd.operatorName());
     }
 
-    private ItemEntity buildItem(CreateItemCommand cmd, VenueEntity venue, YearCodeEntity yearCode,
+    private ItemEntity buildItem(CreateItemCommand cmd, VenueEntity venue,
             PriceBandResponse band, String code, String prefix, int seq, int month) {
         ItemEntity item = new ItemEntity();
         item.setItemCode(code);
         item.setVenueId(venue.getId());
         item.setVenueCode(venue.getCode());
-        item.setYear(cmd.buyDate().getYear());
-        item.setYearCode(yearCode.getCode());
         item.setBuyMonth(month);
         item.setSeqPrefix(prefix);
         item.setSeqNo(seq);

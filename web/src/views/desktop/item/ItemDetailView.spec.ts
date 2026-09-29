@@ -42,12 +42,13 @@ import type {
 } from '@/utils/api'
 
 /**
- * 商品详情（M5-①）：四段式全字段+分歧徽标三维度（会场码/年月/档位字母，
+ * 商品详情（M5-①）：四段式全字段+分歧徽标三维度（会场码/月/档位字母，
  * D-063 快照单模式界面落点）+编辑弹层全量 PUT（null=清空）+409000 冲突重读
  * +作废→?reEntry= 深链+管理员删除回列表+历史两表懒加载（列探测 D-056 兜底）。
  */
 
 const meEditor: MeResponse = {
+  id: 2,
   username: 'editor',
   displayName: '編集者',
   role: 2,
@@ -56,6 +57,7 @@ const meEditor: MeResponse = {
 }
 
 const meAdmin: MeResponse = {
+  id: 1,
   username: 'boss',
   displayName: '管理者',
   role: 1,
@@ -64,6 +66,7 @@ const meAdmin: MeResponse = {
 }
 
 const meViewer: MeResponse = {
+  id: 3,
   username: 'miru',
   displayName: '閲覧者',
   role: 3,
@@ -74,11 +77,9 @@ const meViewer: MeResponse = {
 function item(overrides: Partial<ItemResponse> = {}): ItemResponse {
   return {
     id: 1,
-    itemCode: 'HTK9-A1X',
+    itemCode: 'HT9-A1X',
     venueId: 1,
     venueCode: 'HT',
-    year: 2026,
-    yearCode: 'K',
     buyMonth: 1,
     seqPrefix: 'A',
     seqNo: 1,
@@ -216,7 +217,7 @@ describe('item detail view (M5-1)', () => {
       shelfNo: 'A-01',
     })
 
-    expect(wrapper.find('.itemd-code').text()).toBe('HTK9-A1X')
+    expect(wrapper.find('.itemd-code').text()).toBe('HT9-A1X')
     // 标题行：移動中（中性）+落札済み（green）双标签
     expect(wrapper.find('.itemd-title .itemd-tag.is-neutral').text()).toBe('移動中')
     expect(wrapper.find('.itemd-title .itemd-tag.is-success').text()).toBe('落札済み')
@@ -226,8 +227,8 @@ describe('item detail view (M5-1)', () => {
     expect(wrapper.text()).toContain('￥8,000')
     expect(wrapper.text()).toContain('棚番号')
     expect(wrapper.text()).toContain('A-01')
-    // 発番情報=快照人读串（会场名+年月+序号+价格档）
-    expect(wrapper.text()).toContain('飛騨古美術市 2026年1月 A1 価格帯 X')
+    // 発番情報=快照人读串（会场名+月+序号+价格档）
+    expect(wrapper.text()).toContain('飛騨古美術市 1月 A1 価格帯 X')
     // 照片区：1 枚缩略图可见
     expect(wrapper.find('.itemd-photos-title').text()).toBe('写真 1 枚')
     expect(wrapper.find('.itemd-photo').exists()).toBe(true)
@@ -246,10 +247,15 @@ describe('item detail view (M5-1)', () => {
       .toBe('管理番号発行時の内容と現在の値が異なります')
     await band.wrapper.unmount()
 
-    // ② 年月：号内 2026/1 vs 落札日 2026-02
+    // ② 月：号内 1 vs 落札日 2026-02
     const date = await mountView(2, { buyDate: '2026-02-15' })
     expect(date.wrapper.find('.itemd-divergence').exists()).toBe(true)
     await date.wrapper.unmount()
+
+    // ②-b 跨年同月不徽标（D-068：号内只含月不含年——2027-01 与号内 1 月一致）
+    const crossYear = await mountView(2, { buyDate: '2027-01-15' })
+    expect(crossYear.wrapper.find('.itemd-divergence').exists()).toBe(false)
+    await crossYear.wrapper.unmount()
 
     // ③ 会场：号内 HT vs 现会场 TK
     const venue = await mountView(2, { venueId: 2 })
@@ -399,7 +405,7 @@ describe('item detail view (M5-1)', () => {
     expect(viewer.wrapper.findAll('button').filter((b) => b.text() === '編集する')).toHaveLength(0)
     expect(viewer.wrapper.findAll('button').filter((b) => b.text() === '取り消して再登録')).toHaveLength(0)
     expect(viewer.wrapper.findAll('button').filter((b) => b.text() === '削除する')).toHaveLength(0)
-    expect(viewer.wrapper.find('.itemd-code').text()).toBe('HTK9-A1X')
+    expect(viewer.wrapper.find('.itemd-code').text()).toBe('HT9-A1X')
   })
 
   it('renders the voided banner and hides actions for a voided item', async () => {

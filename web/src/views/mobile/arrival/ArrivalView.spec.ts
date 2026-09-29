@@ -31,6 +31,7 @@ import type { MeResponse, PendingArrival, PendingArrivalList } from '@/utils/api
 type ConfirmCall = [{ itemId: number; clientReqId: string }[], string | undefined]
 
 const meEditor: MeResponse = {
+  id: 2,
   username: 'eichi',
   displayName: '編集者',
   role: 2,
@@ -39,6 +40,7 @@ const meEditor: MeResponse = {
 }
 
 const meViewer: MeResponse = {
+  id: 3,
   username: 'miru',
   displayName: '閲覧者',
   role: 3,
@@ -114,13 +116,13 @@ afterEach(() => {
 describe('arrival check (M2-8a)', () => {
   it('renders pending items with count, warehouse tags, and the purchase date', async () => {
     apiMocks.fetchPendingArrivals.mockResolvedValue(
-      page([row(101, 'HTK9-A1X', 1), row(102, 'HTK9-A2X', 2)]),
+      page([row(101, 'HT9-A1X', 1), row(102, 'HT9-A2X', 2)]),
     )
     const wrapper = await mountView()
 
     await waitFor(() => cards(wrapper).length === 2)
-    expect(wrapper.text()).toContain('HTK9-A1X')
-    expect(wrapper.text()).toContain('HTK9-A2X')
+    expect(wrapper.text()).toContain('HT9-A1X')
+    expect(wrapper.text()).toContain('HT9-A2X')
     expect(wrapper.text()).toContain('入庫待ち 2 件')
     expect(wrapper.text()).toContain('名古屋倉庫')
     expect(wrapper.text()).toContain('福岡倉庫')
@@ -134,8 +136,8 @@ describe('arrival check (M2-8a)', () => {
     apiMocks.fetchPendingArrivals.mockImplementation(
       async (_warehouse: number | null, p: number) =>
         p === 1
-          ? { total: 3, page: 1, size: 2, rows: [row(103, 'HTK9-A3X', 1), row(102, 'HTK9-A2X', 1)] }
-          : { total: 3, page: 2, size: 2, rows: [row(101, 'HTK9-A1X', 1)] },
+          ? { total: 3, page: 1, size: 2, rows: [row(103, 'HT9-A3X', 1), row(102, 'HT9-A2X', 1)] }
+          : { total: 3, page: 2, size: 2, rows: [row(101, 'HT9-A1X', 1)] },
     )
     const wrapper = await mountView()
 
@@ -155,8 +157,8 @@ describe('arrival check (M2-8a)', () => {
   it('switching the warehouse filter refetches page 1 and clears the selection', async () => {
     apiMocks.fetchPendingArrivals.mockImplementation(async (warehouse: number | null) =>
       warehouse === 2
-        ? page([row(102, 'HTK9-A2X', 2)])
-        : page([row(101, 'HTK9-A1X', 1), row(102, 'HTK9-A2X', 2)]),
+        ? page([row(102, 'HT9-A2X', 2)])
+        : page([row(101, 'HT9-A1X', 1), row(102, 'HT9-A2X', 2)]),
     )
     const wrapper = await mountView()
     await waitFor(() => cards(wrapper).length === 2)
@@ -177,7 +179,7 @@ describe('arrival check (M2-8a)', () => {
 
   it('confirms selected items with the chosen date, then clears and reloads the list', async () => {
     apiMocks.fetchPendingArrivals.mockResolvedValue(
-      page([row(101, 'HTK9-A1X', 1), row(102, 'HTK9-A2X', 2)]),
+      page([row(101, 'HT9-A1X', 1), row(102, 'HT9-A2X', 2)]),
     )
     const wrapper = await mountView()
     await waitFor(() => cards(wrapper).length === 2)
@@ -211,7 +213,7 @@ describe('arrival check (M2-8a)', () => {
   })
 
   it('on failure keeps the dialog open and retries with the same clientReqIds (7.0 replay)', async () => {
-    apiMocks.fetchPendingArrivals.mockResolvedValue(page([row(101, 'HTK9-A1X', 1)]))
+    apiMocks.fetchPendingArrivals.mockResolvedValue(page([row(101, 'HT9-A1X', 1)]))
     const wrapper = await mountView()
     await waitFor(() => cards(wrapper).length === 1)
 
@@ -242,7 +244,7 @@ describe('arrival check (M2-8a)', () => {
   })
 
   it('renders a read-only list for viewers (no action bar, cards not selectable)', async () => {
-    apiMocks.fetchPendingArrivals.mockResolvedValue(page([row(101, 'HTK9-A1X', 1)]))
+    apiMocks.fetchPendingArrivals.mockResolvedValue(page([row(101, 'HT9-A1X', 1)]))
     const wrapper = await mountView(3)
     await waitFor(() => cards(wrapper).length === 1)
 

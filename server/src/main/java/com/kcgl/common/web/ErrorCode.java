@@ -22,7 +22,6 @@ public enum ErrorCode {
     NOT_FOUND(404001, "対象が見つかりません"),
     PRICE_BAND_NOT_MATCHED(404002, "この価格に該当する価格帯がありません。管理画面で価格帯を設定してください"),
     VENUE_NOT_FOUND(404003, "選択された会場が存在しません"),
-    YEAR_CODE_NOT_FOUND(404004, "落札日の年に対応する年代号が未登録です。管理画面で年代号を登録してください"),
 
     IMAGE_FORMAT_INVALID(400005, "対応していない画像形式です（JPEG / PNG のみ）"),
     IMAGE_TOO_LARGE(400006, "画像サイズが上限（5MB）を超えています"),
@@ -46,7 +45,6 @@ public enum ErrorCode {
     VENUE_EXISTS(409002, "この会場コードは既に登録されています"),
     PRICE_BAND_EXISTS(409003, "この価格帯コードは既に登録されています"),
     PRICE_BAND_OVERLAP(409004, "価格帯の範囲が既存の価格帯と重複しています"),
-    YEAR_CODE_EXISTS(409005, "この年または年代号は既に登録されています"),
     ITEM_ALREADY_VOIDED(409006, "この商品は既に取り消されています"),
     ITEM_NOT_VOIDED(409007, "再登録元の商品が取り消されていません。先に取り消してください"),
     INVALID_TRANSITION(409008, "商品の現在の状態ではこの操作はできません。画面を再読み込みして確認してください"),

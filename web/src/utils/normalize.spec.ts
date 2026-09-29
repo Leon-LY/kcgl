@@ -7,7 +7,7 @@ describe('normalizeNumericText', () => {
   })
 
   it('converts full-width letters and symbols to half-width', () => {
-    expect(normalizeNumericText('ＨＴＫ')).toBe('HTK')
+    expect(normalizeNumericText('ＨＴ９')).toBe('HT9')
   })
 
   it('strips currency symbols, thousand separators, yen notation, and whitespace', () => {

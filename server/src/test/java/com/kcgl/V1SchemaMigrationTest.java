@@ -16,8 +16,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * V1__init.sql 迁移契约测试（docs/01 十一节：schema 是一切业务代码的契约）。
- * 后续新增 V(n) 迁移时，在此类扩展「V(n-1)+种子 → 跑 V(n) → 行数不变/不变量成立」的前向兼容用例。
+ * 迁移链契约测试（docs/01 十一节：schema 是一切业务代码的契约）——本类断言
+ * V1→V2→V3 完整链跑完后的最终态。V3 为破坏性迁移（去年代号，D-068），其
+ * 「V2+种子 → 跑 V3 → 行不变/计数器重建」前向数据保全用例见 {@link V3DropYearCodeMigrationTest}。
+ * 后续新增 V(n) 迁移时，在此类扩展「V(n-1)+种子 → 跑 V(n) → 行数不变/不变量成立」用例。
  */
 @SpringBootTest
 @Testcontainers
@@ -38,32 +40,17 @@ class V1SchemaMigrationTest {
     JdbcTemplate jdbc;
 
     @Test
-    void migration_createsAll18Tables() {
+    void migration_createsAll17Tables() {
         List<String> tables = jdbc.queryForList(
                 "SELECT table_name FROM information_schema.tables "
                         + "WHERE table_schema = DATABASE() AND table_name <> 'flyway_schema_history' "
                         + "ORDER BY table_name", String.class);
         assertThat(tables).containsExactlyInAnyOrder(
-                "sys_user", "auction_venue", "year_code", "price_band", "item",
+                "sys_user", "auction_venue", "price_band", "item",
                 "seq_item_code", "item_image", "stock_ledger", "yahoo_listing",
                 "yahoo_import_batch", "stocktake", "stocktake_scan", "stocktake_diff",
                 "operation_log", "sys_setting", "sys_alert", "client_error",
                 "excel_import_batch");
-    }
-
-    @Test
-    void yearCodeSeed_from2016A_annualIncrementSkippingIO() {
-        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM year_code", Integer.class);
-        assertThat(count).isEqualTo(26);
-        assertThat(jdbc.queryForObject("SELECT code FROM year_code WHERE `year` = 2016", String.class))
-                .isEqualTo("A");
-        // 需求示例锚点：2026=K、2027=L（docs/01 D-003）
-        assertThat(jdbc.queryForObject("SELECT code FROM year_code WHERE `year` = 2026", String.class))
-                .isEqualTo("K");
-        assertThat(jdbc.queryForObject("SELECT code FROM year_code WHERE `year` = 2027", String.class))
-                .isEqualTo("L");
-        assertThat(jdbc.queryForObject("SELECT code FROM year_code WHERE `year` = 2041", String.class))
-                .isEqualTo("Z");
     }
 
     @Test
@@ -85,7 +72,7 @@ class V1SchemaMigrationTest {
     @Test
     void checkConstraint_counterInvalidMonth_rejected() {
         assertThatThrownBy(() -> jdbc.update(
-                "INSERT INTO seq_item_code (venue_id, `year`, month, cur_prefix, cur_seq) VALUES (1, 2026, 13, 'A', 0)"))
+                "INSERT INTO seq_item_code (venue_id, month, cur_prefix, cur_seq) VALUES (1, 13, 'A', 0)"))
                 .isInstanceOf(DataAccessException.class)
                 .hasMessageContaining("chk_seq_month");
     }
@@ -95,24 +82,23 @@ class V1SchemaMigrationTest {
         jdbc.update("INSERT INTO auction_venue (code, name) VALUES ('HT', 'テスト会場')");
         Long venueId = jdbc.queryForObject("SELECT id FROM auction_venue WHERE code = 'HT'", Long.class);
         jdbc.update("""
-                INSERT INTO item (item_code, venue_id, venue_code, `year`, year_code, buy_month,
+                INSERT INTO item (item_code, venue_id, venue_code, buy_month,
                     seq_prefix, seq_no, buy_date, purchase_price, fee, shipping_fee, tax,
                     price_band_code, warehouse, created_by)
-                VALUES ('HTK9-A1X', ?, 'HT', 2026, 'K', 9, 'A', 1, '2026-09-27', 1000, 200, 300, 100, 'X', 1, 1)
+                VALUES ('HT9-A1X', ?, 'HT', 9, 'A', 1, '2026-09-27', 1000, 200, 300, 100, 'X', 1, 1)
                 """, venueId);
         Integer totalCost = jdbc.queryForObject(
-                "SELECT total_cost FROM item WHERE item_code = 'HTK9-A1X'", Integer.class);
+                "SELECT total_cost FROM item WHERE item_code = 'HT9-A1X'", Integer.class);
         assertThat(totalCost).isEqualTo(1600);
         // sold_price 未填 → profit 为 NULL（自然传播）
         Integer profit = jdbc.queryForObject(
-                "SELECT profit FROM item WHERE item_code = 'HTK9-A1X'", Integer.class);
+                "SELECT profit FROM item WHERE item_code = 'HT9-A1X'", Integer.class);
         assertThat(profit).isNull();
     }
 
     /**
      * V2 前向迁移伴随锚点（D-058 J）：V2 为纯加法（新建 excel_import_batch，不动既有表），
-     * 既有种子数据经完整迁移链（V1→V2）后不变——yearCodeSeed/sysSettingSeed 两用例在本类
-     * 先后运行即承担「行不变」断言；此处钉死新表形状与约束。
+     * 既有种子数据经完整迁移链后不变——sysSettingSeed 用例承担「行不变」断言；此处钉死新表形状与约束。
      */
     @Test
     void v2ExcelImportBatch_constraintsEnforced() {

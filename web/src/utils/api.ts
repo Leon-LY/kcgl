@@ -67,6 +67,8 @@ function jsonInit(method: string, payload: unknown): RequestInit {
 // ------------------------------------------------------------------ 认证
 
 export interface MeResponse {
+  /** 用户主键：SSE 回声抑制比对基准（自己操作的广播不触发失效，D-070）。 */
+  id: number
   username: string
   displayName: string
   role: number
@@ -127,12 +129,6 @@ export interface PriceBand {
   enabled: boolean
 }
 
-export interface YearCode {
-  id: number
-  year: number
-  code: string
-}
-
 /** 录入页只用启用会场（停用会场仍可补录属后端语义，前端下拉不给入口）。 */
 export function fetchVenues(enabledOnly: boolean): Promise<Venue[]> {
   const query = enabledOnly ? '?enabled=true' : ''
@@ -141,10 +137,6 @@ export function fetchVenues(enabledOnly: boolean): Promise<Venue[]> {
 
 export function fetchPriceBands(): Promise<PriceBand[]> {
   return request('/api/price-bands', { method: 'GET' })
-}
-
-export function fetchYearCodes(): Promise<YearCode[]> {
-  return request('/api/year-codes', { method: 'GET' })
 }
 
 // ------------------------------------------------------------------ 字典管理（M2-8b-2）
@@ -180,15 +172,6 @@ export function updatePriceBand(id: number, payload: PriceBandUpsertPayload): Pr
 
 export function setPriceBandStatus(id: number, enabled: boolean): Promise<PriceBand> {
   return request(`/api/price-bands/${id}/status`, jsonInit('PATCH', { enabled: enabled ? 1 : 0 }))
-}
-
-/** 年代号增/改（年份↔代号双向唯一；Z 用尽后扩展双字母前的运维口）。 */
-export function createYearCode(payload: { year: number; code: string }): Promise<YearCode> {
-  return request('/api/year-codes', jsonInit('POST', payload))
-}
-
-export function updateYearCode(id: number, payload: { year: number; code: string }): Promise<YearCode> {
-  return request(`/api/year-codes/${id}`, jsonInit('PUT', payload))
 }
 
 // ------------------------------------------------------------------ 账号管理（M2-8b-3）
@@ -296,8 +279,6 @@ export interface ItemResponse {
   itemCode: string
   venueId: number
   venueCode: string
-  year: number
-  yearCode: string
   buyMonth: number
   seqPrefix: string
   seqNo: number

@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
  *
  * kw 优先级链（D-062）：
  * ① NFKC+大写后整串命中管理号正则 → uk 精确快路径（探测不加 voided/deleted
- *    过滤=号身份语义，探测落空回落模糊——部分码如 HTK9-A1 亦命中正则因频段组可选）；
+ *    过滤=号身份语义，探测落空回落模糊——部分码如 HT9-A1 亦命中正则因价格码组可选）；
  * ② yyyy-M-d / yyyy/M/d 日期双格式 → buy_date 等值（LocalDate.parse 不支持单数位
  *    月日，正则捕获后 LocalDate.of 构造）；
  * ③ 模糊：会场名预解析（venue_id IN）与 7 列 LIKE OR 组合；%/_/\ 字面化

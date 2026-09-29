@@ -47,7 +47,7 @@ class YahooCsvTest {
     @Test
     void decode_utf8Bom_detectedAndStripped() {
         byte[] bom = {(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
-        byte[] body = "商品コード,状態\nHTK9-A1X,出品中".getBytes(StandardCharsets.UTF_8);
+        byte[] body = "商品コード,状態\nHT9-A1X,出品中".getBytes(StandardCharsets.UTF_8);
         byte[] bytes = new byte[bom.length + body.length];
         System.arraycopy(bom, 0, bytes, 0, bom.length);
         System.arraycopy(body, 0, bytes, bom.length, body.length);
@@ -61,7 +61,7 @@ class YahooCsvTest {
     @Test
     void decode_ms932WithNecChars_decodedViaMs932() {
         // ①㈱℡＝NEC/IBM 扩展区：Shift_JIS 名义字节但仅 MS932 完整覆盖
-        String source = "商品コード,①㈱℡,状態\nHTK9-A1X,メモ①,出品中";
+        String source = "商品コード,①㈱℡,状態\nHT9-A1X,メモ①,出品中";
         byte[] bytes = source.getBytes(Charset.forName("MS932"));
 
         YahooCsvDecoder.Decoded decoded = YahooCsvDecoder.decode(bytes);
@@ -72,7 +72,7 @@ class YahooCsvTest {
 
     @Test
     void decode_utf8NoBom_detected() {
-        String source = "商品コード,状態\nHTK9-A1X,出品中";
+        String source = "商品コード,状態\nHT9-A1X,出品中";
         byte[] bytes = source.getBytes(StandardCharsets.UTF_8);
 
         YahooCsvDecoder.Decoded decoded = YahooCsvDecoder.decode(bytes);
@@ -83,7 +83,7 @@ class YahooCsvTest {
 
     @Test
     void decode_eucjp_decoded() {
-        String source = "商品コード,状態\nHTK9-A1X,出品中";
+        String source = "商品コード,状態\nHT9-A1X,出品中";
         byte[] bytes = source.getBytes(Charset.forName("EUC-JP"));
 
         YahooCsvDecoder.Decoded decoded = YahooCsvDecoder.decode(bytes);
@@ -125,15 +125,15 @@ class YahooCsvTest {
 
     @Test
     void parse_fullWidthCodeAndPrice_normalized() throws Exception {
-        CSVRecord record = recordOf("a12345", "ＨＴＫ９－Ａ１Ｘ", "￥１５，０００", "", "出品中",
+        CSVRecord record = recordOf("a12345", "ＨＴ９－Ａ１Ｘ", "￥１５，０００", "", "出品中",
                 "2026/9/28 14:30", "");
 
         ParseOutcome outcome = parser.parse(record);
 
         assertThat(outcome).isInstanceOf(ParseOutcome.Ok.class);
         YahooRowParser.ParsedRow row = ((ParseOutcome.Ok) outcome).row();
-        assertThat(row.itemCode()).isEqualTo("HTK9-A1X");
-        assertThat(row.rawItemCode()).isEqualTo("ＨＴＫ９－Ａ１Ｘ");
+        assertThat(row.itemCode()).isEqualTo("HT9-A1X");
+        assertThat(row.rawItemCode()).isEqualTo("ＨＴ９－Ａ１Ｘ");
         assertThat(row.listPrice()).isEqualTo(15000L);
         assertThat(row.soldPrice()).isNull();
         assertThat(row.status()).isEqualTo(ListingStatus.ON_SALE);
@@ -142,7 +142,7 @@ class YahooCsvTest {
 
     @Test
     void parse_priceYenAndCommas_stripped() throws Exception {
-        CSVRecord record = recordOf("a12345", "HTK9-A1X", "¥3,500円", "12,000", "落札されました",
+        CSVRecord record = recordOf("a12345", "HT9-A1X", "¥3,500円", "12,000", "落札されました",
                 "2026/9/1 10:00", "2026/9/7 21:05");
 
         ParseOutcome outcome = parser.parse(record);
@@ -159,13 +159,13 @@ class YahooCsvTest {
     void parse_statusMapping_containsOrder_canceledBeatsSold() throws Exception {
         // 落札されませんでした 含「落札」但不构成成交——取消判定先于成交
         assertThat(((ParseOutcome.Ok) parser.parse(
-                recordOf("a1", "HTK9-A1X", "", "", "落札されませんでした", "", ""))).row().status())
+                recordOf("a1", "HT9-A1X", "", "", "落札されませんでした", "", ""))).row().status())
                 .isEqualTo(ListingStatus.CANCELED);
         assertThat(((ParseOutcome.Ok) parser.parse(
-                recordOf("a1", "HTK9-A1X", "", "", "取消", "", ""))).row().status())
+                recordOf("a1", "HT9-A1X", "", "", "取消", "", ""))).row().status())
                 .isEqualTo(ListingStatus.CANCELED);
         assertThat(((ParseOutcome.Ok) parser.parse(
-                recordOf("a1", "HTK9-A1X", "", "", "出品中", "", ""))).row().status())
+                recordOf("a1", "HT9-A1X", "", "", "出品中", "", ""))).row().status())
                 .isEqualTo(ListingStatus.ON_SALE);
     }
 
@@ -183,35 +183,35 @@ class YahooCsvTest {
 
     @Test
     void parse_missingAuctionId_errorRow() throws Exception {
-        ParseOutcome outcome = parser.parse(recordOf("", "HTK9-A1X", "", "", "出品中", "", ""));
+        ParseOutcome outcome = parser.parse(recordOf("", "HT9-A1X", "", "", "出品中", "", ""));
 
         assertThat(outcome).isInstanceOf(ParseOutcome.Err.class);
     }
 
     @Test
     void parse_unknownStatus_errorRow() throws Exception {
-        ParseOutcome outcome = parser.parse(recordOf("a1", "HTK9-A1X", "", "", "謎の状態", "", ""));
+        ParseOutcome outcome = parser.parse(recordOf("a1", "HT9-A1X", "", "", "謎の状態", "", ""));
 
         assertThat(outcome).isInstanceOf(ParseOutcome.Err.class);
     }
 
     @Test
     void parse_badPrice_errorRow() throws Exception {
-        ParseOutcome outcome = parser.parse(recordOf("a1", "HTK9-A1X", "三百円", "", "出品中", "", ""));
+        ParseOutcome outcome = parser.parse(recordOf("a1", "HT9-A1X", "三百円", "", "出品中", "", ""));
 
         assertThat(outcome).isInstanceOf(ParseOutcome.Err.class);
     }
 
     @Test
     void parse_priceOverSystemLimit_errorRow() throws Exception {
-        ParseOutcome outcome = parser.parse(recordOf("a1", "HTK9-A1X", "100000000", "", "出品中", "", ""));
+        ParseOutcome outcome = parser.parse(recordOf("a1", "HT9-A1X", "100000000", "", "出品中", "", ""));
 
         assertThat(outcome).isInstanceOf(ParseOutcome.Err.class);
     }
 
     @Test
     void parse_badDate_errorRow() throws Exception {
-        ParseOutcome outcome = parser.parse(recordOf("a1", "HTK9-A1X", "", "", "出品中", "2026/13/45 99:99", ""));
+        ParseOutcome outcome = parser.parse(recordOf("a1", "HT9-A1X", "", "", "出品中", "2026/13/45 99:99", ""));
 
         assertThat(outcome).isInstanceOf(ParseOutcome.Err.class);
     }
@@ -245,9 +245,9 @@ class YahooCsvTest {
 
     @Test
     void itemCodePattern_validCodes() {
-        assertThat(ItemCodeFormatter.matches("HTK9-A1X")).isTrue();
-        assertThat(ItemCodeFormatter.matches("HTK12-BB10X")).isTrue();
-        assertThat(ItemCodeFormatter.matches("HTK9-A1")).isTrue(); // 不含价格码模式
+        assertThat(ItemCodeFormatter.matches("HT9-A1X")).isTrue();
+        assertThat(ItemCodeFormatter.matches("HT12-BB10X")).isTrue();
+        assertThat(ItemCodeFormatter.matches("HT9-A1")).isTrue(); // 不含价格码模式
         assertThat(ItemCodeFormatter.matches("NOT-A-CODE")).isFalse();
         assertThat(ItemCodeFormatter.matches("htk9-a1x")).isFalse();
     }

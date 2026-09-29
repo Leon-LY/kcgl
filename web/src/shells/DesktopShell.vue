@@ -7,7 +7,7 @@ import LangSwitch from '@/components/LangSwitch.vue'
 
 /**
  * 桌面壳（M1 骨架）：顶栏 = 标题 + 导航 + 用户名 + 语言切换 + 登出，
- * 内容区居中限宽。导航按角色过滤（会场=E+，价格档位/年代号=管理员）；
+ * 内容区居中限宽。导航按角色过滤（会场=E+，价格档位/账号=管理员）；
  * 页面数增多后再升级侧菜单与全局搜索（D-027/D-040）。
  */
 const { t } = useI18n()
@@ -30,7 +30,6 @@ const NAV_ITEMS: NavItem[] = [
   { name: 'print', labelKey: 'nav.print', roles: null },
   { name: 'admin-venues', labelKey: 'nav.venues', roles: [1, 2] },
   { name: 'admin-price-bands', labelKey: 'nav.priceBands', roles: [1] },
-  { name: 'admin-year-codes', labelKey: 'nav.yearCodes', roles: [1] },
   { name: 'admin-users', labelKey: 'nav.users', roles: [1] },
 ]
 

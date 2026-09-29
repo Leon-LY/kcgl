@@ -111,13 +111,13 @@ class ExcelRowParserTest {
 
     @Test
     void parse_fullOldCodeRow_returnsTypedRow() {
-        List<String> cells = row("HTK9-A5X", "HT", "2026/9/1", "￥12,000", "500", "￥800",
+        List<String> cells = row("HT9-A5X", "HT", "2026/9/1", "￥12,000", "500", "￥800",
                 "1,100", "福岡", "2026-09-20", "F-12", "G3", "2026/09/25", "傷あり",
                 "信楽焼 花瓶", "陶磁器", "作者X", "高さ30cm", "1,200", "ヤフオク");
         ParseOutcome outcome = parser.parse(cells);
         assertThat(outcome).isInstanceOf(ParseOutcome.Ok.class);
         ParsedRow parsed = ((ParseOutcome.Ok) outcome).row();
-        assertThat(parsed.itemCode()).isEqualTo("HTK9-A5X");
+        assertThat(parsed.itemCode()).isEqualTo("HT9-A5X");
         assertThat(parsed.venueCode()).isEqualTo("HT");
         assertThat(parsed.buyDate()).isEqualTo(LocalDate.of(2026, 9, 1));
         assertThat(parsed.purchasePrice()).isEqualTo(12_000L);
@@ -193,16 +193,16 @@ class ExcelRowParserTest {
     @Test
     void parse_itemCodeWithoutBand_acceptedAsOldCodeForm() {
         // 正则价格码可选（include_price_code=false 口径的存量旧号无末位字母）
-        List<String> cells = row("HTK9-A5", "HT", "2026-09-01", "1000", "", "", "", "1",
+        List<String> cells = row("HT9-A5", "HT", "2026-09-01", "1000", "", "", "", "1",
                 "", "", "", "", "", "", "", "", "", "", "");
         ParsedRow parsed = ((ParseOutcome.Ok) parser.parse(cells)).row();
-        assertThat(parsed.itemCode()).isEqualTo("HTK9-A5");
+        assertThat(parsed.itemCode()).isEqualTo("HT9-A5");
     }
 
     @ParameterizedTest
     @CsvSource({
             // 管理番号形式不正（行内即拦，不进 DB 层；流水 0 不合法 [1-9][0-9]?）
-            "HTK9-A0X, 管理番号",
+            "HT9-A0X, 管理番号",
             // 会場コード空/形式不正
             "'', 会場コード",
             "ht9, 会場コード",
@@ -256,7 +256,7 @@ class ExcelRowParserTest {
     @Test
     void parse_shortRow_reportsPreciseMissingField() {
         // 12 列で打ち切り → 13 列目（備考）以降は空扱い、必須列だけがエラーになる
-        List<String> cells = List.of("HTK9-A5X", "HT", "2026-09-01", "1000",
+        List<String> cells = List.of("HT9-A5X", "HT", "2026-09-01", "1000",
                 "", "", "", "1", "", "", "", "");
         ParseOutcome outcome = parser.parse(cells);
         // この 12 列までで必須は揃っているため Ok（残りは null）

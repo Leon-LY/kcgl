@@ -34,6 +34,7 @@ import type { ExcelImportBatch, MeResponse } from '@/utils/api'
  */
 
 const meAdmin: MeResponse = {
+  id: 1,
   username: 'boss',
   displayName: '管理者',
   role: 1,
@@ -42,6 +43,7 @@ const meAdmin: MeResponse = {
 }
 
 const meViewer: MeResponse = {
+  id: 3,
   username: 'miru',
   displayName: '閲覧者',
   role: 3,
@@ -116,7 +118,7 @@ describe('excel view (M4-5)', () => {
         errorCount: 0, finishedAt: null }),
       batch({ id: 3, status: 2, errorMessage: '1列目の表頭が一致しません',
         rowCount: 0, generatedCount: 0, importedCount: 0, errorCount: 0, finishedAt: null,
-        errorRows: [{ line: 3, raw: 'HTK9-A5X,HT,…', reason: '倉庫の値が不正です' }] }),
+        errorRows: [{ line: 3, raw: 'HT9-A5X,HT,…', reason: '倉庫の値が不正です' }] }),
     ])
     const wrapper = await mountView()
 
@@ -231,7 +233,7 @@ describe('excel view (M4-5)', () => {
       'update:modelValue',
       ['2026-12-31', '2026-01-01'],
     )
-    await wrapper.find('.excel-code input').setValue('ｈｔｋ９－ａ１ｘ')
+    await wrapper.find('.excel-code input').setValue('ｈｔ９－ａ１ｘ')
     await wrapper.find('.excel-export-row .el-button').trigger('click')
     await flushPromises()
 
@@ -239,7 +241,7 @@ describe('excel view (M4-5)', () => {
       createdFrom: '2026-12-31',
       createdTo: '2026-01-01',
       venueId: null,
-      code: 'HTK9-A1X',
+      code: 'HT9-A1X',
     })
     expect(clickSpy).toHaveBeenCalledTimes(1)
 
@@ -251,7 +253,7 @@ describe('excel view (M4-5)', () => {
       createdFrom: '2026-12-31',
       createdTo: '2026-01-01',
       venueId: 3,
-      code: 'HTK9-A1X',
+      code: 'HT9-A1X',
     })
   })
 

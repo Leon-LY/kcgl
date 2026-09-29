@@ -28,11 +28,9 @@ import { ApiError, type ItemResponse } from '@/utils/api'
 
 const itemFixture = {
   id: 11,
-  itemCode: 'HTK9-A1X',
+  itemCode: 'HT9-A1X',
   venueId: 7,
   venueCode: 'HT',
-  year: 2026,
-  yearCode: 'K',
   buyMonth: 9,
   seqPrefix: 'A',
   seqNo: 1,

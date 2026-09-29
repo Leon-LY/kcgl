@@ -33,6 +33,6 @@ public record SyncEvent(long seq, String type, String entity, Long operatorId, L
     /** 设置域：sys_setting 变更。 */
     public static final String TYPE_SETTING = "SETTING";
 
-    /** 字典域：会场/档位/年代号变更。 */
+    /** 字典域：会场/档位变更。 */
     public static final String TYPE_DICT = "DICT";
 }

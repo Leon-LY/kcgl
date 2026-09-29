@@ -29,7 +29,7 @@ import type { YahooPendingShipment, YahooPendingShipmentList } from '@/utils/api
 function shipment(overrides: Partial<YahooPendingShipment> = {}): YahooPendingShipment {
   return {
     itemId: 601,
-    itemCode: 'HTK9-A1X',
+    itemCode: 'HT9-A1X',
     thumbUrl: '/img/thumb/2026/09/a.jpg',
     warehouse: 1,
     shelfNo: 'A-03',
@@ -84,7 +84,7 @@ describe('pending shipments view', () => {
         shipment(),
         shipment({
           itemId: 602,
-          itemCode: 'HTK9-A2X',
+          itemCode: 'HT9-A2X',
           thumbUrl: null,
           warehouse: 2,
           shelfNo: null,
@@ -100,7 +100,7 @@ describe('pending shipments view', () => {
     expect(cards(wrapper)).toHaveLength(2)
 
     const first = cards(wrapper)[0]
-    expect(first.find('.shipment-code').text()).toBe('HTK9-A1X')
+    expect(first.find('.shipment-code').text()).toBe('HT9-A1X')
     expect(first.find('.shipment-thumb img').attributes('src')).toBe('/img/thumb/2026/09/a.jpg')
     const metas = first.findAll('.shipment-meta')
     expect(metas[0]!.text()).toBe('名古屋倉庫')
@@ -127,7 +127,7 @@ describe('pending shipments view', () => {
     await flushPromises()
 
     expect(router.currentRoute.value.name).toBe('scan')
-    expect(router.currentRoute.value.query.code).toBe('HTK9-A1X')
+    expect(router.currentRoute.value.query.code).toBe('HT9-A1X')
   })
 
   it('shows the empty state when nothing is pending', async () => {

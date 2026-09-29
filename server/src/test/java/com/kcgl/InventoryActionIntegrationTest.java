@@ -93,8 +93,6 @@ class InventoryActionIntegrationTest {
                 """, ENCODER.encode(PASSWORD), ENCODER.encode(PASSWORD), ENCODER.encode(PASSWORD));
         jdbcTemplate.update("DELETE FROM auction_venue");
         jdbcTemplate.update("DELETE FROM price_band");
-        jdbcTemplate.update("DELETE FROM year_code");
-        jdbcTemplate.update("INSERT INTO year_code(`year`, code) VALUES (2016,'A'),(2026,'K'),(2027,'L')");
         jdbcTemplate.update("INSERT INTO price_band(code, lower_bound, upper_bound, enabled) VALUES ('X', 0, 3000, 1)");
         jdbcTemplate.update("INSERT INTO auction_venue(code, name, enabled) VALUES ('HT', '飛騨古民具市', 1)");
         venueId = jdbcTemplate.queryForObject("SELECT id FROM auction_venue WHERE code = 'HT'", Long.class);
@@ -665,7 +663,7 @@ class InventoryActionIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.item.id").value(id));
         // 不存在的号 → 404
-        mockMvc.perform(get("/api/items/by-code/ZZZ9-Z9Z").session(editor))
+        mockMvc.perform(get("/api/items/by-code/ZZ9-Z9Z").session(editor))
                 .andExpect(status().isNotFound());
     }
 

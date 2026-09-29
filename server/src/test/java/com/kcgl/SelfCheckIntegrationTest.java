@@ -101,8 +101,6 @@ class SelfCheckIntegrationTest {
                 """, ENCODER.encode(PASSWORD), ENCODER.encode(PASSWORD), ENCODER.encode(PASSWORD));
         jdbcTemplate.update("DELETE FROM auction_venue");
         jdbcTemplate.update("DELETE FROM price_band");
-        jdbcTemplate.update("DELETE FROM year_code");
-        jdbcTemplate.update("INSERT INTO year_code(`year`, code) VALUES (2026,'K')");
         jdbcTemplate.update("INSERT INTO price_band(code, lower_bound, upper_bound, enabled) VALUES ('X', 0, 3000, 1)");
         jdbcTemplate.update("INSERT INTO auction_venue(code, name, enabled) VALUES ('HT', '飛騨古民具市', 1)");
         venueId = jdbcTemplate.queryForObject("SELECT id FROM auction_venue WHERE code = 'HT'", Long.class);
@@ -315,14 +313,14 @@ class SelfCheckIntegrationTest {
         long editorId = jdbcTemplate.queryForObject(
                 "SELECT id FROM sys_user WHERE username = 'eichi'", Long.class);
         for (int seq = 1; seq <= 9; seq++) {
-            seedCounterItem(editorId, "HTK9-A" + seq + "X", "A", seq);
+            seedCounterItem(editorId, "HT9-A" + seq + "X", "A", seq);
         }
         for (int seq = 1; seq <= 2; seq++) {
-            seedCounterItem(editorId, "HTK9-B" + seq + "X", "B", seq);
+            seedCounterItem(editorId, "HT9-B" + seq + "X", "B", seq);
         }
         jdbcTemplate.update("""
-                INSERT INTO seq_item_code(venue_id, year, month, cur_prefix, cur_seq)
-                VALUES (?, 2026, 9, 'B', 2)
+                INSERT INTO seq_item_code(venue_id, month, cur_prefix, cur_seq)
+                VALUES (?, 9, 'B', 2)
                 """, venueId);
 
         SelfCheckService.SelfCheckReport report = selfCheck.check();
@@ -335,12 +333,12 @@ class SelfCheckIntegrationTest {
     void checkCounters_currentPrefixBehindMaxSeq_flaggedWithPrefixDetail() {
         long editorId = jdbcTemplate.queryForObject(
                 "SELECT id FROM sys_user WHERE username = 'eichi'", Long.class);
-        seedCounterItem(editorId, "HTK9-A1X", "A", 1);
-        seedCounterItem(editorId, "HTK9-B1X", "B", 1);
-        seedCounterItem(editorId, "HTK9-B2X", "B", 2);
+        seedCounterItem(editorId, "HT9-A1X", "A", 1);
+        seedCounterItem(editorId, "HT9-B1X", "B", 1);
+        seedCounterItem(editorId, "HT9-B2X", "B", 2);
         jdbcTemplate.update("""
-                INSERT INTO seq_item_code(venue_id, year, month, cur_prefix, cur_seq)
-                VALUES (?, 2026, 9, 'B', 0)
+                INSERT INTO seq_item_code(venue_id, month, cur_prefix, cur_seq)
+                VALUES (?, 9, 'B', 0)
                 """, venueId);
 
         SelfCheckService.SelfCheckReport report = selfCheck.check();
@@ -355,10 +353,10 @@ class SelfCheckIntegrationTest {
     /** 直插 item 行（在途态，不写 ledger）供计数器检查夹具用。 */
     private void seedCounterItem(long userId, String itemCode, String seqPrefix, int seqNo) {
         jdbcTemplate.update("""
-                INSERT INTO item(item_code, venue_id, venue_code, year, year_code, buy_month,
+                INSERT INTO item(item_code, venue_id, venue_code, buy_month,
                     seq_prefix, seq_no, buy_date, purchase_price, price_band_code, warehouse,
                     stock_status, sale_status, created_by)
-                VALUES (?, ?, 'HT', 2026, 'K', 9, ?, ?, '2026-09-15', 1000, 'X', 1, 0, 0, ?)
+                VALUES (?, ?, 'HT', 9, ?, ?, '2026-09-15', 1000, 'X', 1, 0, 0, ?)
                 """, itemCode, venueId, seqPrefix, seqNo, userId);
     }
 }

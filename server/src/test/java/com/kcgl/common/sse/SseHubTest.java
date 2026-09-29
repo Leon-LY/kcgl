@@ -90,7 +90,7 @@ class SseHubTest {
         doThrow(new IOException("broken pipe")).when(broken)
                 .send(any(SseEmitter.SseEventBuilder.class));
 
-        hub.broadcast(SyncEvent.TYPE_ITEM, "HTK9-A1X", 1L);
+        hub.broadcast(SyncEvent.TYPE_ITEM, "HT9-A1X", 1L);
 
         // healthy：HELLO + 广播共两次；broken：发送失败 → 断连出清
         verify(healthy, timeout(1000).times(2)).send(any(SseEmitter.SseEventBuilder.class));
@@ -110,7 +110,7 @@ class SseHubTest {
             return null;
         }).when(slow).send(any(SseEmitter.SseEventBuilder.class));
 
-        hub.broadcast(SyncEvent.TYPE_ITEM, "HTK9-A1X", null);
+        hub.broadcast(SyncEvent.TYPE_ITEM, "HT9-A1X", null);
 
         // 超时即断连——慢客户端不得无限占用发送预算
         verify(slow, timeout(3000)).complete();

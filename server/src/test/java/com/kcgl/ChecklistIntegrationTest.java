@@ -62,9 +62,7 @@ class ChecklistIntegrationTest {
                 """, ENCODER.encode(PASSWORD), ENCODER.encode(PASSWORD));
         jdbcTemplate.update("DELETE FROM auction_venue");
         jdbcTemplate.update("DELETE FROM price_band");
-        jdbcTemplate.update("DELETE FROM year_code");
         jdbcTemplate.update("DELETE FROM sys_setting WHERE `key` = 'checklist.print_done'");
-        jdbcTemplate.update("INSERT INTO year_code(`year`, code) VALUES (2026,'K')");
     }
 
     private MockHttpSession loginAs(String username) throws Exception {

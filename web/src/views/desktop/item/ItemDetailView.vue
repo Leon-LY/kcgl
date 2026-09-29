@@ -92,7 +92,7 @@ function venueNameOf(target: ItemResponse): string {
 
 // ------------------------------------------------------------- 分歧徽标（号内快照 vs 现值）
 
-const ITEM_CODE_PATTERN = /^([A-Z]{2}[A-Z]\d{1,2})-([A-Z]+)(\d{1,2})([A-Z])$/
+const ITEM_CODE_PATTERN = /^([A-Z]{2})(1[0-2]|[1-9])-([A-Z]{1,3})([1-9][0-9]?)([A-Z])?$/
 
 const diverged = computed(() => {
   const current = item.value
@@ -104,14 +104,13 @@ const diverged = computed(() => {
   if (venue != null && venue.code !== current.venueCode) {
     return true
   }
-  // ② 年月：号内 year/buyMonth vs 现落札日
-  if (current.year !== Number(current.buyDate.slice(0, 4))
-    || current.buyMonth !== Number(current.buyDate.slice(5, 7))) {
+  // ② 月：号内 buyMonth vs 现落札日（D-068 去年代号后号内仅含月，跨年连续）
+  if (current.buyMonth !== Number(current.buyDate.slice(5, 7))) {
     return true
   }
   // ③ 档位：管理号末位字母 vs 现价格档（服务端每次 PUT 重推导 priceBandCode）
   const match = ITEM_CODE_PATTERN.exec(current.itemCode)
-  return match != null && match[4] !== current.priceBandCode
+  return match != null && match[5] != null && match[5] !== current.priceBandCode
 })
 
 const seqText = computed(() => {
@@ -121,7 +120,6 @@ const seqText = computed(() => {
   }
   return t('items.detail.seqValue', {
     venue: venueNameOf(current),
-    year: current.year,
     month: current.buyMonth,
     seq: `${current.seqPrefix}${current.seqNo}`,
     band: current.priceBandCode,

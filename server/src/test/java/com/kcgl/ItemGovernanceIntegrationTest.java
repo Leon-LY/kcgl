@@ -85,8 +85,6 @@ class ItemGovernanceIntegrationTest {
         bossId = jdbcTemplate.queryForObject("SELECT id FROM sys_user WHERE username = 'boss'", Long.class);
         jdbcTemplate.update("DELETE FROM auction_venue");
         jdbcTemplate.update("DELETE FROM price_band");
-        jdbcTemplate.update("DELETE FROM year_code");
-        jdbcTemplate.update("INSERT INTO year_code(`year`, code) VALUES (2016,'A'),(2026,'K')");
         jdbcTemplate.update(
                 "INSERT INTO price_band(code, lower_bound, upper_bound, enabled) VALUES ('X', 0, 3000, 1), ('Y', 3000, 1000000, 1)");
         jdbcTemplate.update(
@@ -106,7 +104,7 @@ class ItemGovernanceIntegrationTest {
         return (MockHttpSession) result.getRequest().getSession();
     }
 
-    /** 真实录入一件（HT 2026-09-15 桶 → HTK9-A1X），返回 id。extras 形如 ",\"fee\":300,\"remark\":\"初稿\""。 */
+    /** 真实录入一件（HT 2026-09-15 桶 → HT9-A1X），返回 id。extras 形如 ",\"fee\":300,\"remark\":\"初稿\""。 */
     private long createItem(MockHttpSession session, String clientReqId, long venueId,
             long price, int warehouse, String extras) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/items").session(session)
@@ -199,7 +197,7 @@ class ItemGovernanceIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.shelfNo").value("S-1"))
                 .andExpect(jsonPath("$.data.fee").value(500))
-                .andExpect(jsonPath("$.data.itemCode").value("HTK9-A1X"));
+                .andExpect(jsonPath("$.data.itemCode").value("HT9-A1X"));
         Map<String, Object> row = jdbcTemplate.queryForMap(
                 "SELECT shelf_no, photo_date, fee, remark FROM item WHERE id = ?", id);
         assertThat(row.get("shelf_no")).isEqualTo("S-1");
@@ -234,13 +232,12 @@ class ItemGovernanceIntegrationTest {
         putItem(boss, id, editBody(versionOf(id), htVenueId, "2026-09-15", 5000, 1, ""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.priceBandCode").value("Y"))
-                .andExpect(jsonPath("$.data.itemCode").value("HTK9-A1X"));
+                .andExpect(jsonPath("$.data.itemCode").value("HT9-A1X"));
         Map<String, Object> row = jdbcTemplate.queryForMap(
-                "SELECT item_code, price_band_code, venue_code, year_code, buy_month FROM item WHERE id = ?", id);
-        assertThat(row.get("item_code")).isEqualTo("HTK9-A1X");
+                "SELECT item_code, price_band_code, venue_code, buy_month FROM item WHERE id = ?", id);
+        assertThat(row.get("item_code")).isEqualTo("HT9-A1X");
         assertThat(row.get("price_band_code")).isEqualTo("Y");
         assertThat(row.get("venue_code")).isEqualTo("HT");
-        assertThat(row.get("year_code")).isEqualTo("K");
         assertThat(((Number) row.get("buy_month")).intValue()).isEqualTo(9);
 
         // 新价无匹配档位 → 404002（与录入同口径，引导后台配置）
@@ -257,13 +254,12 @@ class ItemGovernanceIntegrationTest {
         putItem(boss, id, editBody(versionOf(id), nrVenueId, "2026-08-20", 1000, 1, ""))
                 .andExpect(status().isOk());
         Map<String, Object> row = jdbcTemplate.queryForMap(
-                "SELECT venue_id, buy_date, venue_code, year_code, buy_month, item_code FROM item WHERE id = ?", id);
+                "SELECT venue_id, buy_date, venue_code, buy_month, item_code FROM item WHERE id = ?", id);
         assertThat(((Number) row.get("venue_id")).longValue()).isEqualTo(nrVenueId);
         assertThat(row.get("buy_date").toString()).isEqualTo("2026-08-20");
         // 号内快照段冻结（D-001）：号与快照列不动
-        assertThat(row.get("item_code")).isEqualTo("HTK9-A1X");
+        assertThat(row.get("item_code")).isEqualTo("HT9-A1X");
         assertThat(row.get("venue_code")).isEqualTo("HT");
-        assertThat(row.get("year_code")).isEqualTo("K");
         assertThat(((Number) row.get("buy_month")).intValue()).isEqualTo(9);
     }
 
@@ -391,12 +387,12 @@ class ItemGovernanceIntegrationTest {
         jdbcTemplate.update("""
                 INSERT INTO yahoo_listing(yahoo_auction_id, item_id, raw_item_code, item_code,
                   list_price, sold_price, status, listed_at, closed_at)
-                VALUES ('auc-1', ?, 'HTK9-A1X', 'HTK9-A1X', 3000, NULL, 1, '2026-09-01 10:00:00', NULL)
+                VALUES ('auc-1', ?, 'HT9-A1X', 'HT9-A1X', 3000, NULL, 1, '2026-09-01 10:00:00', NULL)
                 """, id);
         jdbcTemplate.update("""
                 INSERT INTO yahoo_listing(yahoo_auction_id, item_id, raw_item_code, item_code,
                   list_price, sold_price, status, listed_at, closed_at)
-                VALUES ('auc-2', ?, 'HTK9-A1X', 'HTK9-A1X', 4000, 4500, 2, '2026-09-10 10:00:00', '2026-09-15 10:00:00')
+                VALUES ('auc-2', ?, 'HT9-A1X', 'HT9-A1X', 4000, 4500, 2, '2026-09-10 10:00:00', '2026-09-15 10:00:00')
                 """, id);
 
         mockMvc.perform(get("/api/items/{id}/yahoo-listings", id).session(boss))
@@ -607,7 +603,7 @@ class ItemGovernanceIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
                 .andExpect(jsonPath("$.data.page").value(1))
-                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HTK9-A1X"));
+                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HT9-A1X"));
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT deleted FROM item WHERE id = ?", Integer.class, live)).isEqualTo(0);
     }

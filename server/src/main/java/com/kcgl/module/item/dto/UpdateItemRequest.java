@@ -12,7 +12,7 @@ import java.time.LocalDate;
  * 商品编辑请求（PUT /api/items/{id}，D-063 snapshot 单模式）。
  *
  * 全量语义：可选字段缺省=null 即清空（补 D-035「重录无法清空费用」缺口）；
- * 号内快照列（venue_code/year_code/buy_month/seq_*）恒不变，管理号不重算。
+ * 号内快照列（venue_code/buy_month/seq_*）恒不变，管理号不重算。
  * 仓库契约 W（D-066）：非在途时仓值变化 → 409013 引导 /inventory/transfer；同值放行。
  * version=乐观锁（409 前端重读后按新 version 再提交）。
  */

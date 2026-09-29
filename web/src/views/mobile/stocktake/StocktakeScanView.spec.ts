@@ -51,6 +51,7 @@ import type { ItemResponse, MeResponse, StocktakeSummary } from '@/utils/api'
  */
 
 const meEditor: MeResponse = {
+  id: 2,
   username: 'eichi',
   displayName: '編集者',
   role: 2,
@@ -59,6 +60,7 @@ const meEditor: MeResponse = {
 }
 
 const meViewer: MeResponse = {
+  id: 3,
   username: 'miru',
   displayName: '閲覧者',
   role: 3,
@@ -88,11 +90,9 @@ function summary(overrides: Partial<StocktakeSummary> = {}): StocktakeSummary {
 function item(overrides: Partial<ItemResponse> = {}): ItemResponse {
   return {
     id: 201,
-    itemCode: 'HTK9-A1X',
+    itemCode: 'HT9-A1X',
     venueId: 1,
     venueCode: 'HT',
-    year: 2026,
-    yearCode: 'K',
     buyMonth: 9,
     seqPrefix: 'A',
     seqNo: 1,
@@ -167,14 +167,14 @@ describe('stocktake session (M3-6)', () => {
     })
     const wrapper = await mountView()
 
-    await wrapper.find('#stocktake-manual-input').setValue(' htk9-a1x ')
+    await wrapper.find('#stocktake-manual-input').setValue(' ht9-a1x ')
     await wrapper.find('.session-manual').trigger('submit')
     await flushPromises()
 
     // 手动输入提交前归一化（NFKC+大写+去空白）；乐观计数 3→4
-    expect(apiMocks.scanStocktakeItem).toHaveBeenCalledWith(5, 'HTK9-A1X')
+    expect(apiMocks.scanStocktakeItem).toHaveBeenCalledWith(5, 'HT9-A1X')
     expect(wrapper.text()).toContain('スキャン済み 4 件')
-    expect(wrapper.text()).toContain('HTK9-A1X')
+    expect(wrapper.text()).toContain('HT9-A1X')
     expect(wrapper.find('.session-card img').attributes('src')).toBe('/img/thumb/2026/09/a.jpg')
   })
 
@@ -187,7 +187,7 @@ describe('stocktake session (M3-6)', () => {
     })
     const wrapper = await mountView()
 
-    await wrapper.find('#stocktake-manual-input').setValue('HTK9-A1X')
+    await wrapper.find('#stocktake-manual-input').setValue('HT9-A1X')
     await wrapper.find('.session-manual').trigger('submit')
     await flushPromises()
 
@@ -210,7 +210,7 @@ describe('stocktake session (M3-6)', () => {
       })
       const wrapper = await mountView()
 
-      await wrapper.find('#stocktake-manual-input').setValue('HTK9-A1X')
+      await wrapper.find('#stocktake-manual-input').setValue('HT9-A1X')
       await wrapper.find('.session-manual').trigger('submit')
       await flushPromises()
 

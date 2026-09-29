@@ -35,6 +35,7 @@ class FakeEventSource {
 
 function meFixture() {
   return {
+    id: 101,
     username: 'taro',
     displayName: '田中太郎',
     role: 2,
@@ -43,8 +44,8 @@ function meFixture() {
   }
 }
 
-function event(type: string): string {
-  return JSON.stringify({ seq: 1, type, entity: null, operatorId: null, at: '2026-09-28T10:00:00' })
+function event(type: string, operatorId: number | null = null): string {
+  return JSON.stringify({ seq: 1, type, entity: null, operatorId, at: '2026-09-28T10:00:00' })
 }
 
 /** probeSession 等纯微任务链的确定性排空（无定时器参与）。 */
@@ -129,6 +130,45 @@ describe('session-driven lifecycle', () => {
     const sync = useSyncStore()
     activeStores.push(sync)
     expect(FakeEventSource.instances).toHaveLength(1) // 挂载即按会话态连接
+  })
+})
+
+describe('self-echo suppression (D-070 regression: stocktake.spec full-flow line 220)', () => {
+  // 根因：自己处理完最后一条差异后，STOCKTAKE/INVENTORY 回声触发 pending-only
+  // 重取，刚处理完的行被清出列表（就地行更新被自己的回声覆盖）。修复=回声不派发失效。
+  it('drops events carrying my own operatorId: no invalidation, no refetch race on own views', async () => {
+    vi.useFakeTimers()
+    const { auth } = setupSync()
+    const sync = useSyncStore()
+    const seen = vi.fn()
+    sync.onInvalidate(seen)
+    const es = await login(auth) // me.id = 101
+
+    es.onmessage?.({ data: event('STOCKTAKE', 101) })
+    es.onmessage?.({ data: event('INVENTORY', 101) })
+    es.onmessage?.({ data: event('DICT', 101) })
+    await vi.advanceTimersByTimeAsync(500)
+
+    expect(seen).not.toHaveBeenCalled()
+    expect(apiMocks.fetchVenues).not.toHaveBeenCalled()
+  })
+
+  it('still dispatches other-user and system events (cross-user realtime contract intact)', async () => {
+    vi.useFakeTimers()
+    const { auth } = setupSync()
+    const sync = useSyncStore()
+    const seen = vi.fn()
+    sync.onInvalidate(seen)
+    const es = await login(auth)
+
+    es.onmessage?.({ data: event('STOCKTAKE', 202) }) // 他端操作
+    es.onmessage?.({ data: event('DICT', null) }) // 系统事件（字典域现值不带操作人）
+    await vi.advanceTimersByTimeAsync(500)
+
+    expect(seen).toHaveBeenCalledTimes(1)
+    expect(Array.from(seen.mock.calls[0][0] as Set<string>).sort())
+      .toEqual(['DICT', 'STOCKTAKE'])
+    expect(apiMocks.fetchVenues).toHaveBeenCalledTimes(1)
   })
 })
 

@@ -96,8 +96,6 @@ class SseIntegrationTest {
                 """, ENCODER.encode(PASSWORD));
         jdbcTemplate.update("DELETE FROM auction_venue");
         jdbcTemplate.update("DELETE FROM price_band");
-        jdbcTemplate.update("DELETE FROM year_code");
-        jdbcTemplate.update("INSERT INTO year_code(`year`, code) VALUES (2026,'K')");
         jdbcTemplate.update("INSERT INTO price_band(code, lower_bound, upper_bound, enabled) VALUES ('X', 0, 3000, 1)");
         jdbcTemplate.update("INSERT INTO auction_venue(code, name, enabled) VALUES ('HT', '飛騨古民具市', 1)");
         venueId = jdbcTemplate.queryForObject("SELECT id FROM auction_venue WHERE code = 'HT'", Long.class);
@@ -114,10 +112,10 @@ class SseIntegrationTest {
         assertThat(sseHub.connectionCount()).isGreaterThanOrEqualTo(1);
 
         // 其他端提交动作 → 全店广播（此处模拟另一会话触发；真实端点接线在 M3-⑤ 落地）
-        sseHub.broadcast(SyncEvent.TYPE_ITEM, "HTK9-A1X", 7L);
-        String event = awaitDataLine(lines, "HTK9-A1X");
+        sseHub.broadcast(SyncEvent.TYPE_ITEM, "HT9-A1X", 7L);
+        String event = awaitDataLine(lines, "HT9-A1X");
         assertThat(event).contains("\"type\":\"ITEM\"")
-                .contains("\"entity\":\"HTK9-A1X\"")
+                .contains("\"entity\":\"HT9-A1X\"")
                 .contains("\"operatorId\":7");
 
         // 登出 → HttpSessionDestroyedEvent → 该会话全部连接即时关闭

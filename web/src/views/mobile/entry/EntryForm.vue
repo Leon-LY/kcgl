@@ -80,7 +80,7 @@ function onVenueConfirm({ selectedValues }: { selectedValues: Array<string | num
   showVenuePicker.value = false
 }
 
-// 年代号种子自 2016 起（A2）；Vant 日历边界取本地语义的日历日（列渲染读本地 Y/M/D）
+// 落札日历下界 2016（业务起点防误选）；Vant 日历边界取本地语义的日历日（列渲染读本地 Y/M/D）
 const MIN_DATE = dayjs('2016-01-01').toDate()
 /** 落札日禁未来（JST 日界）：max 取 JST 今日 23:59，+08 深夜开发场景下默认值与选择上限一致。 */
 const buyDateMax = dayjs().tz(JST_TZ).endOf('day').toDate()

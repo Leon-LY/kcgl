@@ -124,12 +124,6 @@ const router = createRouter({
       meta: { titleKey: 'admin.band.title', roles: [1] },
     },
     {
-      path: '/admin/year-codes',
-      name: 'admin-year-codes',
-      component: () => import('@/views/desktop/admin/yearcode/YearCodeAdminView.vue'),
-      meta: { titleKey: 'admin.yearCode.title', roles: [1] },
-    },
-    {
       // 标签打印（M2-7）：桌面为主、全员可打印（录入手与贴标手常不同人）
       path: '/print',
       name: 'print',

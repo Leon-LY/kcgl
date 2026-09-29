@@ -63,8 +63,6 @@ class DictIntegrationTest {
                 """, ENCODER.encode(PASSWORD), ENCODER.encode(PASSWORD), ENCODER.encode(PASSWORD));
         jdbcTemplate.update("DELETE FROM auction_venue");
         jdbcTemplate.update("DELETE FROM price_band");
-        jdbcTemplate.update("DELETE FROM year_code");
-        jdbcTemplate.update("INSERT INTO year_code(`year`, code) VALUES (2016,'A'),(2026,'K'),(2027,'L')");
     }
 
     private MockHttpSession loginAs(String username) throws Exception {
@@ -196,70 +194,6 @@ class DictIntegrationTest {
         mockMvc.perform(get("/api/venues").session(viewer).param("enabled", "true"))
                 .andExpect(jsonPath("$.data.length()").value(1))
                 .andExpect(jsonPath("$.data[0].code").value("FK"));
-    }
-
-    // ------------------------------------------------------------------ 年代号
-
-    @Test
-    void listYearCodes_byViewer_seededSortedByYear() throws Exception {
-        MockHttpSession viewer = loginAs("miru");
-        mockMvc.perform(get("/api/year-codes").session(viewer))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.length()").value(3))
-                .andExpect(jsonPath("$.data[0].year").value(2016))
-                .andExpect(jsonPath("$.data[0].code").value("A"))
-                .andExpect(jsonPath("$.data[2].year").value(2027))
-                .andExpect(jsonPath("$.data[2].code").value("L"));
-    }
-
-    @Test
-    void createYearCode_byAdmin_invalidCode_400_duplicateYearOrCode_409005() throws Exception {
-        MockHttpSession admin = loginAs("boss");
-        // 双字母码超 CHAR(1)/正则 → 400
-        mockMvc.perform(post("/api/year-codes").session(admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"year":2042,"code":"AA"}
-                                """))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(400001));
-        // 代号 Z 已被 2016-2041 段占用（种子未含 Z 时此用例校验 year 唯一；此处 2026 已存在）
-        mockMvc.perform(post("/api/year-codes").session(admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"year":2026,"code":"Q"}
-                                """))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value(409005));
-        // 全新年份 + 已占用代号 K
-        mockMvc.perform(post("/api/year-codes").session(admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"year":2042,"code":"K"}
-                                """))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value(409005));
-    }
-
-    @Test
-    void createYearCode_byEditor_403_adminUpdateAudited() throws Exception {
-        MockHttpSession editor = loginAs("eichi");
-        mockMvc.perform(post("/api/year-codes").session(editor)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"year":2042,"code":"W"}
-                                """))
-                .andExpect(status().isForbidden());
-
-        Long id = jdbcTemplate.queryForObject("SELECT id FROM year_code WHERE `year` = 2016", Long.class);
-        MockHttpSession admin = loginAs("boss");
-        mockMvc.perform(put("/api/year-codes/" + id).session(admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"year":2016,"code":"A"}
-                                """))
-                .andExpect(status().isOk());
-        assertThat(auditCount("YEARCODE_UPDATE", id)).isEqualTo(1);
     }
 
     // ------------------------------------------------------------------ 档位

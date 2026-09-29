@@ -41,6 +41,7 @@ class FakeEventSource {
 
 function meFixture() {
   return {
+    id: 101,
     username: 'taro',
     displayName: '田中太郎',
     role: 2,

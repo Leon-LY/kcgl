@@ -73,8 +73,6 @@ class TodaySessionIntegrationTest {
         editorId = jdbcTemplate.queryForObject("SELECT id FROM sys_user WHERE username = 'eichi'", Long.class);
         jdbcTemplate.update("DELETE FROM auction_venue");
         jdbcTemplate.update("DELETE FROM price_band");
-        jdbcTemplate.update("DELETE FROM year_code");
-        jdbcTemplate.update("INSERT INTO year_code(`year`, code) VALUES (2016,'A'),(2026,'K'),(2027,'L')");
         jdbcTemplate.update("INSERT INTO price_band(code, lower_bound, upper_bound, enabled) VALUES ('X', 0, 3000, 1)");
         jdbcTemplate.update("INSERT INTO auction_venue(code, name, enabled) VALUES ('HT', '飛騨古民具市', 1)");
         venueId = jdbcTemplate.queryForObject("SELECT id FROM auction_venue WHERE code = 'HT'", Long.class);
@@ -150,9 +148,9 @@ class TodaySessionIntegrationTest {
     void todaySession_excludesItemsCreatedBeforeToday() throws Exception {
         // 隔日件直插（created_at=昨日 JST），同 created_by 不应计入今天会话
         jdbcTemplate.update("""
-                INSERT INTO item(item_code, venue_id, venue_code, `year`, year_code, buy_month,
+                INSERT INTO item(item_code, venue_id, venue_code, buy_month,
                     seq_prefix, seq_no, buy_date, purchase_price, price_band_code, warehouse, created_by, created_at)
-                VALUES ('HTK9-A9X', ?, 'HT', 2026, 'K', 9, 'A', 9, '2026-09-01', 1000, 'X', 1, ?,
+                VALUES ('HT9-A9X', ?, 'HT', 9, 'A', 9, '2026-09-01', 1000, 'X', 1, ?,
                     DATE_SUB(NOW(3), INTERVAL 1 DAY))
                 """, venueId, editorId);
 

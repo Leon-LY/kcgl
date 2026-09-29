@@ -40,6 +40,7 @@ import type { MeResponse, StocktakeList, StocktakeSummary } from '@/utils/api'
  */
 
 const meEditor: MeResponse = {
+  id: 2,
   username: 'eichi',
   displayName: '編集者',
   role: 2,
@@ -48,6 +49,7 @@ const meEditor: MeResponse = {
 }
 
 const meViewer: MeResponse = {
+  id: 3,
   username: 'miru',
   displayName: '閲覧者',
   role: 3,

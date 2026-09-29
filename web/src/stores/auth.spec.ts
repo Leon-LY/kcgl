@@ -15,8 +15,9 @@ vi.mock('@/utils/api', () => ({
 import { useAuthStore } from './auth'
 import { i18n } from '@/i18n'
 
-function meFixture(overrides: Partial<{ username: string; displayName: string; role: number; locale: string; mustChangePwd: boolean }> = {}) {
+function meFixture(overrides: Partial<{ id: number; username: string; displayName: string; role: number; locale: string; mustChangePwd: boolean }> = {}) {
   return {
+    id: 101,
     username: 'taro',
     displayName: '田中太郎',
     role: 2,

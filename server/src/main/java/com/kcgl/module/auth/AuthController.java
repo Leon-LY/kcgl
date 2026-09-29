@@ -36,7 +36,7 @@ public class AuthController {
         // 以 DB 现值返回（locale/改密标记可能在别的端点被更新过）；行被删则回退会话快照
         SysUserEntity entity = mapper.selectById(user.getUserId());
         return ApiResponse.ok(entity != null
-                ? new MeResponse(entity.getUsername(), entity.getDisplayName(), entity.getRole(),
+                ? new MeResponse(entity.getId(), entity.getUsername(), entity.getDisplayName(), entity.getRole(),
                         entity.getLocale(), entity.getMustChangePwd() != null && entity.getMustChangePwd() == 1)
                 : MeResponse.from(user));
     }

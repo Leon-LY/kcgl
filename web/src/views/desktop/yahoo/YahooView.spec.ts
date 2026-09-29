@@ -41,6 +41,7 @@ import type {
  */
 
 const meAdmin: MeResponse = {
+  id: 1,
   username: 'boss',
   displayName: '管理者',
   role: 1,
@@ -49,6 +50,7 @@ const meAdmin: MeResponse = {
 }
 
 const meViewer: MeResponse = {
+  id: 3,
   username: 'miru',
   displayName: '閲覧者',
   role: 3,
@@ -78,7 +80,7 @@ function batch(overrides: Partial<YahooImportBatch> = {}): YahooImportBatch {
 function shipment(): YahooPendingShipment {
   return {
     itemId: 601,
-    itemCode: 'HTK9-A1X',
+    itemCode: 'HT9-A1X',
     thumbUrl: null,
     warehouse: 1,
     shelfNo: 'A-03',
@@ -92,7 +94,7 @@ function shipment(): YahooPendingShipment {
 function reconcileRow(overrides: Partial<YahooReconcileRow> = {}): YahooReconcileRow {
   return {
     itemId: 701,
-    itemCode: 'HTK9-A2X',
+    itemCode: 'HT9-A2X',
     warehouse: 2,
     shelfNo: null,
     soldPrice: 25000,
@@ -256,12 +258,53 @@ describe('yahoo view (M4)', () => {
     expect(wrapper.find('#pane-import .yahoo-tag').text()).toBe('完了')
   })
 
+  // 回归（D-070 回声抑制附带+E2E yahoo.spec desktop 实录「出荷待ち 0 件」停旧）：
+  // 自己的 YAHOO_IMPORT 广播被抑制后，出荷待ち/照合的收敛主路径=批次轮询见证
+  // 终态——轮询停止时必须补齐另两份数据，否则导入者自己的页面停在导入前旧值。
+  it('reloads shipments and reconcile when the poll observes batch terminal state', async () => {
+    const setIntervalSpy = vi.spyOn(window, 'setInterval')
+    apiMocks.fetchYahooBatches
+      .mockResolvedValueOnce([batch({ status: 0 })])
+      .mockResolvedValueOnce([batch({ status: 1 })])
+    apiMocks.fetchPendingShipments.mockResolvedValue({ count: 1, items: [shipment()] })
+    const { wrapper } = await mountView()
+
+    const tick = setIntervalSpy.mock.calls[0]![0] as () => void
+    tick()
+    await flushPromises()
+
+    // 挂载各 1 次 + 轮询见证终态补齐各 1 次；且新数据落到视图
+    expect(apiMocks.fetchPendingShipments).toHaveBeenCalledTimes(2)
+    expect(apiMocks.fetchYahooReconcile).toHaveBeenCalledTimes(2)
+    expect(wrapper.find('#pane-shipments .yahoo-section-count').text()).toBe('出荷待ち 1 件')
+  })
+
+  // 回归（同上，竞态分支）：上传响应回来时批次已全部终态（处理极快、
+  // 轮询从未启动）→ onFileChange 直接收敛另两份数据。
+  it('reloads shipments and reconcile after upload when all batches are already terminal', async () => {
+    apiMocks.uploadYahooCsv.mockResolvedValue(batch({ status: 1 }))
+    apiMocks.fetchYahooBatches.mockResolvedValue([batch({ status: 1 })])
+    apiMocks.fetchPendingShipments.mockResolvedValue({ count: 1, items: [shipment()] })
+    const { wrapper } = await mountView()
+
+    const input = wrapper.find('.yahoo-upload-input')
+    const file = new File(['オークションID,…'], 'export.csv', { type: 'text/csv' })
+    Object.defineProperty(input.element, 'files', { value: [file] })
+    await input.trigger('change')
+    await flushPromises()
+
+    // 挂载 1 次 + 上传后直接补齐 1 次（全程无处理中批次、轮询未启动）
+    expect(apiMocks.fetchPendingShipments).toHaveBeenCalledTimes(2)
+    expect(apiMocks.fetchYahooReconcile).toHaveBeenCalledTimes(2)
+    expect(wrapper.find('#pane-shipments .yahoo-section-count').text()).toBe('出荷待ち 1 件')
+  })
+
   it('renders the shipment queue with a direct sell deep link', async () => {
     apiMocks.fetchPendingShipments.mockResolvedValue({ count: 1, items: [shipment()] })
     const { wrapper, router } = await mountView()
 
     const row = wrapper.find('#pane-shipments .el-table__row')
-    expect(row.text()).toContain('HTK9-A1X')
+    expect(row.text()).toContain('HT9-A1X')
     expect(row.text()).toContain('￥12,000')
     expect(row.text()).toContain('出荷遅延')
     expect(wrapper.find('#pane-shipments .yahoo-section-count').text()).toBe('出荷待ち 1 件')
@@ -270,7 +313,7 @@ describe('yahoo view (M4)', () => {
     await flushPromises()
 
     expect(router.currentRoute.value.name).toBe('scan')
-    expect(router.currentRoute.value.query.code).toBe('HTK9-A1X')
+    expect(router.currentRoute.value.query.code).toBe('HT9-A1X')
   })
 
   it('renders the three reconcile views with delayed and recently-synced marks', async () => {

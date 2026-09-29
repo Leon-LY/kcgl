@@ -14,6 +14,11 @@ import { useDictsStore } from '@/stores/dicts'
  * 断线超 5s 恢复亦全量失效（错过的窗口无法按事件补）。
  *
  * 处理策略：粗粒度失效 + 500ms 防抖重取（不传增量补丁——重取成本低且无补丁 bug）。
+ * 回声抑制（D-070）：自己操作的广播（operatorId===me.id）不触发失效——自己的
+ * 屏幕由操作响应驱动（就地行更新/提交回显），回声重取反而会与自己的更新竞态
+ * （盘点差异页 pending 过滤重取曾抹掉刚处理完的行）；异步批次页（Excel/Yahoo）
+ * 有轮询主路径，不依赖自己的回声。代价：同账号他设备的自动刷新随之让渡（跨
+ * 用户实时一致不受影响——验收承诺的口径）。
  * 字典是唯一常驻业务缓存，DICT 失效直接驱动 dicts.reload；其余域经
  * onInvalidate 监听分发（M3-④/⑤ 起列表视图接入）。
  */
@@ -124,6 +129,11 @@ export const useSyncStore = defineStore('sync', () => {
     }
     lastEventAt.value = Date.now()
     if (event.type === 'HELLO') return
+    // 回声抑制（D-070）：自己操作的广播不失效自己的视图（operatorId=null 系统
+    // 事件与会话未就绪时不抑制——宁可多重取不可漏事件）
+    if (event.operatorId != null && auth.me != null && event.operatorId === auth.me.id) {
+      return
+    }
     if ((BUSINESS_TYPES as readonly string[]).includes(event.type)) {
       scheduleInvalidate(event.type)
     }

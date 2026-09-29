@@ -42,7 +42,7 @@ function todayJst(): string {
 function row(id: number, thumbUrl: string | null = null): ItemSummary {
   return {
     id,
-    itemCode: `HTK9-A${id}X`,
+    itemCode: `HT9-A${id}X`,
     buyDate: '2026-09-15',
     venueCode: 'HT',
     thumbUrl,
@@ -88,7 +88,7 @@ describe('print page load and rendering', () => {
     expect(wrapper.findAll('.print-label')).toHaveLength(2)
     expect(wrapper.findAll('.print-sheet')).toHaveLength(1)
     // 人读码：会场/日期段带连字符，流水段独立（QR 破损手输兜底）
-    expect(wrapper.find('.print-code-head').text()).toBe('HTK9-')
+    expect(wrapper.find('.print-code-head').text()).toBe('HT9-')
     expect(wrapper.find('.print-code-tail').text()).toBe('A1X')
     expect(wrapper.find('.print-date').text()).toBe('2026/09/15')
     expect(wrapper.find('.print-qr').attributes('src')).toBe('data:image/png;base64,QR')
@@ -199,9 +199,9 @@ describe('reprint by item code (M2-9)', () => {
 
     // 全角小写输入（IME 想定）→ blur 归一化为半角大写
     const input = wrapper.find('.print-reprint input')
-    await input.setValue('ｈｔｋ９－ａ５ｘ')
+    await input.setValue('ｈｔ９－ａ５ｘ')
     await input.trigger('blur')
-    expect((input.element as HTMLInputElement).value).toBe('HTK9-A5X')
+    expect((input.element as HTMLInputElement).value).toBe('HT9-A5X')
 
     await wrapper.findAll('button').find((b) => b.text() === '読み込む')!.trigger('click')
     await flushPromises()
@@ -210,7 +210,7 @@ describe('reprint by item code (M2-9)', () => {
       createdFrom: todayJst(),
       createdTo: todayJst(),
       venueId: undefined,
-      code: 'HTK9-A5X',
+      code: 'HT9-A5X',
       page: 1,
       size: 100,
     })

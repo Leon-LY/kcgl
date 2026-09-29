@@ -193,10 +193,14 @@ class AuthIntegrationTest {
     @Test
     void me_afterLogin_returnsCurrentUser() throws Exception {
         insertUser("hanako", 2, 1);
+        // id 主键随响应下发（前端 SSE 回声抑制的比对基准，D-070）
+        Long hanakoId = jdbcTemplate.queryForObject(
+                "SELECT id FROM sys_user WHERE username = 'hanako'", Long.class);
         MockHttpSession session = loginForSession("hanako", RAW_PWD);
         mockMvc.perform(get("/api/auth/me").session(session))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.id").value(hanakoId))
                 .andExpect(jsonPath("$.data.username").value("hanako"))
                 .andExpect(jsonPath("$.data.role").value(2));
     }

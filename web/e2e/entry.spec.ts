@@ -44,7 +44,7 @@ test.describe('continuous entry (desktop-chromium)', () => {
 
     // 两级预览：本地档位 X + 防抖后的完整号目安（预览≠保留文案在场）
     await expect(page.locator('.entry-band')).toContainText('X')
-    await expect(page.locator('.entry-preview-code')).toHaveText(/^HT[A-Z]\d+-A1X$/, {
+    await expect(page.locator('.entry-preview-code')).toHaveText(/^HT\d{1,2}-A1X$/, {
       timeout: 5000,
     })
     await expect(page.locator('.entry-preview-note')).toContainText('確定番号は保存時に発行されます')
@@ -69,7 +69,7 @@ test.describe('continuous entry (desktop-chromium)', () => {
     // 保存 → 成功页：最终管理号与预览一致（单写者场景）+ QR + 本日 1 件目
     await page.locator('button[type="submit"]').click()
     await expect(page.locator('.entry-success-code')).toBeVisible()
-    await expect(page.locator('.entry-success-code')).toHaveText(/^HT[A-Z]\d+-A1X$/)
+    await expect(page.locator('.entry-success-code')).toHaveText(/^HT\d{1,2}-A1X$/)
     await expect(page.locator('.entry-success-qr')).toBeVisible()
     await expect(page.locator('.entry-success-count')).toContainText('1')
     await expect(page.locator('.entry-success-guide')).toContainText('油性ペン')
@@ -170,9 +170,9 @@ test.describe('continuous entry (desktop-chromium)', () => {
 
     // 号唯一（并发防重的 UI 侧证明；行锁正确性由后端 16×50 集成测试承担）
     expect(new Set(codes).size).toBe(10)
-    // 同桶（会场+年+月）+ 同档位字母 + 流水严格递增（prefix 进位时长度+1 排在前面之后）
+    // 同桶（会场+月，D-068 跨年连续）+ 同档位字母 + 流水严格递增（prefix 进位时长度+1 排在前面之后）
     const parsed = codes.map((code) => {
-      const m = /^([A-Z]{2}[A-Z]\d{1,2})-([A-Z]+)(\d+)([A-Z])$/.exec(code)
+      const m = /^([A-Z]{2}\d{1,2})-([A-Z]+)(\d+)([A-Z])$/.exec(code)
       expect(m, `管理号格式: ${code}`).not.toBeNull()
       return { bucket: m![1]!, rank: m![2]!.length * 100 + Number(m![3]), band: m![4]! }
     })

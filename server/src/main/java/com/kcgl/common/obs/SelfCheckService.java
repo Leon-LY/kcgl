@@ -105,22 +105,22 @@ public class SelfCheckService {
      */
     private CounterSection checkCounters() {
         List<CounterMismatch> mismatches = jdbcTemplate.query("""
-                SELECT b.venue_id, b.year, b.buy_month,
+                SELECT b.venue_id, b.buy_month,
                        s.cur_prefix,
                        IFNULL(s.cur_seq, -1) AS cur_seq,
                        IFNULL(pm.max_seq, 0) AS max_seq
-                FROM (SELECT DISTINCT venue_id, year, buy_month FROM item) b
+                FROM (SELECT DISTINCT venue_id, buy_month FROM item) b
                 LEFT JOIN seq_item_code s
-                       ON s.venue_id = b.venue_id AND s.year = b.year AND s.month = b.buy_month
+                       ON s.venue_id = b.venue_id AND s.month = b.buy_month
                 LEFT JOIN (
-                    SELECT venue_id, year, buy_month, seq_prefix, MAX(seq_no) AS max_seq
+                    SELECT venue_id, buy_month, seq_prefix, MAX(seq_no) AS max_seq
                     FROM item
-                    GROUP BY venue_id, year, buy_month, seq_prefix
+                    GROUP BY venue_id, buy_month, seq_prefix
                 ) pm
-                       ON pm.venue_id = b.venue_id AND pm.year = b.year
+                       ON pm.venue_id = b.venue_id
                       AND pm.buy_month = b.buy_month AND pm.seq_prefix = s.cur_prefix
                 WHERE IFNULL(s.cur_seq, -1) < IFNULL(pm.max_seq, 0)
-                """, (rs, n) -> new CounterMismatch(rs.getLong("venue_id"), rs.getInt("year"),
+                """, (rs, n) -> new CounterMismatch(rs.getLong("venue_id"),
                 rs.getInt("buy_month"), rs.getString("cur_prefix"), rs.getInt("cur_seq"),
                 rs.getInt("max_seq")));
         return new CounterSection(mismatches.isEmpty(), mismatches);
@@ -285,7 +285,7 @@ public class SelfCheckService {
     }
 
     /** curSeq=-1 表示桶行丢失（item 已落库但计数器行不在）；maxSeq 仅统计当前前缀（curPrefix）的行。 */
-    public record CounterMismatch(long venueId, int year, int month, String curPrefix, int curSeq, int maxSeq) {
+    public record CounterMismatch(long venueId, int month, String curPrefix, int curSeq, int maxSeq) {
     }
 
     public record CounterSection(boolean ok, List<CounterMismatch> mismatches) {

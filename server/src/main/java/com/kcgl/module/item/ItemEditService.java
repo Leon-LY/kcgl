@@ -22,7 +22,7 @@ import java.util.Objects;
  * 商品编辑（PUT /api/items/{id}，D-063 snapshot 单模式）。
  *
  * 可改列全量覆盖（可选字段 null=清空，补 D-035「重录无法清空费用」缺口）；
- * 号内快照列（venue_code/year_code/buy_month/seq_*、item_code）恒不动，管理号不重算。
+ * 号内快照列（venue_code/buy_month/seq_*、item_code）恒不动，管理号不重算。
  * 仓库契约 W（D-066）：非在途（在库/已出库）时仓值变化 → 409013 引导
  * /inventory/transfer（台账路径）；同值提交=无操作放行（A16 在库补录费用仍可编辑）。
  * priceBandCode 即使价格未变也重推导（档位表调整后编辑即对齐）。

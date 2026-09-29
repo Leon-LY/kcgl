@@ -66,8 +66,6 @@ class LedgerConsistencyIntegrationTest {
                 """, ENCODER.encode(PASSWORD));
         jdbcTemplate.update("DELETE FROM auction_venue");
         jdbcTemplate.update("DELETE FROM price_band");
-        jdbcTemplate.update("DELETE FROM year_code");
-        jdbcTemplate.update("INSERT INTO year_code(`year`, code) VALUES (2016,'A'),(2026,'K'),(2027,'L')");
         jdbcTemplate.update("INSERT INTO price_band(code, lower_bound, upper_bound, enabled) VALUES ('X', 0, 3000, 1)");
         jdbcTemplate.update("INSERT INTO auction_venue(code, name, enabled) VALUES ('HT', '飛騨古民具市', 1)");
         venueId = jdbcTemplate.queryForObject("SELECT id FROM auction_venue WHERE code = 'HT'", Long.class);
@@ -179,7 +177,7 @@ class LedgerConsistencyIntegrationTest {
         assertThat(r.drifts()).hasSize(1);
         LedgerConsistencyService.ItemDrift drift = r.drifts().get(0);
         assertThat(drift.itemId()).isEqualTo(a);
-        assertThat(drift.itemCode()).isEqualTo("HTK9-A1X");
+        assertThat(drift.itemCode()).isEqualTo("HT9-A1X");
         // 流水头寸说它在仓1，行状态说它在仓2
         assertThat(drift.ledgerPositions()).containsEntry(1, 1L);
         assertThat(drift.itemWarehouse()).isEqualTo(2);

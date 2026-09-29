@@ -34,6 +34,7 @@ import type { ItemSearchRow, ItemSearchResult, MeResponse, RecycleBinRow } from 
  */
 
 const meAdmin: MeResponse = {
+  id: 1,
   username: 'boss',
   displayName: '管理者',
   role: 1,
@@ -42,6 +43,7 @@ const meAdmin: MeResponse = {
 }
 
 const meViewer: MeResponse = {
+  id: 3,
   username: 'miru',
   displayName: '閲覧者',
   role: 3,
@@ -52,7 +54,7 @@ const meViewer: MeResponse = {
 function row(overrides: Partial<ItemSearchRow> = {}): ItemSearchRow {
   return {
     id: 1,
-    itemCode: 'HTK9-A1X',
+    itemCode: 'HT9-A1X',
     thumbUrl: null,
     itemName: null,
     venueName: '飛騨古美術市',
@@ -78,7 +80,7 @@ function result(overrides: Partial<ItemSearchResult> = {}): ItemSearchResult {
 function recycleRow(overrides: Partial<RecycleBinRow> = {}): RecycleBinRow {
   return {
     id: 901,
-    itemCode: 'HTK9-A9X',
+    itemCode: 'HT9-A9X',
     thumbUrl: null,
     itemName: null,
     venueName: '飛騨古美術市',
@@ -144,7 +146,7 @@ describe('items view (M5-1)', () => {
     const rows = wrapper.findAll('#pane-list .el-table__row')
     expect(rows).toHaveLength(2)
     expect(wrapper.find('.items-count').text()).toBe('全 2 件')
-    expect(rows[0]!.text()).toContain('HTK9-A1X')
+    expect(rows[0]!.text()).toContain('HT9-A1X')
     expect(rows[0]!.text()).toContain('長期滞留')
     expect(rows[0]!.find('.items-tag.is-success').exists()).toBe(true) // 落札済み=green
     // venueName null → 占位符；仓 2 名古屋→福岡标签映射
@@ -175,11 +177,11 @@ describe('items view (M5-1)', () => {
 
     // kw 输入 → 検索按钮：trim 后携带
     const kwInput = wrapper.find('.items-search input')
-    await kwInput.setValue('  HTK9-A1X ')
+    await kwInput.setValue('  HT9-A1X ')
     await wrapper.findAll('button').find((b) => b.text() === '検索')!.trigger('click')
     await flushPromises()
     expect(apiMocks.searchItems).toHaveBeenLastCalledWith(
-      expect.objectContaining({ kw: 'HTK9-A1X', page: 1, size: 20 }),
+      expect.objectContaining({ kw: 'HT9-A1X', page: 1, size: 20 }),
     )
 
     // 仓库下拉变更（el-select v-model + @change 双事件模拟）→ 立即搜索
@@ -217,7 +219,7 @@ describe('items view (M5-1)', () => {
 
     expect(wrapper.find('#pane-recycle').exists()).toBe(true)
     const recycleRow_ = wrapper.find('#pane-recycle .el-table__row')
-    expect(recycleRow_.text()).toContain('HTK9-A9X')
+    expect(recycleRow_.text()).toContain('HT9-A9X')
     expect(recycleRow_.text()).toContain('E2E整理')
 
     apiMocks.restoreItem.mockResolvedValue(recycleRow({}))

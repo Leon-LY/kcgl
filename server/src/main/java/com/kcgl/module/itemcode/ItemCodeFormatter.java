@@ -4,17 +4,18 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 管理号格式与进制逻辑（docs/01 7.1 唯一定义节）。
- * 格式：{会场2}{年代号1}{月1-2不补零}-{流水前缀}{1-99}{价格码1?}
- * 例：HTK9-A1X = 会场 HT + 年代号 K(2026) + 9 月 + 前缀 A + 流水 1 + 价格档 X。
+ * 管理号格式与进制逻辑（docs/01 7.1 唯一定义节；D-068 去年代号）。
+ * 格式：{会场2}{月1-2不补零}-{流水前缀}{1-99}{价格码1?}
+ * 例：HT9-A1X = 会场 HT + 9 月 + 前缀 A + 流水 1 + 价格档 X。
+ * 会场码恒 2 字母定长，去年代号后无前缀碰撞歧义；桶=(会场,月)跨年连续。
  * 前缀 base-26 递进：A→Z→AA→AAA（覆盖单桶 180 万+ 号，远超业务上限）。
  * includePriceCode=false 时省略末位价格码（A1 口径，application.yml 配置）。
  */
 public final class ItemCodeFormatter {
 
-    /** 拆装用完整正则（锚定）：六段分组，价格码可选。 */
+    /** 拆装用完整正则（锚定）：五段分组，价格码可选。 */
     static final Pattern CODE_PATTERN = Pattern.compile(
-            "^([A-Z]{2})([A-Z])(1[0-2]|[1-9])-([A-Z]{1,3})([1-9][0-9]?)([A-Z])?$");
+            "^([A-Z]{2})(1[0-2]|[1-9])-([A-Z]{1,3})([1-9][0-9]?)([A-Z])?$");
 
     /** 管理号形态校验（CSV 清洗/搜索快路径共用）：完整正则锚定匹配。 */
     public static boolean matches(String code) {
@@ -25,10 +26,10 @@ public final class ItemCodeFormatter {
     }
 
     /** 组装管理号。month 不补零（1-9 单字符、10-12 双字符）；seq 不补零（1-99）。 */
-    public static String format(String venueCode, String yearCode, int month,
+    public static String format(String venueCode, int month,
             String prefix, int seq, String bandCode, boolean includePriceCode) {
         String tail = includePriceCode ? prefix + seq + bandCode : prefix + seq;
-        return venueCode + yearCode + month + "-" + tail;
+        return venueCode + month + "-" + tail;
     }
 
     /** 前缀 base-26 进位：A→B、Z→AA、AZ→BA、ZZ→AAA（大端 26 进制 +1）。 */
@@ -57,7 +58,7 @@ public final class ItemCodeFormatter {
         return rank;
     }
 
-    /** 拆解管理号六段（与 format 互逆；无价格码时 bandCode=null）。 */
+    /** 拆解管理号五段（与 format 互逆；无价格码时 bandCode=null）。 */
     public static ParsedCode parse(String code) {
         Matcher matcher = CODE_PATTERN.matcher(code);
         if (!matcher.matches()) {
@@ -65,15 +66,14 @@ public final class ItemCodeFormatter {
         }
         return new ParsedCode(
                 matcher.group(1),
-                matcher.group(2),
-                Integer.parseInt(matcher.group(3)),
-                matcher.group(4),
-                Integer.parseInt(matcher.group(5)),
-                matcher.group(6));
+                Integer.parseInt(matcher.group(2)),
+                matcher.group(3),
+                Integer.parseInt(matcher.group(4)),
+                matcher.group(5));
     }
 
     /** 拆解结果（bandCode 仅 includePriceCode=true 的号非空）。 */
-    public record ParsedCode(String venueCode, String yearCode, int month,
+    public record ParsedCode(String venueCode, int month,
             String prefix, int seq, String bandCode) {
     }
 }

@@ -80,8 +80,6 @@ class ItemSearchIntegrationTest {
         bossId = jdbcTemplate.queryForObject("SELECT id FROM sys_user WHERE username = 'boss'", Long.class);
         jdbcTemplate.update("DELETE FROM auction_venue");
         jdbcTemplate.update("DELETE FROM price_band");
-        jdbcTemplate.update("DELETE FROM year_code");
-        jdbcTemplate.update("INSERT INTO year_code(`year`, code) VALUES (2016,'A'),(2026,'K')");
         jdbcTemplate.update(
                 "INSERT INTO price_band(code, lower_bound, upper_bound, enabled) VALUES ('X', 0, 3000, 1), ('Y', 3000, 1000000, 1)");
         jdbcTemplate.update(
@@ -106,12 +104,12 @@ class ItemSearchIntegrationTest {
         Long venueId = jdbcTemplate.queryForObject(
                 "SELECT id FROM auction_venue WHERE code = ?", Long.class, venueCode);
         jdbcTemplate.update("""
-                INSERT INTO item(item_code, venue_id, venue_code, `year`, year_code, buy_month,
+                INSERT INTO item(item_code, venue_id, venue_code, buy_month,
                   seq_prefix, seq_no, buy_date, purchase_price, price_band_code, warehouse,
                   stock_status, sale_status, voided, deleted, created_by, remark, warehouse_in_date)
-                VALUES (?, ?, ?, ?, 'K', ?, 'A', 1, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?)
+                VALUES (?, ?, ?, ?, 'A', 1, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?)
                 """,
-                code, venueId, venueCode, buyDate.getYear(), buyDate.getMonthValue(),
+                code, venueId, venueCode, buyDate.getMonthValue(),
                 buyDate, price, price <= 3000 ? "X" : "Y", warehouse, stockStatus, saleStatus,
                 bossId, remark, inDate);
         return jdbcTemplate.queryForObject("SELECT id FROM item WHERE item_code = ?", Long.class, code);
@@ -122,97 +120,97 @@ class ItemSearchIntegrationTest {
     @Test
     void search_kwExactItemCode_takesFastPathWithFullWidthNormalization() throws Exception {
         MockHttpSession editor = loginAs("eichi");
-        insertItem("HTK9-A1X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 0, 0, null, null);
-        insertItem("NRK9-A1X", "NR", LocalDate.of(2026, 9, 15), 1000, 1, 0, 0, null, null);
+        insertItem("HT9-A1X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 0, 0, null, null);
+        insertItem("NR9-A1X", "NR", LocalDate.of(2026, 9, 15), 1000, 1, 0, 0, null, null);
 
-        mockMvc.perform(get("/api/items/search").param("kw", "HTK9-A1X").session(editor))
+        mockMvc.perform(get("/api/items/search").param("kw", "HT9-A1X").session(editor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HTK9-A1X"));
+                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HT9-A1X"));
         // 全角+小写（手输兜底，7.8）：NFKC+大写后命中快路径
-        mockMvc.perform(get("/api/items/search").param("kw", "ｈｔｋ９－ａ１ｘ").session(editor))
+        mockMvc.perform(get("/api/items/search").param("kw", "ｈｔ９－ａ１ｘ").session(editor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HTK9-A1X"));
+                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HT9-A1X"));
     }
 
     @Test
     void search_partialCode_fallsBackToLikeContainment() throws Exception {
         MockHttpSession editor = loginAs("eichi");
-        insertItem("HTK9-A1X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 0, 0, null, null);
-        insertItem("HTK9-A2X", "HT", LocalDate.of(2026, 9, 16), 1000, 1, 0, 0, null, null);
-        insertItem("NRK9-A1X", "NR", LocalDate.of(2026, 9, 15), 1000, 1, 0, 0, null, null);
+        insertItem("HT9-A1X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 0, 0, null, null);
+        insertItem("HT9-A2X", "HT", LocalDate.of(2026, 9, 16), 1000, 1, 0, 0, null, null);
+        insertItem("NR9-A1X", "NR", LocalDate.of(2026, 9, 15), 1000, 1, 0, 0, null, null);
 
         // 部分码不完整命中管理号正则 → LIKE 包含（A1X/A1Y 两级语义自然衔接）
-        mockMvc.perform(get("/api/items/search").param("kw", "HTK9-A1").session(editor))
+        mockMvc.perform(get("/api/items/search").param("kw", "HT9-A1").session(editor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HTK9-A1X"));
+                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HT9-A1X"));
         // 短串跨会场包含命中
         mockMvc.perform(get("/api/items/search").param("kw", "A1X").session(editor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(2))
                 .andExpect(jsonPath("$.data.rows[*].itemCode",
-                        containsInAnyOrder("HTK9-A1X", "NRK9-A1X")));
+                        containsInAnyOrder("HT9-A1X", "NR9-A1X")));
     }
 
     @Test
     void search_dateKw_matchesBuyDateInBothFormats() throws Exception {
         MockHttpSession editor = loginAs("eichi");
-        insertItem("HTK9-A1X", "HT", LocalDate.of(2026, 1, 15), 1000, 1, 0, 0, null, null);
-        insertItem("HTK9-A2X", "HT", LocalDate.of(2026, 1, 16), 1000, 1, 0, 0, null, null);
+        insertItem("HT9-A1X", "HT", LocalDate.of(2026, 1, 15), 1000, 1, 0, 0, null, null);
+        insertItem("HT9-A2X", "HT", LocalDate.of(2026, 1, 16), 1000, 1, 0, 0, null, null);
 
         mockMvc.perform(get("/api/items/search").param("kw", "2026-01-15").session(editor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HTK9-A1X"));
+                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HT9-A1X"));
         // 单数位月日（LocalDate.parse 不支持——正则捕获后 of 构造）
         mockMvc.perform(get("/api/items/search").param("kw", "2026/1/15").session(editor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HTK9-A1X"));
+                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HT9-A1X"));
     }
 
     @Test
     void search_venueNameKw_resolvesToVenueIds() throws Exception {
         MockHttpSession editor = loginAs("eichi");
-        insertItem("HTK9-A1X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 0, 0, null, null);
-        insertItem("HTK9-A2X", "HT", LocalDate.of(2026, 9, 16), 1000, 1, 0, 0, null, null);
-        insertItem("NRK9-A1X", "NR", LocalDate.of(2026, 9, 15), 1000, 1, 0, 0, null, null);
+        insertItem("HT9-A1X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 0, 0, null, null);
+        insertItem("HT9-A2X", "HT", LocalDate.of(2026, 9, 16), 1000, 1, 0, 0, null, null);
+        insertItem("NR9-A1X", "NR", LocalDate.of(2026, 9, 15), 1000, 1, 0, 0, null, null);
 
         mockMvc.perform(get("/api/items/search").param("kw", "飛騨").session(editor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(2))
                 .andExpect(jsonPath("$.data.rows[*].itemCode",
-                        containsInAnyOrder("HTK9-A1X", "HTK9-A2X")));
+                        containsInAnyOrder("HT9-A1X", "HT9-A2X")));
         mockMvc.perform(get("/api/items/search").param("kw", "リサイクル").session(editor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.rows[0].itemCode").value("NRK9-A1X"));
+                .andExpect(jsonPath("$.data.rows[0].itemCode").value("NR9-A1X"));
     }
 
     @Test
     void search_fuzzyColumns_remarkShelfGroupItemNameCategoryAuthorKiln() throws Exception {
         MockHttpSession editor = loginAs("eichi");
-        insertItem("HTK9-A1X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 0, 0, null, "木製椅子");
-        insertItem("HTK9-A2X", "HT", LocalDate.of(2026, 9, 16), 1000, 1, 0, 0, null, null);
-        jdbcTemplate.update("UPDATE item SET shelf_no = 'S-12' WHERE item_code = 'HTK9-A2X'");
-        insertItem("HTK9-A3X", "HT", LocalDate.of(2026, 9, 17), 1000, 1, 0, 0, null, null);
-        jdbcTemplate.update("UPDATE item SET group_no = 'G7' WHERE item_code = 'HTK9-A3X'");
-        insertItem("HTK9-A4X", "HT", LocalDate.of(2026, 9, 18), 1000, 1, 0, 0, null, null);
-        jdbcTemplate.update("UPDATE item SET item_name = '伊万里焼大皿' WHERE item_code = 'HTK9-A4X'");
-        insertItem("HTK9-A5X", "HT", LocalDate.of(2026, 9, 19), 1000, 1, 0, 0, null, null);
-        jdbcTemplate.update("UPDATE item SET category = '陶磁器' WHERE item_code = 'HTK9-A5X'");
-        insertItem("HTK9-A6X", "HT", LocalDate.of(2026, 9, 20), 1000, 1, 0, 0, null, null);
-        jdbcTemplate.update("UPDATE item SET author_kiln = '九谷焼' WHERE item_code = 'HTK9-A6X'");
+        insertItem("HT9-A1X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 0, 0, null, "木製椅子");
+        insertItem("HT9-A2X", "HT", LocalDate.of(2026, 9, 16), 1000, 1, 0, 0, null, null);
+        jdbcTemplate.update("UPDATE item SET shelf_no = 'S-12' WHERE item_code = 'HT9-A2X'");
+        insertItem("HT9-A3X", "HT", LocalDate.of(2026, 9, 17), 1000, 1, 0, 0, null, null);
+        jdbcTemplate.update("UPDATE item SET group_no = 'G7' WHERE item_code = 'HT9-A3X'");
+        insertItem("HT9-A4X", "HT", LocalDate.of(2026, 9, 18), 1000, 1, 0, 0, null, null);
+        jdbcTemplate.update("UPDATE item SET item_name = '伊万里焼大皿' WHERE item_code = 'HT9-A4X'");
+        insertItem("HT9-A5X", "HT", LocalDate.of(2026, 9, 19), 1000, 1, 0, 0, null, null);
+        jdbcTemplate.update("UPDATE item SET category = '陶磁器' WHERE item_code = 'HT9-A5X'");
+        insertItem("HT9-A6X", "HT", LocalDate.of(2026, 9, 20), 1000, 1, 0, 0, null, null);
+        jdbcTemplate.update("UPDATE item SET author_kiln = '九谷焼' WHERE item_code = 'HT9-A6X'");
 
         String[][] cases = {
-                {"木製椅子", "HTK9-A1X"},
-                {"S-12", "HTK9-A2X"},
-                {"G7", "HTK9-A3X"},
-                {"伊万里", "HTK9-A4X"},
-                {"陶磁器", "HTK9-A5X"},
-                {"九谷", "HTK9-A6X"},
+                {"木製椅子", "HT9-A1X"},
+                {"S-12", "HT9-A2X"},
+                {"G7", "HT9-A3X"},
+                {"伊万里", "HT9-A4X"},
+                {"陶磁器", "HT9-A5X"},
+                {"九谷", "HT9-A6X"},
         };
         for (String[] c : cases) {
             mockMvc.perform(get("/api/items/search").param("kw", c[0]).session(editor))
@@ -225,24 +223,24 @@ class ItemSearchIntegrationTest {
     @Test
     void search_likeEscape_percentAndUnderscoreAreLiteral() throws Exception {
         MockHttpSession editor = loginAs("eichi");
-        insertItem("HTK9-A1X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 0, 0, null, "50%オフ");
-        insertItem("HTK9-A2X", "HT", LocalDate.of(2026, 9, 16), 1000, 1, 0, 0, null, "定価5000円");
-        insertItem("HTK9-A3X", "HT", LocalDate.of(2026, 9, 17), 1000, 1, 0, 0, null, "棚_雑貨");
+        insertItem("HT9-A1X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 0, 0, null, "50%オフ");
+        insertItem("HT9-A2X", "HT", LocalDate.of(2026, 9, 16), 1000, 1, 0, 0, null, "定価5000円");
+        insertItem("HT9-A3X", "HT", LocalDate.of(2026, 9, 17), 1000, 1, 0, 0, null, "棚_雑貨");
 
         // 50% 不得当通配符：不转义时 LIKE '%50%%' 会命中含「50」的 A2X（验收 12 字面）
         mockMvc.perform(get("/api/items/search").param("kw", "50%").session(editor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HTK9-A1X"));
+                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HT9-A1X"));
         // _ 同理是字面下划线（不转义会命中任意单字符）
         mockMvc.perform(get("/api/items/search").param("kw", "棚_").session(editor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HTK9-A3X"));
+                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HT9-A3X"));
         mockMvc.perform(get("/api/items/search").param("kw", "5000").session(editor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HTK9-A2X"));
+                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HT9-A2X"));
     }
 
     /**
@@ -256,16 +254,16 @@ class ItemSearchIntegrationTest {
     @Test
     void search_kanaCollation_kanaVariantsFoldLoosely() throws Exception {
         MockHttpSession editor = loginAs("eichi");
-        insertItem("HTK9-A1X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 0, 0, null, "あいうえお");
+        insertItem("HT9-A1X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 0, 0, null, "あいうえお");
 
         mockMvc.perform(get("/api/items/search").param("kw", "アイウエオ").session(editor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HTK9-A1X"));
+                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HT9-A1X"));
         mockMvc.perform(get("/api/items/search").param("kw", "ぁいうえお").session(editor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HTK9-A1X"));
+                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HT9-A1X"));
         mockMvc.perform(get("/api/items/search").param("kw", "かきくけこ").session(editor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(0));
@@ -276,30 +274,30 @@ class ItemSearchIntegrationTest {
     @Test
     void search_filters_combineByAnd() throws Exception {
         MockHttpSession editor = loginAs("eichi");
-        insertItem("HTK9-A1X", "HT", LocalDate.of(2026, 1, 10), 1000, 1, 1, 0, null, null);
-        insertItem("HTK9-A2X", "HT", LocalDate.of(2026, 1, 20), 1000, 2, 1, 1, null, null);
-        insertItem("NRK9-A1X", "NR", LocalDate.of(2026, 2, 5), 1000, 1, 0, 0, null, null);
-        insertItem("HTK9-A3X", "HT", LocalDate.of(2026, 3, 15), 1000, 1, 1, 0, null, null);
+        insertItem("HT9-A1X", "HT", LocalDate.of(2026, 1, 10), 1000, 1, 1, 0, null, null);
+        insertItem("HT9-A2X", "HT", LocalDate.of(2026, 1, 20), 1000, 2, 1, 1, null, null);
+        insertItem("NR9-A1X", "NR", LocalDate.of(2026, 2, 5), 1000, 1, 0, 0, null, null);
+        insertItem("HT9-A3X", "HT", LocalDate.of(2026, 3, 15), 1000, 1, 1, 0, null, null);
 
         mockMvc.perform(get("/api/items/search").param("warehouse", "2").session(editor))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.rows[*].itemCode", containsInAnyOrder("HTK9-A2X")));
+                .andExpect(jsonPath("$.data.rows[*].itemCode", containsInAnyOrder("HT9-A2X")));
         mockMvc.perform(get("/api/items/search").param("stockStatus", "0").session(editor))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.rows[*].itemCode", containsInAnyOrder("NRK9-A1X")));
+                .andExpect(jsonPath("$.data.rows[*].itemCode", containsInAnyOrder("NR9-A1X")));
         mockMvc.perform(get("/api/items/search").param("saleStatus", "1").session(editor))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.rows[*].itemCode", containsInAnyOrder("HTK9-A2X")));
+                .andExpect(jsonPath("$.data.rows[*].itemCode", containsInAnyOrder("HT9-A2X")));
         mockMvc.perform(get("/api/items/search").param("venueId", String.valueOf(htVenueId)).session(editor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.rows[*].itemCode",
-                        containsInAnyOrder("HTK9-A1X", "HTK9-A2X", "HTK9-A3X")));
+                        containsInAnyOrder("HT9-A1X", "HT9-A2X", "HT9-A3X")));
         mockMvc.perform(get("/api/items/search")
                         .param("buyDateFrom", "2026-01-15").param("buyDateTo", "2026-02-28")
                         .session(editor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.rows[*].itemCode",
-                        containsInAnyOrder("HTK9-A2X", "NRK9-A1X")));
+                        containsInAnyOrder("HT9-A2X", "NR9-A1X")));
         // 组合=AND
         mockMvc.perform(get("/api/items/search")
                         .param("warehouse", "1").param("stockStatus", "1").param("saleStatus", "0")
@@ -308,22 +306,22 @@ class ItemSearchIntegrationTest {
                         .session(editor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.rows[*].itemCode",
-                        containsInAnyOrder("HTK9-A1X", "HTK9-A3X")));
+                        containsInAnyOrder("HT9-A1X", "HT9-A3X")));
     }
 
     @Test
     void search_excludesVoidedAndDeletedItems() throws Exception {
         MockHttpSession editor = loginAs("eichi");
-        insertItem("HTK9-A1X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 0, 0, null, "対象");
-        insertItem("HTK9-A2X", "HT", LocalDate.of(2026, 9, 16), 1000, 1, 0, 0, null, "対象");
-        insertItem("HTK9-A3X", "HT", LocalDate.of(2026, 9, 17), 1000, 1, 0, 0, null, "対象");
-        jdbcTemplate.update("UPDATE item SET voided = 1 WHERE item_code = 'HTK9-A2X'");
-        jdbcTemplate.update("UPDATE item SET deleted = 1 WHERE item_code = 'HTK9-A3X'");
+        insertItem("HT9-A1X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 0, 0, null, "対象");
+        insertItem("HT9-A2X", "HT", LocalDate.of(2026, 9, 16), 1000, 1, 0, 0, null, "対象");
+        insertItem("HT9-A3X", "HT", LocalDate.of(2026, 9, 17), 1000, 1, 0, 0, null, "対象");
+        jdbcTemplate.update("UPDATE item SET voided = 1 WHERE item_code = 'HT9-A2X'");
+        jdbcTemplate.update("UPDATE item SET deleted = 1 WHERE item_code = 'HT9-A3X'");
 
         mockMvc.perform(get("/api/items/search").param("kw", "対象").session(editor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HTK9-A1X"));
+                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HT9-A1X"));
     }
 
     // ------------------------------------------------------------- 滞销（D-065）
@@ -334,18 +332,18 @@ class ItemSearchIntegrationTest {
         LocalDate today = LocalDate.now(clock);
         // S1 黄（35d）、S2 红·在售滞销（95d）、S3 成交排除、S4 在途无入库日、
         // S5 未满黄线（29d）、S6 红边界（90d）、S7 已出库排除
-        insertItem("HTK9-S1X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 1, 0, today.minusDays(35), null);
-        insertItem("HTK9-S2X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 1, 1, today.minusDays(95), null);
-        insertItem("HTK9-S3X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 1, 2, today.minusDays(95), null);
-        insertItem("HTK9-S4X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 0, 0, null, null);
-        insertItem("HTK9-S5X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 1, 0, today.minusDays(29), null);
-        insertItem("HTK9-S6X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 1, 0, today.minusDays(90), null);
-        insertItem("HTK9-S7X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 2, 2, today.minusDays(95), null);
+        insertItem("HT9-S1X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 1, 0, today.minusDays(35), null);
+        insertItem("HT9-S2X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 1, 1, today.minusDays(95), null);
+        insertItem("HT9-S3X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 1, 2, today.minusDays(95), null);
+        insertItem("HT9-S4X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 0, 0, null, null);
+        insertItem("HT9-S5X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 1, 0, today.minusDays(29), null);
+        insertItem("HT9-S6X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 1, 0, today.minusDays(90), null);
+        insertItem("HT9-S7X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 2, 2, today.minusDays(95), null);
 
         // 行级别徽标：kw 快路径单件断言（默认 30/90）
         String[][] levels = {
-                {"HTK9-S1X", "1"}, {"HTK9-S2X", "2"}, {"HTK9-S3X", "0"}, {"HTK9-S4X", "0"},
-                {"HTK9-S5X", "0"}, {"HTK9-S6X", "2"}, {"HTK9-S7X", "0"},
+                {"HT9-S1X", "1"}, {"HT9-S2X", "2"}, {"HT9-S3X", "0"}, {"HT9-S4X", "0"},
+                {"HT9-S5X", "0"}, {"HT9-S6X", "2"}, {"HT9-S7X", "0"},
         };
         for (String[] c : levels) {
             mockMvc.perform(get("/api/items/search").param("kw", c[0]).session(editor))
@@ -357,31 +355,31 @@ class ItemSearchIntegrationTest {
         mockMvc.perform(get("/api/items/search").param("warnLevel", "1").session(editor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.rows[*].itemCode",
-                        containsInAnyOrder("HTK9-S1X", "HTK9-S2X", "HTK9-S6X")));
+                        containsInAnyOrder("HT9-S1X", "HT9-S2X", "HT9-S6X")));
         mockMvc.perform(get("/api/items/search").param("warnLevel", "2").session(editor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.rows[*].itemCode",
-                        containsInAnyOrder("HTK9-S2X", "HTK9-S6X")));
+                        containsInAnyOrder("HT9-S2X", "HT9-S6X")));
     }
 
     @Test
     void search_slowMoveThresholds_sysSettingOverrideAndDirtyValueFallback() throws Exception {
         MockHttpSession editor = loginAs("eichi");
         LocalDate today = LocalDate.now(clock);
-        insertItem("HTK9-S1X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 1, 0, today.minusDays(35), null);
-        insertItem("HTK9-S2X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 1, 1, today.minusDays(95), null);
+        insertItem("HT9-S1X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 1, 0, today.minusDays(35), null);
+        insertItem("HT9-S2X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 1, 1, today.minusDays(95), null);
 
         // 覆写阈值 60/120：35d→0、95d→黄
         jdbcTemplate.update(
                 "INSERT INTO sys_setting(`key`, `value`) VALUES ('slow_move.warn_days','60'),('slow_move.alarm_days','120')");
-        mockMvc.perform(get("/api/items/search").param("kw", "HTK9-S1X").session(editor))
+        mockMvc.perform(get("/api/items/search").param("kw", "HT9-S1X").session(editor))
                 .andExpect(jsonPath("$.data.rows[0].slowMoveLevel").value(0));
-        mockMvc.perform(get("/api/items/search").param("kw", "HTK9-S2X").session(editor))
+        mockMvc.perform(get("/api/items/search").param("kw", "HT9-S2X").session(editor))
                 .andExpect(jsonPath("$.data.rows[0].slowMoveLevel").value(1));
 
         // 脏值防御：解析失败回退默认 30/90（D-065）
         jdbcTemplate.update("UPDATE sys_setting SET `value` = 'abc' WHERE `key` = 'slow_move.warn_days'");
-        mockMvc.perform(get("/api/items/search").param("kw", "HTK9-S1X").session(editor))
+        mockMvc.perform(get("/api/items/search").param("kw", "HT9-S1X").session(editor))
                 .andExpect(jsonPath("$.data.rows[0].slowMoveLevel").value(1));
     }
 
@@ -390,9 +388,9 @@ class ItemSearchIntegrationTest {
     @Test
     void search_pagination_clampsSizeAndViewerCanSearch() throws Exception {
         MockHttpSession viewer = loginAs("miru");
-        insertItem("HTK9-A1X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 0, 0, null, null);
-        insertItem("HTK9-A2X", "HT", LocalDate.of(2026, 9, 16), 1000, 1, 0, 0, null, null);
-        insertItem("HTK9-A3X", "HT", LocalDate.of(2026, 9, 17), 1000, 1, 0, 0, null, null);
+        insertItem("HT9-A1X", "HT", LocalDate.of(2026, 9, 15), 1000, 1, 0, 0, null, null);
+        insertItem("HT9-A2X", "HT", LocalDate.of(2026, 9, 16), 1000, 1, 0, 0, null, null);
+        insertItem("HT9-A3X", "HT", LocalDate.of(2026, 9, 17), 1000, 1, 0, 0, null, null);
 
         mockMvc.perform(get("/api/items/search").param("page", "1").param("size", "2").session(viewer))
                 .andExpect(status().isOk())

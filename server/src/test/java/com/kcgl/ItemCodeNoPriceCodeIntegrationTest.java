@@ -60,8 +60,6 @@ class ItemCodeNoPriceCodeIntegrationTest {
         jdbcTemplate.update("DELETE FROM seq_item_code");
         jdbcTemplate.update("DELETE FROM auction_venue");
         jdbcTemplate.update("DELETE FROM price_band");
-        jdbcTemplate.update("DELETE FROM year_code");
-        jdbcTemplate.update("INSERT INTO year_code(`year`, code) VALUES (2026,'K')");
         jdbcTemplate.update("INSERT INTO price_band(code, lower_bound, upper_bound, enabled) VALUES ('X', 0, 3000, 1)");
         jdbcTemplate.update("INSERT INTO auction_venue(code, name, enabled) VALUES ('HT', '飛騨古民具市', 1)");
         venueId = jdbcTemplate.queryForObject("SELECT id FROM auction_venue WHERE code = 'HT'", Long.class);
@@ -78,8 +76,8 @@ class ItemCodeNoPriceCodeIntegrationTest {
     void create_codeExcludesBandLetter_bandSnapshotStillPersisted() {
         ItemEntity first = itemCodeService.create(command("npc-1"));
         ItemEntity second = itemCodeService.create(command("npc-2"));
-        assertThat(first.getItemCode()).isEqualTo("HTK9-A1");
-        assertThat(second.getItemCode()).isEqualTo("HTK9-A2");
+        assertThat(first.getItemCode()).isEqualTo("HT9-A1");
+        assertThat(second.getItemCode()).isEqualTo("HT9-A2");
         // 档位照常推导（供内部展示与导出），仅不进号
         assertThat(first.getPriceBandCode()).isEqualTo("X");
     }

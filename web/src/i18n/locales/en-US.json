@@ -80,7 +80,6 @@
     "print": "Label printing",
     "venues": "Venues",
     "priceBands": "Price bands",
-    "yearCodes": "Year codes",
     "users": "Users",
     "yahoo": "Yahoo",
     "excel": "Excel"
@@ -172,7 +171,7 @@
       "large": "70×25 (33)"
     },
     "reprintLabel": "Reprint by item code",
-    "reprintPlaceholder": "e.g. HTK9-A12X",
+    "reprintPlaceholder": "e.g. HT9-A12X",
     "reprintNotFound": "No printable item found for this item code (voided and deleted items are excluded)"
   },
   "arrival": {
@@ -210,7 +209,7 @@
     "cameraInsecure": "Camera requires an HTTPS connection. Please use manual entry",
     "cameraFailed": "Could not start the camera. Please search by typing the code",
     "manualLabel": "Search by item code",
-    "manualPlaceholder": "e.g. HTK9-A12X",
+    "manualPlaceholder": "e.g. HT9-A12X",
     "manualSubmit": "Search",
     "notFound": "No item found for this code",
     "buyDate": "Purchased {date}",
@@ -402,20 +401,6 @@
       "rangeInvalid": "The lower bound must be less than the upper bound",
       "empty": "No price bands registered"
     },
-    "yearCode": {
-      "title": "Year Code Management",
-      "note": "The year code is the third character of item codes. 2016=A through 2041=Z are pre-registered.",
-      "createButton": "Add year code",
-      "createTitle": "Add Year Code",
-      "editTitle": "Edit Year Code",
-      "year": "Year",
-      "yearPlaceholder": "e.g. 2042",
-      "yearInvalid": "The year must be an integer between 2016 and 2999",
-      "code": "Code",
-      "codePlaceholder": "e.g. A",
-      "codeInvalid": "The code must be one uppercase letter (A-Z)",
-      "empty": "No year codes registered"
-    },
     "user": {
       "title": "User Accounts",
       "note": "Accounts cannot be deleted (disable only). A disabled account cannot sign in immediately.",
@@ -459,13 +444,11 @@
     "404001": "Not found",
     "404002": "No price band matches this price. Please configure price bands in the admin console",
     "404003": "The selected auction venue does not exist",
-    "404004": "No year code is registered for the year of the purchase date. Please register it in the admin console",
     "409000": "This item was updated by someone else. Reload the page and try again.",
     "409001": "This username already exists",
     "409002": "This venue code already exists",
     "409003": "This price band code already exists",
     "409004": "The price band range overlaps an existing band",
-    "409005": "This year or year code is already registered",
     "409006": "This item has already been voided.",
     "409007": "The source item has not been voided. Void it first.",
     "409008": "This operation is not allowed in the item's current state. Reload the page and check again.",
@@ -693,7 +676,7 @@
         "stockStatus": "Stock status",
         "saleStatus": "Sale status"
       },
-      "seqValue": "{venue} {year}/{month} {seq} Band {band}",
+      "seqValue": "{venue} {month} {seq} Band {band}",
       "edit": "Edit",
       "delete": "Delete",
       "deleteTitle": "Delete item",

@@ -52,7 +52,7 @@ const bands = [
 
 const itemFixture = {
   id: 11,
-  itemCode: 'HTK9-A1X',
+  itemCode: 'HT9-A1X',
   venueId: 7,
   warehouse: 1,
   buyDate: todayJst(),
@@ -208,7 +208,7 @@ describe('carry over from the previous item (A13)', () => {
 
 describe('two-level item code preview (preview ≠ reservation)', () => {
   it('computes the band locally at once and debounces input into a single preview request', async () => {
-    apiMocks.previewItemCode.mockResolvedValue({ code: 'HTK9-A2X', bandCode: 'X', seqPrefix: 'A', seqNo: 2 })
+    apiMocks.previewItemCode.mockResolvedValue({ code: 'HT9-A2X', bandCode: 'X', seqPrefix: 'A', seqNo: 2 })
     const wrapper = mountForm()
     await pickFirstVenue(wrapper)
 
@@ -222,12 +222,12 @@ describe('two-level item code preview (preview ≠ reservation)', () => {
     // 完整号来自 preview（以保存为准的目安）
     expect(apiMocks.previewItemCode).toHaveBeenCalledTimes(1)
     expect(apiMocks.previewItemCode).toHaveBeenCalledWith(7, todayJst(), 1500)
-    expect(wrapper.text()).toContain('HTK9-A2X')
+    expect(wrapper.text()).toContain('HT9-A2X')
     expect(wrapper.text()).toContain('確定番号は保存時に発行されます')
   })
 
-  it('shows preview business errors (e.g. 404004) inline', async () => {
-    apiMocks.previewItemCode.mockRejectedValue(new ApiError(404004, '年代号未登録', 'e-1'))
+  it('shows preview business errors (e.g. stale venue) inline', async () => {
+    apiMocks.previewItemCode.mockRejectedValue(new ApiError(404003, '会場未登録', 'e-1'))
     const wrapper = mountForm()
     await pickFirstVenue(wrapper)
 
@@ -235,7 +235,7 @@ describe('two-level item code preview (preview ≠ reservation)', () => {
     await inputs[2]!.setValue('1000')
     await new Promise((resolve) => setTimeout(resolve, 350))
 
-    expect(wrapper.text()).toContain('年代号が未登録')
+    expect(wrapper.text()).toContain('選択された会場が存在しません')
   })
 })
 
@@ -261,7 +261,7 @@ describe('save-failure retry (7.0 idempotency: reuses the same clientReqId)', ()
     expect(second.clientReqId).toBe(first.clientReqId)
     expect(first.clientReqId).toMatch(/^[0-9a-f-]{36}$/)
     const saved = await waitFor(() => wrapper.emitted('saved')?.[0])
-    expect(saved[0]).toMatchObject({ id: 11, itemCode: 'HTK9-A1X' })
+    expect(saved[0]).toMatchObject({ id: 11, itemCode: 'HT9-A1X' })
   })
 })
 
@@ -347,7 +347,7 @@ describe('photo selection (compress into Dexie first, bind to the new item and u
     const payload = apiMocks.createItem.mock.calls[0]![0] as { photoDate?: string }
     expect(payload.photoDate).toBe(todayJst())
     expect(saved).toMatchObject([
-      { id: 11, itemCode: 'HTK9-A1X' },
+      { id: 11, itemCode: 'HT9-A1X' },
       1, // boundCount
     ])
 
@@ -377,7 +377,7 @@ describe('re-entry (M2-6: full-field prefill after voiding)', () => {
   const voidedItem = {
     ...itemFixture,
     id: 31,
-    itemCode: 'HTK9-A3X',
+    itemCode: 'HT9-A3X',
     buyDate: '2026-09-20',
     purchasePrice: 1200,
     fee: 300,
@@ -397,7 +397,7 @@ describe('re-entry (M2-6: full-field prefill after voiding)', () => {
     await flushPromises()
 
     // 横幅：旧号 + 再登録文案
-    expect(wrapper.text()).toContain('HTK9-A3X の再登録')
+    expect(wrapper.text()).toContain('HT9-A3X の再登録')
     expect(wrapper.text()).toContain('新しい管理番号が発番')
 
     const inputs = wrapper.findAll('input')
@@ -421,7 +421,7 @@ describe('re-entry (M2-6: full-field prefill after voiding)', () => {
 
   it('submits with reEntryOf set to the original id (server inherits omitted fields and copies photo rows)', async () => {
     apiMocks.fetchItemImages.mockResolvedValue([])
-    apiMocks.createItem.mockResolvedValue({ ...itemFixture, id: 32, itemCode: 'HTK9-A4X' })
+    apiMocks.createItem.mockResolvedValue({ ...itemFixture, id: 32, itemCode: 'HT9-A4X' })
     const wrapper = mountForm({ reEntry: voidedItem })
     await flushPromises()
 
@@ -458,7 +458,7 @@ describe('re-entry (M2-6: full-field prefill after voiding)', () => {
     const wrapper = mountForm({ reEntry: voidedItem })
     await flushPromises()
 
-    expect(wrapper.text()).toContain('HTK9-A3X の再登録')
+    expect(wrapper.text()).toContain('HT9-A3X の再登録')
     expect(wrapper.findAll('.entry-inherited-photos img')).toHaveLength(0)
 
     await wrapper.find('form').trigger('submit')

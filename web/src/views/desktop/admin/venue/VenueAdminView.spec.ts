@@ -33,6 +33,7 @@ import type { MeResponse, Venue } from '@/utils/api'
  */
 
 const meAdmin: MeResponse = {
+  id: 1,
   username: 'boss',
   displayName: '管理者',
   role: 1,
@@ -41,6 +42,7 @@ const meAdmin: MeResponse = {
 }
 
 const meEditor: MeResponse = {
+  id: 2,
   username: 'eichi',
   displayName: '編集者',
   role: 2,

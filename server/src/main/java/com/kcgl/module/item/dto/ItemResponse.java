@@ -11,8 +11,6 @@ public record ItemResponse(
         String itemCode,
         Long venueId,
         String venueCode,
-        Integer year,
-        String yearCode,
         Integer buyMonth,
         String seqPrefix,
         Integer seqNo,
@@ -49,7 +47,7 @@ public record ItemResponse(
     public static ItemResponse from(ItemEntity e) {
         return new ItemResponse(
                 e.getId(), e.getItemCode(), e.getVenueId(), e.getVenueCode(),
-                e.getYear(), e.getYearCode(), e.getBuyMonth(), e.getSeqPrefix(), e.getSeqNo(),
+                e.getBuyMonth(), e.getSeqPrefix(), e.getSeqNo(),
                 e.getBuyDate(), e.getPhotoDate(),
                 e.getPurchasePrice(), e.getFee(), e.getShippingFee(), e.getTax(),
                 e.getSoldPrice(), e.getTotalCost(), e.getProfit(),

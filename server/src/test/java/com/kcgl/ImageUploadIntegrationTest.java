@@ -85,11 +85,11 @@ class ImageUploadIntegrationTest {
                 VALUES ('ga1', ?, '管理者', 1, 1, 0), ('eichi', ?, '編集者', 2, 1, 0), ('miru', ?, '閲覧者', 3, 1, 0)
                 """, ENCODER.encode(PASSWORD), ENCODER.encode(PASSWORD), ENCODER.encode(PASSWORD));
         jdbcTemplate.update("""
-                INSERT INTO item(item_code, venue_id, venue_code, `year`, year_code, buy_month,
+                INSERT INTO item(item_code, venue_id, venue_code, buy_month,
                     seq_prefix, seq_no, buy_date, purchase_price, price_band_code, warehouse, created_by)
-                VALUES ('HTK9-A1X', 1, 'HT', 2026, 'K', 9, 'A', 1, '2026-09-15', 1000, 'X', 1, 1)
+                VALUES ('HT9-A1X', 1, 'HT', 9, 'A', 1, '2026-09-15', 1000, 'X', 1, 1)
                 """);
-        itemId = jdbcTemplate.queryForObject("SELECT id FROM item WHERE item_code = 'HTK9-A1X'", Long.class);
+        itemId = jdbcTemplate.queryForObject("SELECT id FROM item WHERE item_code = 'HT9-A1X'", Long.class);
     }
 
     private MockHttpSession loginAs(String username) throws Exception {

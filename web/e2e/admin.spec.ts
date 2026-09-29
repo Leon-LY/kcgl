@@ -1,12 +1,11 @@
 import { expect, test, type Page } from '@playwright/test'
 
 /**
- * 管理后台（M2-8b-2/8b-3）：会场/价格档位/年代号/账号四页 CRUD + 角色可达性
- * （会场=账号=E+；档位/年代号/账号管理=管理员；路由守卫+服务端 403 双兜底）
+ * 管理后台（M2-8b-2/8b-3）：会场/价格档位/账号三页 CRUD + 角色可达性
+ * （会场=账号=E+；档位/账号管理=管理员；路由守卫+服务端 403 双兜底）
  * + 首启 checklist 卡片（管理员首页置顶、印刷完成标记落库）。
  * 共库隔离（本 spec 按文件名最先执行）：夹具会场 ZZ/档位 Z 在用例尾部
  * 停用——enabled-only 查询（录入/打印下拉）恢复只剩种子 HT/X；
- * 年代号无停用语义，2041/Z 编辑为 2042（后续 spec 均用 2026=K 不受影响）；
  * 账号 hanako 创建后停用留库（后续 spec 不查用户列表，无影响）。
  * E2E 库为一次性容器（每轮全新），无跨轮累积。
  */
@@ -40,7 +39,7 @@ async function saveDialog(page: Page): Promise<void> {
 }
 
 test.describe('dictionary admin (desktop-chromium)', () => {
-  test('admin manages venues, price bands, and year codes end to end', async ({ page }) => {
+  test('admin manages venues, price bands, and accounts end to end', async ({ page }) => {
     await login(page, 'admin')
 
     // 首启 checklist：种子态=员工/会场/档位已完成，录件/印刷未完成
@@ -53,14 +52,13 @@ test.describe('dictionary admin (desktop-chromium)', () => {
     await expect(page.locator('.home-setup-step.is-done')).toHaveCount(4)
     await expect(page.getByRole('button', { name: '印刷できた' })).toHaveCount(0)
 
-    // 顶栏导航：管理员可见全部九个链接（ホーム/商品/ヤフー/エクセル/ラベル印刷/会場/価格帯/年代号/アカウント）
+    // 顶栏导航：管理员可见全部八个链接（ホーム/商品/ヤフー/エクセル/ラベル印刷/会場/価格帯/アカウント）
     const nav = page.locator('.shell-nav-link')
-    await expect(nav).toHaveCount(9)
+    await expect(nav).toHaveCount(8)
     await expect(nav.filter({ hasText: '商品' })).toHaveCount(1)
     await expect(nav.filter({ hasText: 'エクセル' })).toHaveCount(1)
     await expect(nav.filter({ hasText: 'ヤフー' })).toHaveCount(1)
     await expect(nav.filter({ hasText: '価格帯' })).toHaveCount(1)
-    await expect(nav.filter({ hasText: '年代号' })).toHaveCount(1)
     await expect(nav.filter({ hasText: 'アカウント' })).toHaveCount(1)
 
     // ---- 会场：新增 → 改名 → 停用（尾部停用=恢复 enabled 下拉种子态）
@@ -95,25 +93,6 @@ test.describe('dictionary admin (desktop-chromium)', () => {
     await zRow.getByRole('button', { name: '停止する' }).click()
     await expect(zRow).toContainText('停止')
 
-    // ---- 年代号：A-Z 已被种子 2016-2041 全占（年份↔代号双向唯一，Z 用尽后规则=A2 待定）
-    // ——新增任何字母必撞唯一约束：断言服务端 409005 就地展示；编辑路径走 2041/Z → 2042
-    await nav.filter({ hasText: '年代号' }).click()
-    await expect(page).toHaveURL(/\/admin\/year-codes$/)
-    await expect(page.locator('.el-table__row').first()).toContainText('2016')
-
-    await fillCreateDialog(page, ['2042', 'M'])
-    await expect(page.locator('.admin-form-error')).toContainText('既に登録されています')
-    await page.locator('.el-dialog').getByRole('button', { name: 'キャンセル' }).click()
-    await expect(page.locator('.el-dialog')).toBeHidden()
-
-    const row2041 = page.locator('.el-table__row', { hasText: '2041' })
-    await row2041.getByRole('button', { name: '編集' }).click()
-    const editInputs = page.locator('.el-dialog input')
-    await expect(editInputs.first()).toBeVisible()
-    await editInputs.nth(0).fill('2042')
-    await saveDialog(page)
-    await expect(page.locator('.el-table__row', { hasText: '2042' })).toContainText('Z')
-
     // ---- 账号：新增（默认角色/语言）→ 密码重置一次性展示 → 停用
     await nav.filter({ hasText: 'アカウント' }).click()
     await expect(page).toHaveURL(/\/admin\/users$/)
@@ -144,17 +123,16 @@ test.describe('dictionary admin (desktop-chromium)', () => {
     await expect(hanakoRow).toContainText('停止')
   })
 
-  test('editor can manage venues but not price bands or year codes', async ({ page }) => {
+  test('editor can manage venues but not price bands or accounts', async ({ page }) => {
     await login(page, 'editor')
 
-    // 导航：编辑者=ホーム/商品/ヤフー/エクセル/ラベル印刷/会場 六链接（无价格档位/年代号/账号）
+    // 导航：编辑者=ホーム/商品/ヤフー/エクセル/ラベル印刷/会場 六链接（无价格档位/账号）
     const nav = page.locator('.shell-nav-link')
     await expect(nav).toHaveCount(6)
     await expect(nav.filter({ hasText: '商品' })).toHaveCount(1)
     await expect(nav.filter({ hasText: 'エクセル' })).toHaveCount(1)
     await expect(nav.filter({ hasText: 'ヤフー' })).toHaveCount(1)
     await expect(nav.filter({ hasText: '価格帯' })).toHaveCount(0)
-    await expect(nav.filter({ hasText: '年代号' })).toHaveCount(0)
     await expect(nav.filter({ hasText: 'アカウント' })).toHaveCount(0)
     // 编辑者首页无 checklist 卡片（管理员引导）
     await expect(page.locator('.home-setup')).toHaveCount(0)
@@ -166,8 +144,6 @@ test.describe('dictionary admin (desktop-chromium)', () => {
 
     // 直敲 URL → 路由守卫回首页（服务端 403 二次兜底）
     await page.goto('/admin/price-bands')
-    await expect(page).toHaveURL(/\/$/)
-    await page.goto('/admin/year-codes')
     await expect(page).toHaveURL(/\/$/)
     await page.goto('/admin/users')
     await expect(page).toHaveURL(/\/$/)

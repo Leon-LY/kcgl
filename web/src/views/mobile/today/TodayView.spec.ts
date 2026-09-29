@@ -33,7 +33,7 @@ function session(overrides: Partial<TodaySession> = {}): TodaySession {
     rows: [
       {
         id: 301,
-        itemCode: 'HTK9-A1X',
+        itemCode: 'HT9-A1X',
         voided: true,
         voidReason: '価格入力ミス',
         createdAt: '09:15',
@@ -41,7 +41,7 @@ function session(overrides: Partial<TodaySession> = {}): TodaySession {
       },
       {
         id: 302,
-        itemCode: 'HTK9-A2X',
+        itemCode: 'HT9-A2X',
         voided: false,
         voidReason: null,
         createdAt: '10:02',
@@ -49,7 +49,7 @@ function session(overrides: Partial<TodaySession> = {}): TodaySession {
       },
       {
         id: 303,
-        itemCode: 'HTK9-A3X',
+        itemCode: 'HT9-A3X',
         voided: false,
         voidReason: null,
         createdAt: '11:47',
@@ -94,7 +94,7 @@ describe('today session (M2-8b)', () => {
     expect(rows(wrapper)).toHaveLength(3)
     expect(wrapper.text()).toContain('本日 2 件・取り消し 1 件')
     expect(wrapper.text()).toContain('2026-09-27 の登録分')
-    expect(wrapper.text()).toContain('HTK9-A2X')
+    expect(wrapper.text()).toContain('HT9-A2X')
     expect(wrapper.text()).toContain('10:02')
   })
 
