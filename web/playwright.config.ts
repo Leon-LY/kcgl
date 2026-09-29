@@ -21,6 +21,11 @@ export default defineConfig({
   projects: [
     { name: 'desktop-chromium', use: { ...devices['Desktop Chrome'] } },
     { name: 'mobile-chromium', use: { ...devices['Pixel 5'] } },
+    // WebKit 冒烟（docs/01 E2E 节）：iOS Safari 为最高优先适配目标，WebKit+iPhone
+    // 视口/UA 是最接近的无真机代理——webkit-smoke.spec 跑登录/录入/扫码/盘点离线
+    // 关键路径；其余 spec 仍只在 desktop-chromium 执行（各自 project 守卫）。
+    // 真机全项见 docs/qa/device-matrix.md（G6）。
+    { name: 'webkit-smoke', use: { ...devices['iPhone 13'] } },
   ],
   webServer: [
     {

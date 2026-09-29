@@ -4,7 +4,7 @@ import { expect, test, type Page } from '@playwright/test'
  * 監視三页（M5-④，docs/01 9.3）：台帳ブラウズ/操作ログ/システム状況——
  * 管理员全链路（自种数据：本 spec 内经 /entry 录一件 → 台帳首行=该件新規登録 →
  * 前缀筛选收窄 → 行点击进商品详情；操作日志动作/操作人筛选 + 展开留痕 JSON；
- * 系统状况速览卡 + 帳実自検全绿 + 诊断包下载）+ 编辑者/查看者越权回跳。
+ * 系统状况速览卡 + 整合性チェック全绿 + 诊断包下载）+ 编辑者/查看者越权回跳。
  * 台帳/日志只增不改不删（验收 9）：三页均无写入口是刻意设计。
  * 文件名排序在 entry/excel/items 之后执行（自种数据不依赖他 spec，但
  * Excel 批次表断言依赖 excel.spec 已产生导入历史——套件串行共享库）。
@@ -118,8 +118,8 @@ test.describe('monitoring pages (desktop-chromium)', () => {
     await expect(page.locator('.system-batch-table .el-table__row').first()).toBeVisible()
     await expect(page.locator('.system-alert-table')).toBeVisible()
 
-    // 帳実自検 → 五节全 OK
-    await page.getByRole('button', { name: '帳実自検を実行' }).click()
+    // 整合性チェック（旧称・帳実自検）→ 五节全 OK
+    await page.getByRole('button', { name: '整合性チェックを実行' }).click()
     await expect(page.locator('.system-check-summary')).toHaveText('異常なし')
     await expect(page.locator('.system-check-badge.is-ok')).toHaveCount(5)
 

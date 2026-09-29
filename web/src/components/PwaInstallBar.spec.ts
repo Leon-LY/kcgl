@@ -88,7 +88,7 @@ describe('PwaInstallBar (M6-1)', () => {
     await vi.waitFor(() => {
       expect(wrapper.find('[data-testid="pwa-bar"]').classes()).toContain('is-warning')
     })
-    expect(wrapper.find('[data-testid="pwa-bar"]').text()).toContain('1 枚が未送信')
+    expect(wrapper.find('[data-testid="pwa-bar"]').text()).toContain('1枚が未送信')
     // 数据风险存续期间不可关闭
     expect(wrapper.find('.pwa-bar-dismiss').exists()).toBe(false)
   })

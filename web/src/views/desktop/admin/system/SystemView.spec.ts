@@ -184,7 +184,7 @@ describe('system view (M5-4)', () => {
     apiMocks.runSelfCheck.mockResolvedValue(REPORT)
     const wrapper = await mountView()
 
-    const runButton = wrapper.findAll('button').find((b) => b.text() === '帳実自検を実行')!
+    const runButton = wrapper.findAll('button').find((b) => b.text() === '整合性チェックを実行')!
     await runButton.trigger('click')
     await flushPromises()
 
@@ -193,7 +193,7 @@ describe('system view (M5-4)', () => {
     const rows = wrapper.findAll('.system-check-row')
     expect(rows).toHaveLength(5)
     expect(wrapper.findAll('.system-check-badge.is-ok')).toHaveLength(5)
-    expect(rows.some((r) => r.text().includes('帳実照合'))).toBe(true)
+    expect(rows.some((r) => r.text().includes('台帳照合'))).toBe(true)
     expect(rows.some((r) => r.text().includes('画像ファイル'))).toBe(true)
   })
 

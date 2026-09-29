@@ -142,7 +142,7 @@
       "venueRequired": "Select a venue",
       "priceRequired": "Enter the purchase price",
       "priceMin": "Purchase price must be at least 1 JPY",
-      "feeMax": "Fee must be less than 99,990,000 JPY"
+      "feeMax": "Fee must be at most 99,999,999 JPY"
     },
     "reEntryTitle": "Re-entry of {code}",
     "reEntryNote": "Correct the voided item and save. A new item code will be issued and photos carry over automatically.",
@@ -159,7 +159,7 @@
     "voidConfirm": "Void and re-enter"
   },
   "print": {
-    "title": "Label printing",
+    "title": "Label Printing",
     "rangeLabel": "Created date",
     "rangeFrom": "From",
     "rangeTo": "To",
@@ -424,7 +424,7 @@
     },
     "user": {
       "title": "User Accounts",
-      "note": "Accounts cannot be deleted (disable only). A disabled account cannot sign in immediately.",
+      "note": "Accounts cannot be deleted (disable only). Disabling takes effect immediately.",
       "createButton": "Add account",
       "createTitle": "Add account",
       "editTitle": "Edit account",
@@ -496,7 +496,7 @@
     "INVALID_RESPONSE": "Received an invalid response from the server"
   },
   "yahoo": {
-    "title": "Yahoo integration",
+    "title": "Yahoo Integration",
     "itemCode": "Item code",
     "orderId": "Order ID",
     "auctionId": "Auction ID",
@@ -602,7 +602,7 @@
   "items": {
     "title": "Item List",
     "searchPlaceholder": "Search by item code, name, venue, shelf no., etc.",
-    "searchHint": "Kana variants and small letters are not distinguished",
+    "searchHint": "Letter case and kana type (hiragana/katakana) are ignored",
     "search": "Search",
     "clear": "Clear filters",
     "filterAll": "All",
@@ -688,7 +688,7 @@
         "remark": "Remark",
         "itemName": "Item name",
         "category": "Category",
-        "authorKiln": "Author・kiln",
+        "authorKiln": "Author / kiln",
         "sizeText": "Size",
         "weightG": "Weight (g)",
         "salesChannel": "Sales channel",
@@ -761,7 +761,7 @@
   },
   "dashboard": {
     "title": "Dashboard",
-    "fleetTitle": "Fleet summary",
+    "fleetTitle": "Overall summary",
     "warehouseTitle": "Per-warehouse summary",
     "warehouse": "Warehouse",
     "inStock": "In stock",
@@ -784,7 +784,7 @@
     "goYahoo": "Open Yahoo"
   },
   "settings": {
-    "title": "System settings",
+    "title": "System Settings",
     "slowTitle": "Slow-move thresholds",
     "slowNote": "Items held longer than the yellow threshold are flagged as caution in the item list; past the red threshold, as action needed.",
     "warnDays": "Yellow threshold (days)",
@@ -801,7 +801,7 @@
     "loadFailed": "Failed to load settings"
   },
   "ledgers": {
-    "title": "Ledger browser",
+    "title": "Ledger Browser",
     "typeAll": "All types",
     "itemCodePlaceholder": "Item code (prefix)",
     "operatorPlaceholder": "Operator",
@@ -823,7 +823,7 @@
     "empty": "No matching records"
   },
   "oplogs": {
-    "title": "Operation log",
+    "title": "Operation Log",
     "actionPlaceholder": "Action (prefix)",
     "entityPlaceholder": "Entity type",
     "hint": "Logs are append-only. Expand a row to view the detail JSON.",
@@ -835,7 +835,7 @@
     "empty": "No matching logs"
   },
   "system": {
-    "title": "System status",
+    "title": "System Status",
     "loadFailed": "Failed to load system status",
     "overviewTitle": "Overview",
     "appVersion": "App version",
@@ -854,7 +854,7 @@
     "disk": "Disk (image volume)",
     "diskValue": "{used} / {total} ({percent}%)",
     "unavailable": "Unavailable",
-    "volumeTitle": "Data volumes & code engine",
+    "volumeTitle": "Record counts & code engine",
     "volumeItems": "Items",
     "volumeLedgers": "Ledgers",
     "volumeOperationLogs": "Operation logs",
@@ -900,7 +900,7 @@
       "volumesValue": "Items {items}／ledgers {ledgers}／logs {logs}",
       "disk": "Disk",
       "imageAudit": "Image files",
-      "imageValue": "{missing} missing, {orphan} orphan"
+      "imageValue": "{missing} missing, {orphan} orphaned"
     },
     "export": {
       "run": "Export diagnostics",
@@ -911,8 +911,8 @@
     "guide": {
       "title": "Add to Home Screen",
       "body": "Installing as an app keeps temporarily stored photos safer (without adding to the home screen, stored photos may be cleared after long inactivity).",
-      "ios": "Safari Share button → “Add to Home Screen”",
-      "generic": "Browser menu → “Install app” / “Add to Home screen”",
+      "ios": "Safari Share button → \"Add to Home Screen\"",
+      "generic": "Browser menu → \"Install app\" / \"Add to Home Screen\"",
       "install": "Install",
       "later": "Later"
     },
