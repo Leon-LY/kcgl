@@ -69,13 +69,18 @@ onBeforeUnmount(() => {
       class="shell-main"
       :class="{ 'has-tabbar': showTabbar }"
     >
-      <!-- 与桌面壳同一换页动效（见 DesktopShell） -->
-      <RouterView v-slot="{ Component }">
+      <!-- 与桌面壳同一换页动效（含"必须包一层单元素挂载点"的缘由，见 DesktopShell） -->
+      <RouterView v-slot="{ Component, route: viewRoute }">
         <Transition
           name="kcgl-view"
           mode="out-in"
         >
-          <component :is="Component" />
+          <div
+            :key="viewRoute.path"
+            class="kcgl-view-slot"
+          >
+            <component :is="Component" />
+          </div>
         </Transition>
       </RouterView>
     </main>

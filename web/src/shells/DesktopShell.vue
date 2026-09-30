@@ -158,13 +158,24 @@ function onSwitchMobile(): void {
       <main class="shell-main">
         <PwaInstallBar warning-only />
         <!-- 换页淡入 4px：表达"换了页"而非编排式入场；out-in 避免两页并置
-             （时长取 --kcgl-dur-fast，两段合计 240ms，仍在 250ms 预算内） -->
-        <RouterView v-slot="{ Component }">
+             （时长取 --kcgl-dur-fast，两段合计 240ms，仍在 250ms 预算内）。
+             Transition 的直接子节点必须是**单个元素**：Excel／印刷两页的根是
+             <el-config-provider>（渲染出 fragment 根），Vue 无法给它做离场，
+             out-in 会卡在"旧页已离场、新页还没入场"，右侧整片空白且刷新才恢复
+             （D-104）。故包一层无语义挂载点。Key 取路由 path 而非 fullPath：
+             筛选条件走 query 变化，不该把整页重挂载。插槽属性改名 viewRoute，
+             避开外层 useRoute() 的 route（no-template-shadow，同对象两处绑定易读错）。 -->
+        <RouterView v-slot="{ Component, route: viewRoute }">
           <Transition
             name="kcgl-view"
             mode="out-in"
           >
-            <component :is="Component" />
+            <div
+              :key="viewRoute.path"
+              class="kcgl-view-slot"
+            >
+              <component :is="Component" />
+            </div>
           </Transition>
         </RouterView>
       </main>

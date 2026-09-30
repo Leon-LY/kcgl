@@ -473,6 +473,18 @@ body {
 
 /* ---------------------------------------------------------------- ⑥ 动效与可访问性 */
 
+/* 换页动效的挂载点（两壳共用）：Transition 的直接子节点必须是单个元素，否则
+   根为 fragment 的页面（如 <el-config-provider> 包一层的 Excel／印刷页）会让
+   out-in 卡在"旧页已离场、新页未入场"→ 右侧白屏（D-104）。这一层没有语义，
+   只负责把两个壳 main 的 flex 链原样传下去（移动壳 main 是列向 flex，登录页
+   靠 flex:1 + min-height:100% 落位，中间插一层不能把这条链掐断）。 */
+.kcgl-view-slot {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
 /* 路由/视图切换：仅内容区淡入上移 4px——表达"换了页"，不做编排式入场 */
 .kcgl-view-enter-active,
 .kcgl-view-leave-active {
