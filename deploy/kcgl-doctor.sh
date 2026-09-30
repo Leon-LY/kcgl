@@ -6,8 +6,10 @@
 #      失效的最常见后果）。证书路径经 KCGL_TLS_CERT 配置（HTTPS 部署时见 deployment.md）
 #   4. 备份新鲜度：backup-status.json 的 lastSuccessAt 距今 >25h 即 FAIL
 #      （03:30 cron + 25h 容忍跨日边界与一次失败重试窗）
-# cron（CRON_TZ=Asia/Tokyo，每日 04:45——在 app 自检 job 04:17 之后）：
-#   45 4 * * * /opt/kcgl/deploy/kcgl-doctor.sh >> /var/log/kcgl-doctor.log 2>&1
+# cron（宿主本地时区，每日 04:45——在 app 自检 job 04:17 之后）。
+# 不用 CRON_TZ：Ubuntu 的 cron（vixie 系）不支持该变量，写了会被静默忽略；
+# 需要每小时点检时改 7 * * * *（deployment.md §7）。
+#   45 4 * * * root cd /opt/kcgl && ./kcgl-doctor.sh >> /var/log/kcgl-doctor.log 2>&1
 # 用法：./kcgl-doctor.sh   （在部署目录执行；exit 0=全绿/含 SKIP）
 set -uo pipefail
 cd "$(dirname "$0")"
@@ -32,13 +34,22 @@ fail() { lines+=("FAIL|$1"); overall=1; }
 skip() { lines+=("SKIP|$1"); }
 
 # ---------- 1. 容器健康 ----------
+# 容器名经 `docker compose ps -q <service>` 解析，**不硬编码 kcgl-app**：
+# 甲方可能给容器改名、或用 `-p <project>` 在同机跑第二套（干净主机演练即如此），
+# 硬编码名会让点检在这种部署下整片误报 FAIL。service 名由本目录 compose 定义。
 for c in mysql app web; do
-    state=$(docker inspect -f '{{.State.Status}}' "kcgl-$c" 2>/dev/null || echo missing)
-    health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}n/a{{end}}' "kcgl-$c" 2>/dev/null || echo n/a)
+    cid=$(docker compose ps -q "$c" 2>/dev/null | head -1)
+    if [ -z "$cid" ]; then
+        fail "容器 $c：未找到（docker compose ps -a 排查）"
+        continue
+    fi
+    cname=$(docker inspect -f '{{.Name}}' "$cid" 2>/dev/null | sed 's|^/||')
+    state=$(docker inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || echo missing)
+    health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}n/a{{end}}' "$cid" 2>/dev/null || echo n/a)
     if [ "$state" = running ] && { [ "$health" = healthy ] || [ "$health" = n/a ]; }; then
-        pass "容器 kcgl-$c：running/${health}"
+        pass "容器 ${cname:-$c}：running/${health}"
     else
-        fail "容器 kcgl-$c：${state}/${health}（docker logs kcgl-$c 排查）"
+        fail "容器 ${cname:-$c}：${state}/${health}（docker compose logs $c 排查）"
     fi
 done
 

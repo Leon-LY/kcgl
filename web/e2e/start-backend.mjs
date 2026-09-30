@@ -19,7 +19,10 @@ const TARGET_DIR = path.resolve(E2E_DIR, '../../server/target')
 const APP_PORT = process.env.E2E_APP_PORT ?? '18080'
 const WEB_PORT = process.env.E2E_WEB_PORT ?? '5173'
 const CONTAINER = 'kcgl-e2e-mysql'
-const DB_PASSWORD = 'kcgl_e2e_pass'
+// 口令须过 SecretStrengthGuard（验收 12 弱值拒启）：E2E 起的是打包 jar、e2e profile
+// 不关守卫——弱口令会让整条 E2E 栈起不来，故这里给一个够长的夹具口令（与一次性容器
+// 同生共死，无复用面）。
+const DB_PASSWORD = 'kcgl-e2e-fixture-Kq7x41bP'
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 

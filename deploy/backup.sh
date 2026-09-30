@@ -9,8 +9,9 @@
 #   - 磁盘水位 >80% 拒跑并写失败状态（app/doctor 据此告警）；
 #   - 状态：backup-status.json 供 kcgl-doctor.sh 检查新鲜度、管理后台显示
 #     「最近备份成功时间」（app 侧读取为 M7 增量，格式自此冻结）。
-# cron（CRON_TZ=Asia/Tokyo，每日 03:30——避开自检 job 04:17 与整点潮汐）：
-#   30 3 * * * /opt/kcgl/deploy/backup.sh >> /var/log/kcgl-backup.log 2>&1
+# cron（宿主本地时区，每日 03:30——避开自检 job 04:17 与整点潮汐）。
+# 不用 CRON_TZ：Ubuntu 的 cron（vixie 系）不支持该变量，写了会被静默忽略。
+#   30 3 * * * root cd /opt/kcgl && ./backup.sh >> /var/log/kcgl-backup.log 2>&1
 # 用法：./backup.sh   （在部署目录执行，读同目录 .env；宿主需 docker/zstd/rsync）
 set -euo pipefail
 cd "$(dirname "$0")"

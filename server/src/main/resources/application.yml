@@ -53,6 +53,11 @@ mybatis-plus:
 kcgl:
   security:
     allowed-origins: ${KCGL_ALLOWED_ORIGINS:}
+    # 启动期弱值拒启（验收 12）：部署面默认开启——样板值/弱口令一律拒绝启动。
+    # 仅本地沙箱（根 docker-compose.yml 的 app 服务、Testcontainers 测试）显式关闭，
+    # 见 SecretStrengthGuard 类注释；deploy/docker-compose.yml 不设此变量=沿用默认 true。
+    secret-guard:
+      enabled: ${KCGL_SECRET_GUARD:true}
   item-code:
     # 价格码是否进管理号（A1 口径，默认含；对外业务格式，变更须甲方确认后随发版固化）
     include-price-code: ${KCGL_ITEM_CODE_INCLUDE_PRICE_CODE:true}

@@ -107,6 +107,9 @@ services:
       KCGL_EXCEL_IMPORTS_DIR: /data/imports/excel
       # backup-status.json（backup.sh 产出）→ 系统状况页「直近バックアップ成功時刻」
       KCGL_BACKUP_STATUS: /data/backup/backup-status.json
+      # 弱值拒启（验收 12）显式开启：与 application.yml 默认值一致，写出来是为了让
+      # 「部署面开着这道闸」在部署工件上可读可审；关掉它=样板口令（change-me-*）也能起
+      KCGL_SECRET_GUARD: "true"
     volumes:
       - kcgl-app-data:/data
       # 备份目录只读挂载：app 只读状态文件，绝无写备份面（备份写入仅宿主 backup.sh）

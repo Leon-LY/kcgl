@@ -49,6 +49,9 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:?请在 .env 配置 DB_PASSWORD}
       # 本地开发前端经 Vite 代理访问（Origin=5173）；生产部署注入实际域名
       KCGL_ALLOWED_ORIGINS: ${KCGL_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      # 启动期弱值拒启（验收 12）在**部署面**开启，本地沙箱按设计用弱默认值
+      # （.env.example 首行即声明），故此处置 false——仅在沙箱关闭，见 SecretStrengthGuard
+      KCGL_SECRET_GUARD: "false"
     ports:
       - "127.0.0.1:${APP_PORT:-8080}:8080"
     depends_on:
