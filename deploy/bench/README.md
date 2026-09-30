@@ -56,8 +56,12 @@ SQL
 
 ## 设计要点（D-078）
 
-- **确定性随机**：全部随机值由 `CRC32('盐' + 序号)` 派生——无原生
-  seed RNG 依赖，重跑结果逐位一致，压测基线可比。
+- **确定性随机**：分布类随机值（会场/状态/仓库/日期/价格/备注等）由
+  `CRC32('盐' + 序号)` 派生——无原生 seed RNG 依赖，重跑**分布**逐位一致，压测基线可比。
+  **例外：图片路径**（`stored_path`/`thumb_path`/`client_uuid`）用 MySQL `UUID()`，
+  每轮重灌都是新名（文件名本就该唯一，且与 ImageStore 的 UUID 约定一致）——
+  因此**重跑 seed 必须紧接着重跑 bench-images.sh**，否则新行指向的文件不存在、
+  而上一轮的 25 万硬链成为孤儿（见下方「复位」）。
 - **生成即合法**：ledger 动作矩阵全部走 InventoryStateMachine 合法边
   （M3 边表），终态与 item 快照一致；数据必须通过 restore.sh /
   LedgerConsistencyService 同口径的三条生产级对账断言——失败即
@@ -137,5 +141,7 @@ K6_USERS=bench-op1,bench-op2,bench-op3,bench-op4 \
 > 设置它的那一轮迭代发出 Cookie，下一轮起不再发送 —— 表现为「登录 200，之后全部
 > 401」，压测测到的其实是 401 的响应时间。用 k6 重写压测脚本时勿改回 jar 自动管理。
 
-entry 场景写入真实在途件（压测专用库口径）——压测后按需重跑 seed-bench.sql
+entry 场景写入真实在途件（压测专用库口径）——压测后按需**按 1→2→3 全套复位**
+（`seed-bench.sql` →`bench-images.sh` →`bench-verify.sql`）。**只重跑 seed 不重跑
+bench-images 会留下一批"数据库有行、磁盘无文件"的图片行**（路径是每轮新 UUID）。
 复位分布。六项门槛与分布规格见 docs/01 §4.2；结果记入 docs/qa 压测报告。

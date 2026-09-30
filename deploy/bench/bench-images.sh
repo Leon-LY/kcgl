@@ -21,8 +21,25 @@ fi
 # shellcheck disable=SC1091
 source .env
 ROOT_PW="${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD 未配置}"
+# shellcheck source=db-cli.sh
+source ./db-cli.sh          # 口令只经容器 stdin（本脚本曾用 -p 传参，D-088 同族）
 
 FIXTURES="bench/fixtures"
+
+# ---------------------------------------------------------------- 镜像与卷名（口径与 backup.sh 一致）
+# ① 工具镜像用**随包交付**的 kcgl-tools（debian-slim），不从公网拉 alpine：落盘是 M7-④
+#    的必经路径，而实测该主机上 Docker Hub 取镜像会超时（同一时段 `docker pull` 报
+#    deadline exceeded）。与 D-094 同族——关键路径的依赖必须随栈到位，不能指望运行期联网。
+#    debian-slim 已含本步骤用到的 sh/awk/sort/ln/find/wc。
+# ② 卷名从 **app 容器实挂载**解析，不拼 `kcgl_kcgl-app-data`：`-p`/`COMPOSE_PROJECT_NAME`
+#    会改变卷名（演练栈即如此），拼名字会把硬链接写进**另一套栈的卷**，而校验段也会因
+#    挂错卷数出 0 个文件——静默指向错数据比报错更危险（D-087 同族）。
+TOOLS_IMAGE="ghcr.io/leon-ly/kcgl-tools:${KCGL_VERSION:-latest}"
+APP_CID=$(docker compose ps -q app 2>/dev/null | head -1)
+[ -n "$APP_CID" ] || { echo "错误：app 容器未运行，无法解析图片卷（先 docker compose up -d）" >&2; exit 1; }
+IMAGE_VOLUME=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Name}}{{end}}{{end}}' "$APP_CID")
+[ -n "$IMAGE_VOLUME" ] || { echo "错误：未能从 app 容器解析 /data 卷（栈是否健康？）" >&2; exit 1; }
+echo "   工具镜像：$TOOLS_IMAGE"; echo "   图片卷：$IMAGE_VOLUME"
 
 # ---------------------------------------------------------------- 宿主路径 → docker
 # docker 的 -v 宿主源必须是**宿主原生路径**：在 Git Bash（MSYS）里直接给 POSIX 路径，
@@ -56,8 +73,7 @@ fi
 
 # ---------------------------------------------------------------- 路径清单（走管道，不落宿主文件）
 echo "== 图片行数（MySQL 侧计数） =="
-TOTAL=$(docker compose exec -T mysql mysql -uroot -p"$ROOT_PW" kcgl -N -B \
-    -e "SELECT COUNT(*) FROM item_image")
+TOTAL=$(kcgl_mysql "$ROOT_PW" -uroot -N -B kcgl -e "SELECT COUNT(*) FROM item_image")
 if [ "${TOTAL:-0}" -eq 0 ]; then
     echo "错误：item_image 为空——先跑 seed-bench.sql" >&2
     exit 1
@@ -69,13 +85,13 @@ echo "   图片行数：$TOTAL（落盘 $((TOTAL * 2)) 个文件名）"
 # 不到宿主 temp（静默建成空目录 → 容器里 awk 报 `Is a directory`），而卷挂载又
 # 必须带 MSYS_NO_PATHCONV=1（否则 `kcgl_kcgl-app-data:/data` 被当成盘符路径改写）
 # ——两者叠加使宿主中转文件必然踩雷（本地预演实测，D-080）。改为管道直喂 stdin。
-echo "== 硬链接落盘（kcgl-app-data 卷 → /data/images） =="
-docker compose exec -T mysql mysql -uroot -p"$ROOT_PW" kcgl -N -B \
+echo "== 硬链接落盘（$IMAGE_VOLUME 卷 → /data/images） =="
+kcgl_mysql "$ROOT_PW" -uroot -N -B kcgl \
     -e "SELECT stored_path, thumb_path FROM item_image" \
   | docker run --rm -i \
-        -v kcgl_kcgl-app-data:/data \
+        -v "$IMAGE_VOLUME":/data \
         -v "$(host_path "$FIXTURES")":/fix:ro \
-        alpine:3.20 sh -c '
+        "$TOOLS_IMAGE" sh -c '
             set -e
             # 母本先拷进卷内再链：/fix 是宿主 bind 挂载，与卷**不保证同设备**——
             # 硬链接只能同设备（Docker Desktop 下必然 Cross-device link；服务器上
@@ -122,7 +138,7 @@ docker compose exec -T mysql mysql -uroot -p"$ROOT_PW" kcgl -N -B \
         '
 
 # ---------------------------------------------------------------- 校验
-ACTUAL=$(docker run --rm -v kcgl_kcgl-app-data:/data alpine:3.20 \
+ACTUAL=$(docker run --rm -v "$IMAGE_VOLUME":/data "$TOOLS_IMAGE" \
     sh -c 'find /data/images -type f -name "*.jpg" | wc -l')
 if [ "$ACTUAL" -eq "$((TOTAL * 2))" ]; then
     echo "== 校验通过：$ACTUAL 个文件 = 图片行数 × 2 =="
