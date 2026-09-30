@@ -23,7 +23,7 @@
     "username": "用户名",
     "password": "密码",
     "login": "登录",
-    "loginTitle": "登录库存管理系统",
+    "loginTitle": "使用管理员发放的账号登录。",
     "lockedMinutes": "账号已被锁定，请约 {minutes} 分钟后重试",
     "mustChangePwd": "首次登录，需要修改密码",
     "role": {

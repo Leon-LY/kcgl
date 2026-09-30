@@ -44,9 +44,31 @@ async function submit(): Promise<void> {
       novalidate
       @submit.prevent="submit"
     >
-      <h1 class="login-title">
-        {{ t('common.appTitle') }}
-      </h1>
+      <!-- 品牌标识 + 标题一行：登录页是全站唯一没有导航骨架的页面，缺一个视觉锚点时
+           整页读起来像"没加载完"（实测反馈）。图形用内联描边 SVG（docs/07 §1：不用
+           emoji 充图标），与空态基元同一套"实物"语汇 -->
+      <div class="login-brand">
+        <span
+          class="login-mark"
+          aria-hidden="true"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M3.5 8.5h17v10.4a1.6 1.6 0 0 1-1.6 1.6H5.1a1.6 1.6 0 0 1-1.6-1.6z" />
+            <path d="M2.5 4.5h19v4h-19z" />
+            <path d="M9.7 12.6h4.6" />
+          </svg>
+        </span>
+        <h1 class="login-title">
+          {{ t('common.appTitle') }}
+        </h1>
+      </div>
       <p class="login-subtitle">
         {{ t('auth.loginTitle') }}
       </p>
@@ -121,6 +143,29 @@ async function submit(): Promise<void> {
   display: grid;
   gap: var(--kcgl-space-4);
   padding: var(--kcgl-space-6) var(--kcgl-space-5);
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--kcgl-space-3);
+}
+
+.login-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--kcgl-radius-m);
+  background: var(--kcgl-color-primary-soft);
+  color: var(--kcgl-color-primary);
+}
+
+.login-mark svg {
+  width: 22px;
+  height: 22px;
 }
 
 .login-title {

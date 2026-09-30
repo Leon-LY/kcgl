@@ -28,7 +28,10 @@ test.describe('auth flows (desktop-chromium)', () => {
   test('login page renders in Japanese by default', async ({ page }) => {
     await page.goto('/login')
     await expect(page.locator('.login-title')).toHaveText('在庫管理システム')
-    await expect(page.locator('.login-subtitle')).toHaveText('在庫管理システムへサインイン')
+    // 副标题由"复述标题"改为说明账号来源（D-102）：原文「在庫管理システムへサインイン」
+    // 与上方 h1 是同一句话，等于占了一行没有信息量
+    await expect(page.locator('.login-subtitle'))
+      .toHaveText('管理者が発行したアカウントでサインインします。')
     await expect(page.getByRole('button', { name: 'ログイン' })).toBeVisible()
   })
 

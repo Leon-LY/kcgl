@@ -23,7 +23,7 @@
     "username": "ユーザー名",
     "password": "パスワード",
     "login": "ログイン",
-    "loginTitle": "在庫管理システムへサインイン",
+    "loginTitle": "管理者が発行したアカウントでサインインします。",
     "lockedMinutes": "アカウントがロックされました。約 {minutes} 分後に再度お試しください",
     "mustChangePwd": "初回ログインのため、パスワードの変更が必要です",
     "role": {

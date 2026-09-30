@@ -23,7 +23,7 @@
     "username": "Username",
     "password": "Password",
     "login": "Sign in",
-    "loginTitle": "Sign in to Inventory Management",
+    "loginTitle": "Sign in with the account issued by your administrator.",
     "lockedMinutes": "Account locked. Please try again in about {minutes} minutes",
     "mustChangePwd": "First sign-in: password change required",
     "role": {
