@@ -104,6 +104,16 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(handlers)
                         .accessDeniedHandler(handlers))
+                // 关掉 RequestCache（D-081）：它的唯一用途是「401 时把原请求存进 session，
+                // 登录后 302 跳回」——本应用是 JSON SPA + 自定义 AuthenticationEntryPoint，
+                // 永远返回 401 JSON 不重定向，这条链一次也用不上。代价却极重：
+                // HttpSessionRequestCache.saveRequest() 会 request.getSession(true)，
+                // 于是**每个未认证请求都凭空建一个 HTTP 会话**且永不复用（客户端不接
+                // Cookie 时），约 3.7KB/次。实测：2 万次未认证请求 → Tomcat 活跃会话
+                // 恰好 +20000；堆涨到 ~40 万会话即 OOM（本地预演把 app 打到 44 次
+                // OutOfMemoryError）。任何不带 Cookie 的客户端（爬虫/拨测/被剥 Cookie
+                // 的代理）都能据此打满内存——典型的可用性放大面。
+                .requestCache(cache -> cache.disable())
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                         .sessionFixation(fixation -> fixation.changeSessionId())
