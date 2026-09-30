@@ -1,0 +1,12 @@
+# 构建上下文瘦身：E2E/测试产物与依赖目录不进镜像构建层
+node_modules
+dist
+coverage
+test-results
+playwright-report
+.playwright
+e2e
+*.local.md
+*.local.*
+.vscode
+.idea

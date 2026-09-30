@@ -1,0 +1,113 @@
+name: Deploy
+
+# 测试环境 CI/CD（docs/01 九节）：构建 app+web 双镜像 → ghcr.io → SSH 部署测试服务器。
+# - 触发：手动 workflow_dispatch（常规）/ 推 v* tag（发版联动）；不挂在 push main 上
+#   ——测试环境按需更新，不是每次提交的义务。
+# - 迁移目录随部署同步（镜像与 migrations 必须同版本，Flyway 对「已应用脚本缺失」
+#   会报错——这是刻意的防漂移设计）。
+# - 首次部署不走本流水线：需先在服务器准备 /opt/kcgl（deploy/ 目录 + .env + ghcr
+#   登录），见 docs/deployment.md「首次部署」一节。
+# - 前置 secrets：TEST_SSH_HOST / TEST_SSH_USER / TEST_SSH_PRIVATE_KEY（部署私钥）。
+#   host key 校验用 accept-new（TOFU）；收紧为 pin 时把公钥录进 known_hosts 再改。
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "镜像 tag（留空=当前 commit 短 SHA）"
+        required: false
+        default: ""
+  push:
+    tags: ["v*"]
+
+concurrency:
+  group: deploy-test
+  cancel-in-progress: false   # 部署不并发，排队等上一轮完成
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_APP: ghcr.io/leon-ly/kcgl-app
+  IMAGE_WEB: ghcr.io/leon-ly/kcgl-web
+  DEPLOY_DIR: /opt/kcgl
+
+jobs:
+  build-push:
+    name: 构建并推送双镜像（ghcr.io）
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: meta
+        name: 计算版本 tag
+        run: echo "version=${{ github.event_name == 'workflow_dispatch' && (inputs.version || github.sha) || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - name: 登录 ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 构建并推送 kcgl-app（server）
+        uses: docker/build-push-action@v6
+        with:
+          context: ./server
+          push: true
+          tags: |
+            ${{ env.IMAGE_APP }}:${{ steps.meta.outputs.version }}
+            ${{ env.IMAGE_APP }}:latest
+
+      - name: 构建并推送 kcgl-web（web）
+        uses: docker/build-push-action@v6
+        with:
+          context: ./web
+          push: true
+          tags: |
+            ${{ env.IMAGE_WEB }}:${{ steps.meta.outputs.version }}
+            ${{ env.IMAGE_WEB }}:latest
+
+  deploy-test:
+    name: 部署测试环境（49.232.49.175）
+    needs: build-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 装配 SSH 私钥
+        run: |
+          install -m 600 /dev/null ~/.ssh/id_ed25519
+          echo "${{ secrets.TEST_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          echo "StrictHostKeyChecking=accept-new" > ~/.ssh/ssh_config
+          echo "UserKnownHostsFile=~/.ssh/known_hosts" >> ~/.ssh/ssh_config
+
+      - name: 同步迁移目录（与镜像同版本）
+        run: >
+          rsync -az --delete -e "ssh -F ~/.ssh/ssh_config"
+          server/src/main/resources/db/migration/
+          ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}:${{ env.DEPLOY_DIR }}/migrations/
+
+      - name: 拉取镜像并滚动更新
+        run: >
+          ssh -F ~/.ssh/ssh_config ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}
+          "cd ${{ env.DEPLOY_DIR }} &&
+          KCGL_VERSION=${{ needs.build-push.outputs.version }} docker compose pull &&
+          KCGL_VERSION=${{ needs.build-push.outputs.version }} docker compose up -d --remove-orphans"
+
+      - name: 健康验证（登录页 200 = web/app/mysql 整链路通）
+        run: >
+          ssh -F ~/.ssh/ssh_config ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}
+          "for i in \$(seq 1 60); do
+          curl -fsS -o /dev/null http://127.0.0.1:8082/ && break; sleep 5;
+          done;
+          cd ${{ env.DEPLOY_DIR }} && docker compose ps -a;
+          curl -fsS -o /dev/null -w 'login page HTTP %{http_code}\n' http://127.0.0.1:8082/"
+
+      - name: 部署后巡检
+        run: >
+          ssh -F ~/.ssh/ssh_config ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}
+          "cd ${{ env.DEPLOY_DIR }} && ./kcgl-doctor.sh || true"
