@@ -23,6 +23,14 @@ fi
 source .env
 
 BACKUP_DIR="${KCGL_BACKUP_DIR:-/opt/kcgl/backup}"
+# BACKUP_DIR 既是宿主命令（mkdir/ls/du）的路径，也被 docker -v 当**宿主源**——而 Git
+# Bash（MSYS）会把 `/c/...` 形态的宿主源改写成容器看不到的东西（Docker 不报错：要么
+# 不挂载、要么建个空目录当源，容器里 /backup 直接不存在，rsync 才报文件找不到）。
+# 只对 MSYS 盘符形态（/c/...）做转换：服务器上的 /opt/kcgl/backup 同样是绝对路径，
+# 但没有 cygpath，且**不能**被当 Git Bash 根目录解析。
+case "$BACKUP_DIR" in
+    /[a-zA-Z]/*) command -v cygpath >/dev/null 2>&1 && BACKUP_DIR="$(cygpath -w "$BACKUP_DIR")" ;;
+esac
 ROOT_PW="${MYSQL_ROOT_PASSWORD_BACKUP:-$MYSQL_ROOT_PASSWORD}"
 DISK_WARN_PERCENT=80
 COMPOSE_PROJECT=kcgl

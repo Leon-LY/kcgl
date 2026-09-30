@@ -43,6 +43,14 @@ source .env
 ROOT_PW="${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD 未配置}"
 
 mysql_root() { docker compose exec -T mysql mysql -uroot -p"$ROOT_PW" "$@"; }
+
+# zstd 是**宿主**命令（它的输出经管道喂给容器内 mysql），因此要喂宿主原生路径：
+# Windows 版 zstd 不认 Git Bash 习惯的 `/c/Users/...`（报 `can't stat ...: No such
+# file or directory`，而同一路径上面的 `[ -f ]` 检查却通过——故障点与检查点分离，
+# 表现为「文件明明在，导入却说备份不可用」，本地预演实测）。有 cygpath 就转；服务器
+# 是 Linux、无 cygpath，原样使用。
+DUMP_RUN="$DUMP"
+command -v cygpath >/dev/null 2>&1 && DUMP_RUN="$(cygpath -w "$DUMP")"
 mysql_root_db() {  # $1=库名，其余参数透传 mysql
     local db="$1"; shift
     docker compose exec -T mysql mysql -uroot -p"$ROOT_PW" "$db" "$@"
@@ -106,7 +114,7 @@ run_assertions() {  # $1=目标库名
 }
 
 import_to() {  # $1=目标库名（须已存在）
-    zstd -dc "$DUMP" | docker compose exec -T mysql mysql -uroot -p"$ROOT_PW" "$1"
+    zstd -dc "$DUMP_RUN" | docker compose exec -T mysql mysql -uroot -p"$ROOT_PW" "$1"
 }
 
 # ---------------------------------------------------------------- 演练模式
