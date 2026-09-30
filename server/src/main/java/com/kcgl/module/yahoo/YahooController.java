@@ -5,6 +5,7 @@ import com.kcgl.module.auth.KcglUserDetails;
 import com.kcgl.module.yahoo.dto.ImportBatchResponse;
 import com.kcgl.module.yahoo.dto.PendingShipmentResponse;
 import com.kcgl.module.yahoo.dto.ReconcileResponse;
+import com.kcgl.module.yahoo.dto.UnmatchedRowsResponse;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -56,6 +57,13 @@ public class YahooController {
     @PreAuthorize("hasAnyRole('ADMIN','EDITOR','VIEWER')")
     public ApiResponse<ImportBatchResponse> detail(@PathVariable long id) {
         return ApiResponse.ok(importService.find(id));
+    }
+
+    /** 批次不一致行明细（「受注有而系统无」：原文自码逐行可查，D-105）。 */
+    @GetMapping("/imports/{id}/unmatched")
+    @PreAuthorize("hasAnyRole('ADMIN','EDITOR','VIEWER')")
+    public ApiResponse<UnmatchedRowsResponse> unmatched(@PathVariable long id) {
+        return ApiResponse.ok(reconcileService.unmatchedOf(id));
     }
 
     /** 对账三活视图。 */

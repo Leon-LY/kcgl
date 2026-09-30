@@ -8,6 +8,7 @@ const apiMocks = vi.hoisted(() => ({
   uploadYahooImport: vi.fn(),
   fetchPendingShipments: vi.fn(),
   fetchYahooReconcile: vi.fn(),
+  fetchYahooUnmatched: vi.fn(),
 }))
 
 // ApiError 保持真实实现（错误文案分支依赖 instanceof/code）；仅替换网络端点
@@ -19,6 +20,7 @@ vi.mock('@/utils/api', async (importOriginal) => {
     uploadYahooImport: apiMocks.uploadYahooImport,
     fetchPendingShipments: apiMocks.fetchPendingShipments,
     fetchYahooReconcile: apiMocks.fetchYahooReconcile,
+    fetchYahooUnmatched: apiMocks.fetchYahooUnmatched,
   }
 })
 
@@ -32,13 +34,14 @@ import type {
   YahooPendingShipment,
   YahooReconcile,
   YahooReconcileRow,
+  YahooUnmatchedRows,
 } from '@/utils/api'
 
 /**
  * 雅虎联动桌面页（M5-②b 受注 xlsx）：批次历史（状态/计数/まとめ売り補注/
  * 失败计数占位）/viewer 禁传/上传后刷新历史/上传失败就地展示（409011）/
  * 处理中轮询起停/出荷待ち行内直达扫码卖出（注文番号列）/照合三视图
- * （滞留红标+近期同步降灰）。
+ * （滞留红标+近期同步降灰）/不一致行明细（D-105 展开按需取+缓存+失败重试）。
  */
 
 const meAdmin: MeResponse = {
@@ -127,7 +130,24 @@ function seedReads(): void {
     canceledNotRelisted: [],
     withdrawNeeded: [],
   })
+  apiMocks.fetchYahooUnmatched.mockResolvedValue(unmatchedOf(1, []))
 }
+
+/** 不一致行明细（D-105）：自码是受注文件原文（旧格式码照原样列出）。 */
+function unmatchedOf(batchId: number, rows: YahooUnmatchedRows['rows']): YahooUnmatchedRows {
+  return { batchId, total: rows.length, truncated: false, rows }
+}
+
+const unmatchedRow = (
+  overrides: Partial<YahooUnmatchedRows['rows'][number]> = {},
+): YahooUnmatchedRows['rows'][number] => ({
+  selfCode: 'M-D8T-SR5',
+  orderId: '10004876',
+  auctionId: 'auc-901',
+  soldPrice: 8000,
+  closedAt: '2026-09-20 21:05:33',
+  ...overrides,
+})
 
 async function mountView(role: 1 | 3 = 1): Promise<{ wrapper: VueWrapper; router: Router }> {
   const auth = useAuthStore()
@@ -398,5 +418,114 @@ describe('yahoo view (M5-②b)', () => {
 
     expect(isMaskHidden(wrapper)).toBe(true)
     expect(wrapper.find('#pane-import .empty-state').exists()).toBe(true)
+  })
+})
+
+/**
+ * 不一致行明细（D-105）：「受注有而システム无」在 D-105 之前只有一个计数，
+ * 45 行原文自码无处可查。展开批次按需取明细（不在列表里带，避免 N+1）。
+ */
+describe('yahoo unmatched rows (D-105)', () => {
+  async function expand(wrapper: VueWrapper): Promise<void> {
+    await wrapper.find('#pane-import .el-table__expand-icon').trigger('click')
+    await flushPromises()
+  }
+
+  it('lists unmatched rows with the raw self-code on expand', async () => {
+    apiMocks.fetchYahooBatches.mockResolvedValue([batch({ id: 7, unmatchedCount: 2 })])
+    apiMocks.fetchYahooUnmatched.mockResolvedValue(
+      unmatchedOf(7, [unmatchedRow(), unmatchedRow({ selfCode: 'M-A68L-KW4', orderId: '10004895' })]),
+    )
+    const { wrapper } = await mountView()
+
+    // 未展开不取：明细是按需的，批次列表本身不带行
+    expect(apiMocks.fetchYahooUnmatched).not.toHaveBeenCalled()
+
+    await expand(wrapper)
+
+    expect(apiMocks.fetchYahooUnmatched).toHaveBeenCalledTimes(1)
+    expect(apiMocks.fetchYahooUnmatched).toHaveBeenCalledWith(7)
+    const detail = wrapper.find('#pane-import .yahoo-detail')
+    expect(detail.text()).toContain('不一致行')
+    expect(detail.text()).toContain('M-D8T-SR5')
+    expect(detail.text()).toContain('M-A68L-KW4')
+    expect(detail.text()).toContain('10004876')
+    expect(detail.text()).toContain('￥8,000')
+    expect(detail.find('.yahoo-unmatched-total').text()).toBe('2 件')
+  })
+
+  it('does not request the detail when the batch has no unmatched rows', async () => {
+    apiMocks.fetchYahooBatches.mockResolvedValue([batch({ id: 8, unmatchedCount: 0 })])
+    const { wrapper } = await mountView()
+
+    await expand(wrapper)
+
+    expect(apiMocks.fetchYahooUnmatched).not.toHaveBeenCalled()
+    const detail = wrapper.find('#pane-import .yahoo-detail')
+    expect(detail.find('.yahoo-unmatched-total').exists()).toBe(false)
+    expect(detail.text()).not.toContain('不一致行')
+  })
+
+  // 计数未知（历史批次）≠ 0：渲染与取数用同一判据，否则会出现"请求了却永不渲染"
+  it('still requests the detail when the count is unknown', async () => {
+    apiMocks.fetchYahooBatches.mockResolvedValue([batch({ id: 9, unmatchedCount: null })])
+    apiMocks.fetchYahooUnmatched.mockResolvedValue(unmatchedOf(9, []))
+    const { wrapper } = await mountView()
+
+    await expand(wrapper)
+
+    expect(apiMocks.fetchYahooUnmatched).toHaveBeenCalledWith(9)
+    expect(wrapper.find('#pane-import .yahoo-detail').text()).toContain('不一致行')
+  })
+
+  // 批次已达终态、明细不再变：收起再展开不应重复请求（一次展开一个请求）
+  it('caches the detail across collapse and re-expand', async () => {
+    apiMocks.fetchYahooBatches.mockResolvedValue([batch({ id: 10, unmatchedCount: 1 })])
+    apiMocks.fetchYahooUnmatched.mockResolvedValue(unmatchedOf(10, [unmatchedRow()]))
+    const { wrapper } = await mountView()
+
+    await expand(wrapper)
+    await expand(wrapper)
+    await expand(wrapper)
+
+    expect(apiMocks.fetchYahooUnmatched).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('#pane-import .yahoo-detail').text()).toContain('M-D8T-SR5')
+  })
+
+  // 取失败只影响这一块：就地报错，且下次展开必须能重试（失败不写缓存）
+  it('reports the failure in place and retries on the next expand', async () => {
+    apiMocks.fetchYahooBatches.mockResolvedValue([batch({ id: 11, unmatchedCount: 1 })])
+    apiMocks.fetchYahooUnmatched
+      .mockRejectedValueOnce(new ApiError(0, 'network down'))
+      .mockResolvedValueOnce(unmatchedOf(11, [unmatchedRow()]))
+    const { wrapper } = await mountView()
+
+    await expand(wrapper)
+
+    const detail = wrapper.find('#pane-import .yahoo-detail')
+    expect(detail.find('.kcgl-error-box').text()).toContain('network down')
+
+    await expand(wrapper)
+    await expand(wrapper)
+
+    expect(apiMocks.fetchYahooUnmatched).toHaveBeenCalledTimes(2)
+    expect(wrapper.find('#pane-import .yahoo-detail').text()).toContain('M-D8T-SR5')
+  })
+
+  // 报告列里的计数是"当时"的（unmatched_count），清单是"此刻"的（item_id IS NULL）：
+  // 同一拍卖被后续导入认领后，旧批次的计数仍在、清单已空。此时若还挂"下記に…"，
+  // 就是指向一段不存在的清单——必须换成明说"当前没有"。
+  it('explains the empty list when the report count is stale', async () => {
+    apiMocks.fetchYahooBatches.mockResolvedValue([batch({ id: 12, unmatchedCount: 1 })])
+    apiMocks.fetchYahooUnmatched.mockResolvedValue(unmatchedOf(12, []))
+    const { wrapper } = await mountView()
+
+    await expand(wrapper)
+
+    expect(apiMocks.fetchYahooUnmatched).toHaveBeenCalledWith(12)
+    const detail = wrapper.find('#pane-import .yahoo-detail')
+    expect(detail.find('.yahoo-unmatched-total').text()).toBe('0 件')
+    expect(detail.text()).toContain('現在ありません')
+    expect(detail.text()).not.toContain('下記')
   })
 })

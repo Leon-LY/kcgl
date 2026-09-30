@@ -629,4 +629,64 @@ class YahooImportIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.count").value(0));
     }
+
+    @Test
+    void unmatchedRowsListed_byRawSelfCode_matchedRowsExcluded() throws Exception {
+        MockHttpSession editor = loginAs("eichi");
+        createInStockItem(editor, "yho-u1"); // HT9-A1X=唯一命中行
+
+        long batchId = upload(editor, xlsx(
+                orderRow("10004876", "M-D8T-SR5\nM-A68L-KW4", "46283.5", "auc-901", "12595"),
+                orderRow("10004866", "HT9-A1X", "46283.5", "auc-902", "3500"),
+                orderRow("10004867", "ZZZZ-ZZ9X", "46283.5", "auc-903", "2000")));
+        String report = awaitBatch(editor, batchId);
+        assertThat(report).contains("\"rowCount\":3").contains("\"matchedCount\":1")
+                .contains("\"unmatchedCount\":3");
+
+        // 未匹配行明细：原文自码逐行可查（此前只有计数，占位行在界面上无入口）
+        String body = mockMvc.perform(get("/api/yahoo/imports/{id}/unmatched", batchId).session(editor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.batchId").value(batchId))
+                .andExpect(jsonPath("$.data.total").value(3))
+                .andExpect(jsonPath("$.data.truncated").value(false))
+                .andExpect(jsonPath("$.data.rows.length()").value(3))
+                .andReturn().getResponse().getContentAsString();
+        assertThat(body).contains("M-D8T-SR5").contains("M-A68L-KW4").contains("ZZZZ-ZZ9X")
+                .contains("\"orderId\":\"10004876\"").contains("\"auctionId\":\"auc-901\"")
+                .doesNotContain("HT9-A1X"); // 命中行不进不一致清单
+        // まとめ売り子行=単価未分割（合计价无拆分依据，sold_price 留空手填）
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM yahoo_listing WHERE yahoo_auction_id = 'auc-901'"
+                        + " AND item_id IS NULL AND sold_price IS NULL", Long.class)).isEqualTo(2);
+
+        // 读取全员：閲覧者也能看（服务端 @PreAuthorize 兜底）
+        MockHttpSession viewer = loginAs("miru");
+        mockMvc.perform(get("/api/yahoo/imports/{id}/unmatched", batchId).session(viewer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(3));
+    }
+
+    /**
+     * 归属语义：不一致清单=「本批次见过、且此刻仍未命中」的行（last_seen_batch_id
+     * 定位）。同一拍卖在后续导入中再被见到即改归后批——旧批次的清单随之让位，
+     * 批次行上的 unmatched_count 仍是当时的计数（历史值不等历史清单）。
+     */
+    @Test
+    void unmatchedRowsAttributedToLatestBatchSeeingTheAuction() throws Exception {
+        MockHttpSession editor = loginAs("eichi");
+        long first = upload(editor, xlsx(
+                orderRow("10008001", "ZZZZ-ZZ9X", "46283.5", "auc-951", "2000")));
+        awaitBatch(editor, first);
+        mockMvc.perform(get("/api/yahoo/imports/{id}/unmatched", first).session(editor))
+                .andExpect(jsonPath("$.data.total").value(1));
+
+        long second = upload(editor, xlsx(
+                orderRow("10008001", "ZZZZ-ZZ9X", "46284.5", "auc-951", "2000")));
+        awaitBatch(editor, second);
+        mockMvc.perform(get("/api/yahoo/imports/{id}/unmatched", second).session(editor))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.rows[0].auctionId").value("auc-951"));
+        mockMvc.perform(get("/api/yahoo/imports/{id}/unmatched", first).session(editor))
+                .andExpect(jsonPath("$.data.total").value(0));
+    }
 }

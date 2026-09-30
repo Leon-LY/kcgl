@@ -945,6 +945,31 @@ export function fetchYahooReconcile(): Promise<YahooReconcile> {
   return request('/api/yahoo/reconcile', { method: 'GET' })
 }
 
+/**
+ * 批次不一致行明细（「受注有而系统无」）：本批次见过且仍未命中的行，原文自码可查。
+ * 归属随最近一次见到该拍卖的批次走；rows 后端截断 200 条（total 恒为全量）。
+ */
+export interface YahooUnmatchedRow {
+  /** 展示用自码：原文优先，原文缺失时回退归一码 */
+  selfCode: string | null
+  orderId: string | null
+  auctionId: string
+  /** null=まとめ売り（合计价无拆分依据，手填后补） */
+  soldPrice: number | null
+  closedAt: string | null
+}
+
+export interface YahooUnmatchedRows {
+  batchId: number
+  total: number
+  truncated: boolean
+  rows: YahooUnmatchedRow[]
+}
+
+export function fetchYahooUnmatched(batchId: number): Promise<YahooUnmatchedRows> {
+  return request(`/api/yahoo/imports/${batchId}/unmatched`, { method: 'GET' })
+}
+
 /** 出荷待ち清单。 */
 export function fetchPendingShipments(): Promise<YahooPendingShipmentList> {
   return request('/api/yahoo/pending-shipments', { method: 'GET' })

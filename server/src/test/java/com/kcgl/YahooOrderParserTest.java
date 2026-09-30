@@ -219,14 +219,31 @@ class YahooOrderParserTest {
     // ------------------------------------------------------------- 真实样张契约锁定
 
     /**
-     * 甲方样张（docs/ストア9.20(1).xlsx，A4 交付物）全量解析：43 数据行、2 まとめ売り、
-     * 45 唯一自码、时间窗 2026-09-17→09-24、W/X/Y/Z 手工工作列忽略不炸。
-     * 样张未随库分发时跳过（assumeTrue）。
+     * 已交付样张（docs/ストア9.20(1).xlsx 与 (2).xlsx，A4 交付物）全量解析：
+     * 43 数据行、2 まとめ売り、45 唯一自码、时间窗 2026-09-17→09-24、
+     * W/X/Y/Z 手工工作列忽略不炸。两批样张同形，断言对任一份都成立。
+     *
+     * <p>样张是甲方业务数据、docs/ 不入版本库，故**取不到就跳过**（assumeTrue）：
+     * 这是本机对真文件的契约锁，不是 CI 门禁（CI 上恒跳过）。只认 (1) 会让这里
+     * 在只有 (2) 的机器上静默跳过——"锁"看起来在、实际从不跑，比没有更坏。
      */
+    private static final List<String> SAMPLE_FILES =
+            List.of("ストア9.20(1).xlsx", "ストア9.20(2).xlsx");
+
+    private static Path sampleFile() {
+        for (String name : SAMPLE_FILES) {
+            Path path = Path.of("..", "docs", name);
+            if (Files.exists(path)) {
+                return path;
+            }
+        }
+        return null;
+    }
+
     @Test
     void sampleFile_realOrderExport_parsedEndToEnd() throws IOException {
-        Path sample = Path.of("..", "docs", "ストア9.20(1).xlsx");
-        assumeTrue(Files.exists(sample), "样张未入库，跳过契约锁定");
+        Path sample = sampleFile();
+        assumeTrue(sample != null, "样张未入库，跳过契约锁定");
 
         List<Map<Integer, Object>> rows = readRows(Files.readAllBytes(sample));
         assertThat(rows).hasSize(44); // 表头 + 43 数据行

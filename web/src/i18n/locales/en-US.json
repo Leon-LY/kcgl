@@ -530,7 +530,11 @@
       "emptyList": "No imports yet.",
       "emptyHint": "Import an order file with the button above and the processing result will appear here.",
       "loadFailed": "Failed to load import history.",
-      "unmatchedNote": "Unmatched rows are kept in listing records with the raw code from the order file."
+      "unmatchedNote": "Unmatched rows are listed below with the code exactly as it appears in the order file. Once the item is registered, the next import will match it (codes in the old system format never match).",
+      "unmatchedRows": "Unmatched rows (self-code as in the order file)",
+      "unmatchedTotal": "{count} rows",
+      "unmatchedTruncated": "Showing the first {shown} rows only.",
+      "unmatchedEmpty": "This batch has no unmatched rows right now (they may have been reconciled by a later import)."
     },
     "shipments": {
       "title": "Pending shipments",
@@ -555,7 +559,7 @@
       "closedAt": "Ordered at",
       "soldPrice": "Sold price",
       "loadFailed": "Failed to load reconciliation.",
-      "note": "Rows in the order file but not in the system appear in each import report as unmatched."
+      "note": "Rows that are on Yahoo but not in this system are listed under Unmatched rows in each import report (expand the row to see the original self-codes)."
     }
   },
   "excel": {
@@ -762,7 +766,8 @@
       },
       "empty": "No order history",
       "loadFailed": "Failed to load order history."
-    }
+    },
+    "bulkEntry": "Bulk import / export"
   },
   "dashboard": {
     "title": "Dashboard",

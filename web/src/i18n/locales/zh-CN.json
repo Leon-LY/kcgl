@@ -530,7 +530,11 @@
       "emptyList": "暂无导入历史。",
       "emptyHint": "用上方的导入按钮载入受注文件后，处理结果会显示在这里。",
       "loadFailed": "获取导入历史失败。",
-      "unmatchedNote": "未匹配行会连同受注文件原文管理号保留在出品记录中（可作对照线索）。"
+      "unmatchedNote": "未匹配行按受注文件原文管理号列在下方。登记商品后，下次导入即可匹配（旧系统格式的代码不会匹配）。",
+      "unmatchedRows": "未匹配行（受注文件原文管理号）",
+      "unmatchedTotal": "{count} 件",
+      "unmatchedTruncated": "仅显示前 {shown} 件。",
+      "unmatchedEmpty": "该批次当前没有不一致行（可能已在后续导入中照合成功）。"
     },
     "shipments": {
       "title": "待发货",
@@ -555,7 +559,7 @@
       "closedAt": "订单时间",
       "soldPrice": "落札价格",
       "loadFailed": "获取对账信息失败。",
-      "note": "「受注有而系统无」请在各导入报告的未匹配计数中确认。"
+      "note": "「受注有而系统无」可在每批导入报告的未匹配行中查看（展开该行即列出原文管理号）。"
     }
   },
   "excel": {
@@ -762,7 +766,8 @@
       },
       "empty": "暂无受注记录",
       "loadFailed": "受注记录加载失败。"
-    }
+    },
+    "bulkEntry": "批量导入导出"
   },
   "dashboard": {
     "title": "仪表盘",

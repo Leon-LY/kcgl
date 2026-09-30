@@ -6,6 +6,7 @@ import com.kcgl.module.item.ItemEntity;
 import com.kcgl.module.item.ItemMapper;
 import com.kcgl.module.yahoo.dto.PendingShipmentResponse;
 import com.kcgl.module.yahoo.dto.ReconcileResponse;
+import com.kcgl.module.yahoo.dto.UnmatchedRowsResponse;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -85,6 +86,33 @@ public class YahooReconcileService {
     }
 
     // ------------------------------------------------------------- 视图查询
+
+    /**
+     * 批次不一致行明细（「受注有而系统无」，D-105）：本批次见过且此刻仍未命中的行。
+     * 只读拼装；rows 截断上限见 {@link UnmatchedRowsResponse#MAX_ROWS}（total 恒为全量）。
+     */
+    public UnmatchedRowsResponse unmatchedOf(long batchId) {
+        LambdaQueryWrapper<YahooListingEntity> wrapper = new LambdaQueryWrapper<YahooListingEntity>()
+                .eq(YahooListingEntity::getLastSeenBatchId, batchId)
+                .isNull(YahooListingEntity::getItemId)
+                .orderByAsc(YahooListingEntity::getId);
+        Long total = listingMapper.selectCount(wrapper);
+        List<UnmatchedRowsResponse.UnmatchedRow> rows = listingMapper.selectList(
+                        wrapper.last("LIMIT " + UnmatchedRowsResponse.MAX_ROWS))
+                .stream()
+                .map(YahooReconcileService::unmatchedRowOf)
+                .toList();
+        int count = total == null ? 0 : total.intValue();
+        return new UnmatchedRowsResponse(batchId, count, count > rows.size(), rows);
+    }
+
+    /** 展示用自码：原文优先（追查线索），原文缺失时回退归一码（B 列为空的行）。 */
+    private static UnmatchedRowsResponse.UnmatchedRow unmatchedRowOf(YahooListingEntity listing) {
+        String selfCode = listing.getRawItemCode() != null
+                ? listing.getRawItemCode() : listing.getItemCode();
+        return new UnmatchedRowsResponse.UnmatchedRow(selfCode, listing.getOrderId(),
+                listing.getYahooAuctionId(), listing.getSoldPrice(), listing.getClosedAt());
+    }
 
     /** 大盘雅虎指标（M5-③ stats）：与三活视图同源的条件计数（口径唯一定义在此）。 */
     public long countSoldNotShipped() {

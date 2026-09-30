@@ -11,6 +11,7 @@ import {
   fetchPendingShipments,
   fetchYahooBatches,
   fetchYahooReconcile,
+  fetchYahooUnmatched,
   uploadYahooImport,
 } from '@/utils/api'
 import type {
@@ -18,6 +19,7 @@ import type {
   YahooPendingShipment,
   YahooReconcile,
   YahooReconcileRow,
+  YahooUnmatchedRows,
 } from '@/utils/api'
 
 /**
@@ -88,6 +90,54 @@ async function loadBatches(): Promise<void> {
     if (seq === batchesSeq) {
       batchesLoading.value = false
     }
+  }
+}
+
+/**
+ * 批次不一致行明细（D-105）：按需取，不在批次列表里带明细（一次展开才一个请求）。
+ * 取回即缓存：批次已达终态，明细不再变（同一拍卖在后续导入再被见到会改归后批，
+ * 那是后批展开时才需要的新数据）。取不到时只影响这一块，不影响批次报告本身。
+ */
+const unmatchedState = ref<Record<number, YahooUnmatchedState>>({})
+/** 请求序号按批次记（全局单计数器会让"连开两个批次"的先前响应被后一个顶掉，永不落位）。 */
+const unmatchedSeqs = new Map<number, number>()
+
+interface YahooUnmatchedState {
+  loading: boolean
+  error: string
+  data?: YahooUnmatchedRows
+}
+
+/**
+ * 是否展示/拉取不一致行明细：0 件不必请求，其余（含计数未知）都取。
+ * 渲染条件与请求条件必须同一判据——否则会出现"请求了却永不渲染"的空转。
+ */
+function hasUnmatched(row: YahooImportBatch): boolean {
+  return row.unmatchedCount !== 0
+}
+
+async function onBatchExpand(row: YahooImportBatch, expandedRows: YahooImportBatch[]): Promise<void> {
+  if (!hasUnmatched(row) || !expandedRows.includes(row)) {
+    return
+  }
+  const current = unmatchedState.value[row.id]
+  if (current?.loading === true || current?.data != null) {
+    return // 在途或已有明细：不重复请求（上次失败则允许再展开重试）
+  }
+  const seq = (unmatchedSeqs.get(row.id) ?? 0) + 1
+  unmatchedSeqs.set(row.id, seq)
+  unmatchedState.value[row.id] = { loading: true, error: '' }
+  try {
+    const data = await fetchYahooUnmatched(row.id)
+    if (unmatchedSeqs.get(row.id) !== seq) {
+      return
+    }
+    unmatchedState.value[row.id] = { loading: false, error: '', data }
+  } catch (error) {
+    if (unmatchedSeqs.get(row.id) !== seq) {
+      return
+    }
+    unmatchedState.value[row.id] = { loading: false, error: toDisplayMessage(error, t) }
   }
 }
 
@@ -285,6 +335,7 @@ onBeforeUnmount(() => {
             :data="batches"
             row-key="id"
             class="yahoo-table"
+            @expand-change="onBatchExpand"
           >
             <el-table-column type="expand">
               <template #default="{ row }">
@@ -327,9 +378,94 @@ onBeforeUnmount(() => {
                       />
                     </el-table>
                   </template>
-                  <p class="yahoo-unmatched-note">
-                    {{ t('yahoo.import.unmatchedNote') }}
-                  </p>
+                  <template v-if="hasUnmatched(row as YahooImportBatch)">
+                    <p class="yahoo-errors-title">
+                      {{ t('yahoo.import.unmatchedRows') }}
+                      <span
+                        v-if="unmatchedState[row.id]?.data"
+                        class="yahoo-unmatched-total"
+                      >{{ t('yahoo.import.unmatchedTotal', { count: unmatchedState[row.id]?.data?.total ?? 0 }) }}</span>
+                    </p>
+                    <p
+                      v-if="unmatchedState[row.id]?.loading"
+                      class="yahoo-unmatched-note"
+                    >
+                      {{ t('common.loading') }}
+                    </p>
+                    <p
+                      v-else-if="unmatchedState[row.id]?.error"
+                      class="kcgl-error-box"
+                    >
+                      {{ unmatchedState[row.id]?.error }}
+                    </p>
+                    <template v-else-if="(unmatchedState[row.id]?.data?.rows.length ?? 0) > 0">
+                      <el-table
+                        :data="unmatchedState[row.id]?.data?.rows ?? []"
+                        size="small"
+                        class="yahoo-errors-table"
+                      >
+                        <el-table-column
+                          :label="t('yahoo.itemCode')"
+                          prop="selfCode"
+                          min-width="150"
+                        />
+                        <el-table-column
+                          :label="t('yahoo.orderId')"
+                          prop="orderId"
+                          min-width="120"
+                        />
+                        <el-table-column
+                          :label="t('yahoo.auctionId')"
+                          prop="auctionId"
+                          min-width="150"
+                        />
+                        <el-table-column
+                          :label="t('yahoo.reconcile.closedAt')"
+                          width="170"
+                        >
+                          <template #default="scope">
+                            {{ scope.row.closedAt ? formatJstDateTime(scope.row.closedAt) : '—' }}
+                          </template>
+                        </el-table-column>
+                        <el-table-column
+                          :label="t('yahoo.reconcile.soldPrice')"
+                          width="120"
+                          align="right"
+                        >
+                          <template #default="scope">
+                            {{ scope.row.soldPrice == null ? '—' : formatYen(scope.row.soldPrice) }}
+                          </template>
+                        </el-table-column>
+                      </el-table>
+                      <p
+                        v-if="unmatchedState[row.id]?.data?.truncated"
+                        class="yahoo-unmatched-note"
+                      >
+                        {{
+                          t('yahoo.import.unmatchedTruncated', {
+                            shown: unmatchedState[row.id]?.data?.rows.length ?? 0,
+                          })
+                        }}
+                      </p>
+                      <!-- 说明句与它说明的清单同进同出：有清单才说"下記" -->
+                      <p class="yahoo-unmatched-note">
+                        {{ t('yahoo.import.unmatchedNote') }}
+                      </p>
+                    </template>
+                    <!--
+                      报告里的计数是**当时**的（unmatched_count），清单是**此刻**的
+                      （last_seen_batch_id + item_id IS NULL）：同一拍卖在后续导入里被
+                      认领后，计数仍在而清单已空。此时标题写着"不一致行"却什么都没有，
+                      再挂"下記に…"就是指向不存在的东西——给一句明说。
+                      判据带 data 非空：首帧（请求还没发出）不会闪一句错话。
+                    -->
+                    <p
+                      v-else-if="unmatchedState[row.id]?.data"
+                      class="yahoo-unmatched-note"
+                    >
+                      {{ t('yahoo.import.unmatchedEmpty') }}
+                    </p>
+                  </template>
                 </div>
               </template>
             </el-table-column>
@@ -870,6 +1006,13 @@ onBeforeUnmount(() => {
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--kcgl-color-text-sub);
+}
+
+/* 件数跟在标题后面：同一行读"不一致行 N 件"，不用再扫一遍报告列。 */
+.yahoo-unmatched-total {
+  margin-left: var(--kcgl-space-2);
+  font-weight: 400;
+  color: var(--kcgl-color-text-faint);
 }
 
 .yahoo-errors-table {
