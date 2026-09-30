@@ -102,6 +102,7 @@ async function mountView(role: 1 | 3 = 1): Promise<{ wrapper: VueWrapper; router
     routes: [
       { path: '/items', name: 'items', component: { template: '<div />' } },
       { path: '/items/:id', name: 'item-detail', component: { template: '<div />' } },
+      { path: '/excel', name: 'excel', component: { template: '<div />' } },
     ],
   })
   await router.push({ name: 'items' })
@@ -252,5 +253,34 @@ describe('items view (M5-1)', () => {
     await listBox.find('button').trigger('click')
     await flushPromises()
     expect(wrapper.find('#pane-list .kcgl-error-box').exists()).toBe(false)
+  })
+})
+
+/**
+ * 一括入出力入口（D-106）：批量导入/导出本来只在侧栏「Excel」下，商品页找不到；
+ * 入口收到本页工具栏，仍落到 /excel 的对应标签页（批次历史与报告留在原页）。
+ */
+describe('items bulk import/export entry (D-106)', () => {
+  it('routes to the excel import tab from the toolbar menu', async () => {
+    const { wrapper, router } = await mountView()
+
+    const dropdown = wrapper.findComponent({ name: 'ElDropdown' })
+    expect(dropdown.exists()).toBe(true)
+
+    dropdown.vm.$emit('command', 'import')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('excel')
+    expect(router.currentRoute.value.query.tab).toBe('import')
+  })
+
+  it('routes to the excel export tab from the toolbar menu', async () => {
+    const { wrapper, router } = await mountView()
+
+    wrapper.findComponent({ name: 'ElDropdown' }).vm.$emit('command', 'export')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('excel')
+    expect(router.currentRoute.value.query.tab).toBe('export')
   })
 })

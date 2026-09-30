@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
 const apiMocks = vi.hoisted(() => ({
   fetchExcelBatches: vi.fn(),
@@ -70,14 +71,22 @@ function batch(overrides: Partial<ExcelImportBatch> = {}): ExcelImportBatch {
   }
 }
 
-async function mountView(role: 1 | 3 = 1): Promise<VueWrapper> {
+async function mountView(role: 1 | 3 = 1, tab?: string): Promise<VueWrapper & { router: Router }> {
   const auth = useAuthStore()
   auth.me = role === 1 ? meAdmin : meViewer
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/excel', name: 'excel', component: { template: '<div />' } },
+      { path: '/items', name: 'items', component: { template: '<div />' } },
+    ],
+  })
+  await router.push({ name: 'excel', query: tab === undefined ? {} : { tab } })
   const wrapper = mount(ExcelView, {
-    global: { plugins: [i18n] },
+    global: { plugins: [i18n, router] },
   })
   await flushPromises()
-  return wrapper
+  return Object.assign(wrapper, { router })
 }
 
 /**
@@ -331,5 +340,48 @@ describe('excel view (M4-5)', () => {
 
     expect(isMaskHidden(wrapper)).toBe(true)
     expect(wrapper.find('#pane-import .empty-state').exists()).toBe(true)
+  })
+})
+
+/**
+ * 标签页深链（D-106）：商品页工具栏的「一括入出力」落到本页对应标签，
+ * 因此 `?tab=` 是对外契约，脏值必须落回默认而不是渲染出空标签。
+ */
+describe('excel tab deep link (D-106)', () => {
+  function activeTab(wrapper: VueWrapper): string {
+    return wrapper.findAll('.el-tabs__item')
+      .filter((item) => item.classes().includes('is-active'))
+      .map((item) => item.attributes('id') ?? '')
+      .join(',')
+  }
+
+  it('defaults to the import tab without a query', async () => {
+    const wrapper = await mountView()
+    expect(activeTab(wrapper)).toBe('tab-import')
+  })
+
+  it('opens the export tab when ?tab=export', async () => {
+    const wrapper = await mountView(1, 'export')
+    expect(activeTab(wrapper)).toBe('tab-export')
+  })
+
+  it('falls back to the import tab on an unknown ?tab=', async () => {
+    const wrapper = await mountView(1, 'nope')
+    expect(activeTab(wrapper)).toBe('tab-import')
+  })
+
+  // 与商品页同 path、只有 query 变 → 换页键用 path（D-104）故组件不重挂，
+  // 必须监听 query 才能切标签（否则第二次点「書出」看起来没反应）
+  it('switches tabs when only the query changes on the same path', async () => {
+    const wrapper = await mountView()
+    expect(activeTab(wrapper)).toBe('tab-import')
+
+    await wrapper.router.push({ name: 'excel', query: { tab: 'export' } })
+    await flushPromises()
+    expect(activeTab(wrapper)).toBe('tab-export')
+
+    await wrapper.router.push({ name: 'excel', query: {} })
+    await flushPromises()
+    expect(activeTab(wrapper)).toBe('tab-import')
   })
 })

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import epEn from 'element-plus/es/locale/lang/en'
 import epJa from 'element-plus/es/locale/lang/ja'
 import epZhCn from 'element-plus/es/locale/lang/zh-cn'
@@ -34,7 +35,29 @@ const dicts = useDictsStore()
 
 const canUpload = computed(() => auth.me != null && auth.me.role <= 2)
 
-const activeTab = ref('import')
+const route = useRoute()
+
+/** 标签页取值白名单：query 是外部输入（手改地址/深链），非法值一律落回既定默认。 */
+const TAB_NAMES = ['import', 'export'] as const
+type TabName = (typeof TAB_NAMES)[number]
+
+function tabFromQuery(): TabName {
+  const requested = route.query.tab
+  return TAB_NAMES.find((name) => name === requested) ?? 'import'
+}
+
+const activeTab = ref<TabName>(tabFromQuery())
+
+/**
+ * 商品页工具栏的「一括入出力」深链走 `?tab=`；两处同 path、只有 query 变，
+ * 换页用的是 path 键（D-104），组件不会重挂 → 必须监听 query 才能切换标签页。
+ */
+watch(
+  () => route.query.tab,
+  () => {
+    activeTab.value = tabFromQuery()
+  },
+)
 
 // EP 组件内置文案随应用语言联动（日期面板/清除按钮等）
 const epLocale = computed(() => {

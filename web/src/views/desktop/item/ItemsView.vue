@@ -27,6 +27,11 @@ const isAdmin = computed(() => auth.me != null && auth.me.role === 1)
 
 const activeTab = ref('list')
 
+/** 一括入出力（D-106）：落到 Excel 页的对应标签页，批次历史与报告仍在原页。 */
+function onBulkCommand(command: 'import' | 'export'): void {
+  void router.push({ name: 'excel', query: { tab: command } })
+}
+
 // ------------------------------------------------------------- 商品一覧
 
 /** 「すべて」选项值：共享对象哨兵——EP el-option 的 value prop 不收 null（每次
@@ -393,6 +398,29 @@ onMounted(() => {
             <p class="items-hint">
               {{ t('items.searchHint') }}
             </p>
+            <!--
+              一括入出力（D-106）：批量导入/导出本该在「商品」这里被找到，但它们的
+              交互是异步批处理（上传→判重→批次→报告），不适合塞进列表页，因此只放
+              入口、落到 /excel 对应标签页；批次历史与报告仍留原页。
+            -->
+            <el-dropdown
+              class="items-bulk"
+              @command="onBulkCommand"
+            >
+              <el-button class="items-bulk-trigger">
+                {{ t('items.bulkEntry') }}
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="import">
+                    {{ t('excel.import.title') }}
+                  </el-dropdown-item>
+                  <el-dropdown-item command="export">
+                    {{ t('excel.export.title') }}
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </div>
 
           <p
@@ -718,6 +746,9 @@ onMounted(() => {
 
 .items-toolbar {
   display: grid;
+  /* 左=搜索/筛选/提示各占一行，右=一括入出力入口（见 .items-bulk） */
+  grid-template-columns: 1fr auto;
+  align-items: start;
   gap: var(--kcgl-space-3);
   margin-bottom: var(--kcgl-space-3);
 }
@@ -772,6 +803,14 @@ onMounted(() => {
   margin: 0;
   font-size: 0.8rem;
   color: var(--kcgl-color-text-faint);
+}
+
+/* 一括入出力入口：钉在右列、跨筛选区两行（它是"去别处"，不是筛选条件，
+   挤进筛选行就等于暗示它会影响当前查询结果）。 */
+.items-bulk {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: start;
 }
 
 .items-note {
