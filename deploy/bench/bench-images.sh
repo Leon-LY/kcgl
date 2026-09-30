@@ -2,12 +2,18 @@
 # kcgl 压测图片落盘（M7-④，D-078）——seed-bench.sql 之后跑。
 #
 # 从 item_image 表读 (stored_path, thumb_path) 清单，把两枚占位母本
-# JPEG 硬链接到 /data/images 对应路径（kcgl-app-data 卷）：
+# JPEG 硬链接到两个**分开的**根目录（kcgl-app-data 卷，与 ImageProperties
+# 的 origRoot()/thumbRoot() 同构）：
+#   /data/images/orig/{yyyy}/{MM}/{uuid}.jpg      ← stored_path
+#   /data/images/thumb/{yyyy}/{MM}/{uuid}_t.jpg   ← thumb_path
+#   前端拿到的 url/thumbUrl 是 /img/orig/… 与 /img/thumb/…（ImageResponse），
+#   nginx `alias /data/images/` 去掉 /img/ 前缀 → 两段正是上面两条路径。
+#   落盘**少这两层**（早期版本把两者平铺进 /data/images/{yyyy}/{MM}/）时
+#   整站图片 404，而按「文件总数」校验照样通过（D-101）。
 #   - 硬链接零拷贝：25 万文件名只占 inode，不占数据块——既制造真实
 #     的目录层级/文件数压力（图片直出/列表缩略图/Nginx alias 遍历），
 #     又不撑爆共享测试机磁盘（勘察 D-077：磁盘 39%）
 #   - 文件内容统一不影响压测目标（静态资产吞吐与图片内容无关）
-#   - 与 ImageStore 约定同构：{yyyy}/{MM}/{uuid}.jpg + 缩略图
 #
 # 幂等：ln -f 覆盖式重链；母本已存在则跳过生成。
 # 用法：./bench-images.sh（deploy/ 目录下，读 .env；宿主需 docker）
@@ -104,9 +110,12 @@ kcgl_mysql "$ROOT_PW" -uroot -N -B kcgl \
             # 之和）且共享测试机的 inode 白占一份全量。清理成本=重新硬链约 1.5 分钟
             rm -rf /data/images /data/.bench-fixtures
             mkdir -p /data/.bench-fixtures
-            # 目录集一次建齐（yyyy/MM 只有 ~18 个，远快于逐行 mkdir -p）
+            # 目录集一次建齐（yyyy/MM 只有 ~18 个，远快于逐行 mkdir -p）——
+            # 两段各自建在 orig/ 与 thumb/ 下（见脚本头注释）
             awk -F "\t" "{ print substr(\$1,1,7); print substr(\$2,1,7) }" /tmp/list.tsv \
-                | sort -u | while read -r d; do mkdir -p "/data/images/$d"; done
+                | sort -u | while read -r d; do
+                    mkdir -p "/data/images/orig/$d" "/data/images/thumb/$d"
+                done
             # 母本池：single inode 的硬链接数有文件系统上限（ext4 65k，部分 fs 32k），
             # 12.5 万路径全指一枚母本必撞 `Too many links`（实测）——按 PER_POOL 上限
             # 分池，每池复制一份母本（池数×数百字节，仍近零空间）；
@@ -119,30 +128,39 @@ kcgl_mysql "$ROOT_PW" -uroot -N -B kcgl \
                 cp -f /fix/placeholder-thumb.jpg "/data/.bench-fixtures/thumb.$i"
                 i=$((i + 1))
             done
-            # 第 $1 列逐行硬链到 $2 池（每 POOL 个路径轮换一枚母本）
+            # 第 $1 列逐行硬链到 $2 池、落到 $3 根目录（每 POOL 个路径轮换一枚母本）
             link_column() {
-                col="$1"; pool="$2"
+                col="$1"; pool="$2"; root="$3"
                 set -- "$pool".*                   # 池文件（glob 展开数量=POOL）
                 n=0
                 awk -F "\t" -v c="$col" "{ print \$c }" /tmp/list.tsv | \
                 while read -r p; do
-                    ln -f "$1" "/data/images/$p"
+                    ln -f "$1" "$root/$p"
                     n=$((n + 1))
                     [ $((n % POOL)) -eq 0 ] && { cur="$1"; shift; set -- "$@" "$cur"; }
                 done
                 true                               # 循环体末次条件判断的退出码不影响整体
             }
-            link_column 1 /data/.bench-fixtures/img
-            link_column 2 /data/.bench-fixtures/thumb
+            link_column 1 /data/.bench-fixtures/img   /data/images/orig
+            link_column 2 /data/.bench-fixtures/thumb /data/images/thumb
             echo "   硬链接完成：$(( $(wc -l < /tmp/list.tsv) * 2 ))（母本池 $POOL 份）"
         '
 
 # ---------------------------------------------------------------- 校验
-ACTUAL=$(docker run --rm -v "$IMAGE_VOLUME":/data "$TOOLS_IMAGE" \
-    sh -c 'find /data/images -type f -name "*.jpg" | wc -l')
-if [ "$ACTUAL" -eq "$((TOTAL * 2))" ]; then
-    echo "== 校验通过：$ACTUAL 个文件 = 图片行数 × 2 =="
+# 口径是「**按落盘层级**取得到文件」，不是「文件总数对」：只数总数时，
+# 少掉 orig/thumb 两层的旧布局照样等于 2×TOTAL，缺陷静默通过，直到用户在
+# 页面上看见整片 404（D-101）。故三项并列：两个根各自页数 + 无平铺残留。
+LAYOUT=$(docker run --rm -v "$IMAGE_VOLUME":/data "$TOOLS_IMAGE" sh -c '
+    find /data/images/orig  -type f -name "*.jpg" | wc -l
+    find /data/images/thumb -type f -name "*.jpg" | wc -l
+    find /data/images -mindepth 3 -maxdepth 3 -type f | wc -l')
+# 三行各读一次：`read a b c` 只吃**一行**，多行输出会被塞进第一个变量、其余留空
+# （首次实跑即踩：orig 校出 125629 而 thumb/flat 为空 → 报"层级不符合"误判）
+{ read -r N_ORIG; read -r N_THUMB; read -r N_FLAT; } <<< "$LAYOUT"
+if [ "$N_ORIG" -eq "$TOTAL" ] && [ "$N_THUMB" -eq "$TOTAL" ] && [ "$N_FLAT" -eq 0 ]; then
+    echo "== 校验通过：orig $N_ORIG + thumb $N_THUMB = 图片行数 × 2（平铺残留 0） =="
 else
-    echo "错误：文件数 $ACTUAL ≠ 预期 $((TOTAL * 2))——查容器内 ln 报错" >&2
+    echo "错误：落盘层级不符合 /img 取图口径——orig=$N_ORIG thumb=$N_THUMB" \
+         "（各应为 $TOTAL），平铺残留=$N_FLAT（应为 0）" >&2
     exit 1
 fi
