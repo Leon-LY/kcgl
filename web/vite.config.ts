@@ -73,6 +73,11 @@ export default defineConfig({
     // 增量依赖变化）下首次加载对应页面才被发现 → vite 运行时 re-optimize 触发
     // 整页 reload，与 SPA 导航竞态（E2E 曾在首跳 /admin/venues 时偶发白屏超时）。
     // 显式预打包消除该类竞态；新增 EP/Vant 组件后按报错提示把样式子路径补进来。
+    // D-107：这份清单是**手工白名单**，缺项只在冷依赖缓存（CI 新 checkout、本机
+    // 删掉 node_modules/.vite）下才现形——首跳对应页面时 Vite 打印
+    // `dependency optimized: …` + `optimized dependencies changed. reloading` 整页
+    // 重载，与 SPA 导航/点击竞态。补项时拿 `grep -rhoE '<(el|van)-[a-z0-9-]+' src`
+    // 的标签清单整体对账，别只跟着那次报错补一条。
     include: [
       'element-plus/es',
       'element-plus/es/components/base/style/css',
@@ -80,7 +85,13 @@ export default defineConfig({
       'element-plus/es/components/config-provider/style/css',
       'element-plus/es/components/date-picker/style/css',
       'element-plus/es/components/descriptions/style/css',
+      'element-plus/es/components/descriptions-item/style/css',
       'element-plus/es/components/dialog/style/css',
+      // D-107 补齐：el-dropdown*（D-106 商品页「一括入出力」首次使用）与
+      // tab-pane / descriptions-item 一样，曾是清单里的缺项。
+      'element-plus/es/components/dropdown/style/css',
+      'element-plus/es/components/dropdown-item/style/css',
+      'element-plus/es/components/dropdown-menu/style/css',
       'element-plus/es/components/image/style/css',
       'element-plus/es/components/input/style/css',
       'element-plus/es/components/input-number/style/css',
@@ -91,6 +102,7 @@ export default defineConfig({
       'element-plus/es/components/radio-group/style/css',
       'element-plus/es/components/select/style/css',
       'element-plus/es/components/switch/style/css',
+      'element-plus/es/components/tab-pane/style/css',
       'element-plus/es/components/table-column/style/css',
       'element-plus/es/components/table/style/css',
       'element-plus/es/components/tabs/style/css',
