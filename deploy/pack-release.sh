@@ -11,6 +11,7 @@
 #   backup.sh restore.sh verify-grants.sh kcgl-doctor.sh security-selfcheck.sh
 #   db-cli.sh upgrade.sh
 #   images/kcgl-app-<版本>.tar  images/kcgl-web-<版本>.tar  images/kcgl-tools-<版本>.tar
+#   images/mysql-8.4.tar  images/flyway-11-alpine.tar（两个第三方基础镜像，见下）
 #   docs/デプロイ手順書.md docs/運用手順書.md（甲方日文文档）
 #   MANIFEST.txt（`#` 头部 + sha256 行，甲方可直接 sha256sum -c 校验文件完整性）
 #
@@ -29,6 +30,19 @@ PKG="$OUT/kcgl-$VERSION"
 APP_IMAGE="ghcr.io/leon-ly/kcgl-app:$VERSION"
 WEB_IMAGE="ghcr.io/leon-ly/kcgl-web:$VERSION"
 TOOLS_IMAGE="ghcr.io/leon-ly/kcgl-tools:$VERSION"
+# 两个**第三方基础镜像**：compose 的 mysql/grants 用 mysql:8.4，migrate 用 flyway。
+# 它们既不来自我方 ghcr、也不是 build 出来的，**必须随包交付**——否则"仅凭交付包
+# 可离线起栈"是假的（D-096：干净主机演练只 `docker rmi` 了自家两个镜像，这两个
+# 一直躺在本机缓存里，于是演练误判为自包含；真到干净主机上会 `docker compose up`
+# 时联网拉取，国内 mirror 实测十余分钟不完成）。与 D-094 同一条原则：关键路径的
+# 依赖随包到位 —— 没有 mysql:8.4 根本起不了栈，比 rsync 更硬。
+BASE_IMAGES=(mysql:8.4 flyway/flyway:11-alpine)
+for bi in "${BASE_IMAGES[@]}"; do
+    docker image inspect "$bi" >/dev/null 2>&1 || {
+        echo "错误：本机缺少基础镜像 $bi（先 docker pull $bi 再打包——它必须进交付包）" >&2
+        exit 1
+    }
+done
 
 echo "== 打包 kcgl $VERSION → $PKG =="
 rm -rf "$PKG"
@@ -61,6 +75,9 @@ docker build -q -t "$TOOLS_IMAGE" "$CUR/tools" >/dev/null
 docker save "$APP_IMAGE" -o "$PKG/images/kcgl-app-$VERSION.tar"
 docker save "$WEB_IMAGE" -o "$PKG/images/kcgl-web-$VERSION.tar"
 docker save "$TOOLS_IMAGE" -o "$PKG/images/kcgl-tools-$VERSION.tar"
+# 第三方基础镜像：文件名去掉 `:` 与 `/`（tar 名里带这些字符在 Windows/介质上易出问题）
+docker save "mysql:8.4" -o "$PKG/images/mysql-8.4.tar"
+docker save "flyway/flyway:11-alpine" -o "$PKG/images/flyway-11-alpine.tar"
 
 # ---------- 4. 甲方日文文档（与镜像同版本交付；中文工程文档不入包） ----------
 # 仓库内文件名是工程向（deployment-ja/runbook），包内换成甲方看得懂的名字。
@@ -84,6 +101,7 @@ copy_ja_doc "runbook.md"       "運用手順書.md"
     echo "# kcgl 交付包 $VERSION"
     echo "# 打包时间（JST）：$(TZ=Asia/Tokyo date '+%F %T')"
     echo "# 镜像：$APP_IMAGE / $WEB_IMAGE / $TOOLS_IMAGE"
+    echo "# 基础镜像（第三方，随包交付）：mysql:8.4 / flyway/flyway:11-alpine"
     echo "# 校验方法：在本目录执行 sha256sum -c MANIFEST.txt（全部 OK 即文件完整）"
     (cd "$PKG" && find . -type f ! -name MANIFEST.txt -print0 | sort -z | xargs -0 sha256sum)
 } > "$PKG/MANIFEST.txt"

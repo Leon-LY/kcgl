@@ -70,6 +70,15 @@ if [ -f "$NEWPKG/images/kcgl-tools-$VERSION.tar" ]; then
 else
     echo "        该版本包内无 kcgl-tools 镜像 tar（旧版包），跳过装载"
 fi
+# 第三方基础镜像（mysql:8.4 / flyway:11-alpine）：compose 的 mysql/grants/migrate 靠它们，
+# 宿主上没有、包内又没有时，up 会去联网拉取（国内 mirror 实测可停滞十余分钟，D-096）。
+# 这里只做**装载**；"是否齐备"的判定归 [5/5] 的断言（本脚本：动作在前、校验在后）。
+if [ -f "$NEWPKG/images/mysql-8.4.tar" ]; then
+    docker load -i "$NEWPKG/images/mysql-8.4.tar"
+fi
+if [ -f "$NEWPKG/images/flyway-11-alpine.tar" ]; then
+    docker load -i "$NEWPKG/images/flyway-11-alpine.tar"
+fi
 
 # ---------- 3. 整批同步部署工件 ----------
 # 复制一律走「写临时名 + mv 原子替换」：本脚本自己也可能在新包内（会被覆盖），
@@ -111,6 +120,20 @@ for i in $(seq 1 120); do
     sleep 3
 done
 FAILED=0
+
+# 基础镜像齐备性：compose 的 mysql/grants 用 mysql:8.4、migrate 用 flyway/flyway:11-alpine。
+# 缺任何一个，`up -d` 都会转去联网拉取（国内 mirror 实测可停滞十余分钟，D-096）。
+# 放在断言段而非装载段：装载是动作、齐备性才是不变量。
+assert_base() {  # $1=包内 tar 名  $2=镜像 tag
+    if docker image inspect "$2" >/dev/null 2>&1; then
+        echo "  ✓ 基础镜像就位：$2"
+    else
+        echo "  ✗ 缺少基础镜像 $2（应 docker load -i images/$1）——up 时会尝试联网拉取"
+        FAILED=1
+    fi
+}
+assert_base mysql-8.4.tar mysql:8.4
+assert_base flyway-11-alpine.tar flyway/flyway:11-alpine
 
 # 一次性容器必须成功退出：migrate 失败时 app 起不来，但 grants 失败也可能被忽略
 for one in migrate grants; do
