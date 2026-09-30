@@ -237,6 +237,22 @@ describe('item detail view (M5-1)', () => {
     expect(wrapper.find('.itemd-divergence').exists()).toBe(false)
   })
 
+  it('renders an unset photo date as 未撮影 and a set one as JST Y/M/D (acceptance 13)', async () => {
+    // 只取撮影日那一格的值（buyDate 同为 2026-01-15 且同格式渲染，全文断言会假过；
+    // border 模式下 label 与 content 各占一个 .el-descriptions__cell，值在后一格）
+    const photoCellText = (view: VueWrapper) => {
+      const cells = view.findAll('.el-descriptions__cell')
+      const labelIndex = cells.findIndex((cell) => cell.text().includes('撮影日'))
+      return cells[labelIndex + 1]?.text() ?? ''
+    }
+
+    const unset = await mountView(2, { photoDate: null })
+    expect(photoCellText(unset.wrapper)).toBe('未撮影')
+
+    const set = await mountView(2, { photoDate: '2026-01-15' })
+    expect(photoCellText(set.wrapper)).toBe('2026/01/15')
+  })
+
   it('shows the divergence badge for venue, date, or band mismatch but not when aligned', async () => {
     const aligned = await mountView(2, { venueId: 1, venueCode: 'HT', buyDate: '2026-01-15', priceBandCode: 'X' })
     expect(aligned.wrapper.find('.itemd-divergence').exists()).toBe(false)

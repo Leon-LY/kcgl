@@ -122,6 +122,8 @@ test.describe('item list and detail (desktop-chromium)', () => {
     for (const section of ['基本情報', '在庫・保管', '詳細情報', 'システム情報']) {
       await expect(page.locator('.el-descriptions__title', { hasText: section })).toBeVisible()
     }
+    // 验收 13：本例经 API 建成、无照片 → 撮影日显示「未撮影」而非通用空值「—」
+    await expect(page.locator('.el-descriptions__body tr', { hasText: '撮影日' })).toContainText('未撮影')
     await expect(page.locator('.itemd-divergence')).toHaveCount(0)
 
     // ---- 编辑弹层：改商品名/棚番号/備考 → 保存 → 详情就地刷新（号不变）

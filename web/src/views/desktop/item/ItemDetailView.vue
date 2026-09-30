@@ -701,7 +701,8 @@ watch(() => route.params.id, (next, prev) => {
               {{ item.groupNo ?? '—' }}
             </el-descriptions-item>
             <el-descriptions-item :label="t('items.detail.field.photoDate')">
-              {{ formatJstDate(item.photoDate) }}
+              <!-- 验收 13：未拍（photo_date NULL）显示「未撮影」而非通用空值「—」——「没拍」与「字段未填」语义不同 -->
+              {{ item.photoDate ? formatJstDate(item.photoDate) : t('items.detail.notTaken') }}
             </el-descriptions-item>
             <el-descriptions-item
               :label="t('items.detail.field.remark')"

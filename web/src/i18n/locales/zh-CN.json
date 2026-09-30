@@ -659,6 +659,7 @@
       "voidedNoReasonBanner": "已取消的商品。",
       "photoCount": "照片 {n} 张",
       "noPhoto": "暂无照片",
+      "notTaken": "未拍摄",
       "tab": {
         "basic": "基本信息",
         "ledger": "交易流水",

@@ -659,6 +659,7 @@
       "voidedNoReasonBanner": "取り消し済みの商品です。",
       "photoCount": "写真 {n} 枚",
       "noPhoto": "写真はありません",
+      "notTaken": "未撮影",
       "tab": {
         "basic": "基本情報",
         "ledger": "取引履歴",

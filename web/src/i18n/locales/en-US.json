@@ -659,6 +659,7 @@
       "voidedNoReasonBanner": "This item has been voided.",
       "photoCount": "{n} photos",
       "noPhoto": "No photos",
+      "notTaken": "Not photographed",
       "tab": {
         "basic": "Basic info",
         "ledger": "Ledger",
