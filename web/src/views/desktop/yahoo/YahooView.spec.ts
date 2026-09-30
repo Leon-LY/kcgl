@@ -147,6 +147,17 @@ async function mountView(role: 1 | 3 = 1): Promise<{ wrapper: VueWrapper; router
   return { wrapper, router }
 }
 
+/**
+ * v-loading 遮罩是否已收起。不用 VTU 的 isVisible()：它在该 jsdom 版本里走
+ * Element.checkVisibility()，而那个实现对 display:none 不成立，于是收起的遮罩
+ * 也会被判为可见。这里直接读 v-show 写下的行内样式（遮罩节点在过渡收尾前仍在 DOM）。
+ */
+function isMaskHidden(wrapper: VueWrapper): boolean {
+  return wrapper
+    .findAll('.el-loading-mask')
+    .every((mask) => (mask.attributes('style') ?? '').includes('display: none'))
+}
+
 enableAutoUnmount(afterEach)
 
 beforeEach(() => {
@@ -366,5 +377,26 @@ describe('yahoo view (M5-②b)', () => {
 
     expect(apiMocks.fetchYahooBatches).toHaveBeenCalledTimes(2)
     expect(wrapper.find('#pane-import .kcgl-error-box').exists()).toBe(false)
+  })
+
+  // 空表 = 本页最常态（还没导入过），此时必须撤遮罩。曾把遮罩条件写成数据派生
+  // （batches.length === 0 && !batchesError）→ 空列表取回后条件恒真，用户看到"一直转圈"
+  it('clears the loading mask once an empty batch list arrives', async () => {
+    let resolveBatches: (rows: YahooImportBatch[]) => void = () => {}
+    apiMocks.fetchYahooBatches.mockReturnValue(
+      new Promise<YahooImportBatch[]>((resolve) => {
+        resolveBatches = resolve
+      }),
+    )
+    const { wrapper } = await mountView()
+
+    // 请求在途：唯一该转圈的时刻
+    expect(isMaskHidden(wrapper)).toBe(false)
+
+    resolveBatches([])
+    await flushPromises()
+
+    expect(isMaskHidden(wrapper)).toBe(true)
+    expect(wrapper.find('#pane-import .empty-state').exists()).toBe(true)
   })
 })

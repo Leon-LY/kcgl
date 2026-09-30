@@ -42,6 +42,10 @@ const activeTab = ref('import')
 
 const batches = ref<YahooImportBatch[]>([])
 const batchesError = ref('')
+// 遮罩只认"有没有在请求"，不认"有没有数据"：曾用 batches.length === 0 当条件，
+// 于是取回一份**空列表**（本页最常态：还没导入过）时永远不撤——用户看到一直转圈。
+// 初值 true 覆盖首帧到首次响应之间；之后只在显式重载时再置起，轮询刷新不闪遮罩。
+const batchesLoading = ref(true)
 const uploading = ref(false)
 const uploadError = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -80,6 +84,10 @@ async function loadBatches(): Promise<void> {
       return
     }
     batchesError.value = toDisplayMessage(error, t)
+  } finally {
+    if (seq === batchesSeq) {
+      batchesLoading.value = false
+    }
   }
 }
 
@@ -273,7 +281,7 @@ onBeforeUnmount(() => {
           </p>
           <el-table
             v-else
-            v-loading="batches.length === 0 && batchesError === ''"
+            v-loading="batchesLoading"
             :data="batches"
             row-key="id"
             class="yahoo-table"
