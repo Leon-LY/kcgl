@@ -7,6 +7,7 @@ import epZhCn from 'element-plus/es/locale/lang/zh-cn'
 import { useAuthStore } from '@/stores/auth'
 import { useDictsStore } from '@/stores/dicts'
 import { useSyncInvalidation } from '@/composables/useSyncInvalidation'
+import AppEmptyState from '@/components/AppEmptyState.vue'
 import { dayjs, formatJstDateTime, JST_TZ } from '@/utils/format'
 import { normalizeNumericText } from '@/utils/normalize'
 import { toDisplayMessage } from '@/utils/errors'
@@ -427,7 +428,11 @@ onBeforeUnmount(() => {
                 </template>
               </el-table-column>
               <template #empty>
-                {{ t('excel.import.emptyList') }}
+                <AppEmptyState
+                  compact
+                  :title="t('excel.import.emptyList')"
+                  :description="t('excel.import.emptyHint')"
+                />
               </template>
             </el-table>
           </el-tab-pane>

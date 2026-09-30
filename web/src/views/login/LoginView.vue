@@ -105,29 +105,38 @@ async function submit(): Promise<void> {
 </template>
 
 <style scoped>
+/* 占满壳内剩余高度（壳的 main 是列向 flex）——v1 用 calc(100vh - 52px) 硬编码顶栏
+   高度，PWA 安装引导条一出现（移动端首访必现）就算错，卡片被顶到视口下方只露一半 */
 .login-page {
-  min-height: calc(100vh - 52px);
+  flex: 1;
+  min-height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: var(--kcgl-space-4) 0;
 }
 
 .login-card {
-  width: min(380px, 100%);
+  width: min(400px, 100%);
   display: grid;
-  gap: 16px;
+  gap: var(--kcgl-space-4);
+  padding: var(--kcgl-space-6) var(--kcgl-space-5);
 }
 
 .login-title {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.35rem;
   font-weight: 600;
+  line-height: 1.3;
 }
 
 .login-subtitle {
-  margin: -8px 0 0;
+  margin: calc(var(--kcgl-space-2) * -1) 0 0;
   font-size: 0.9rem;
   color: var(--kcgl-color-text-sub);
+}
+
+.login-card .kcgl-btn {
+  margin-top: var(--kcgl-space-1);
 }
 </style>

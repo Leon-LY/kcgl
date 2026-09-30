@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useSyncInvalidation } from '@/composables/useSyncInvalidation'
+import AppEmptyState from '@/components/AppEmptyState.vue'
 import { formatJstDateTime, formatYen } from '@/utils/format'
 import { toDisplayMessage } from '@/utils/errors'
 import {
@@ -394,7 +395,11 @@ onBeforeUnmount(() => {
               </template>
             </el-table-column>
             <template #empty>
-              {{ t('yahoo.import.emptyList') }}
+              <AppEmptyState
+                compact
+                :title="t('yahoo.import.emptyList')"
+                :description="t('yahoo.import.emptyHint')"
+              />
             </template>
           </el-table>
         </el-tab-pane>
@@ -523,7 +528,11 @@ onBeforeUnmount(() => {
                 </template>
               </el-table-column>
               <template #empty>
-                {{ t('yahoo.shipments.empty') }}
+                <AppEmptyState
+                  compact
+                  :title="t('yahoo.shipments.empty')"
+                  :description="t('yahoo.shipments.emptyHint')"
+                />
               </template>
             </el-table>
           </template>
@@ -624,7 +633,11 @@ onBeforeUnmount(() => {
                 </template>
               </el-table-column>
               <template #empty>
-                {{ t('yahoo.reconcile.empty') }}
+                <AppEmptyState
+                  compact
+                  :title="t('yahoo.reconcile.empty')"
+                  :description="t('yahoo.reconcile.emptyHint')"
+                />
               </template>
             </el-table>
 
@@ -687,7 +700,11 @@ onBeforeUnmount(() => {
                 </template>
               </el-table-column>
               <template #empty>
-                {{ t('yahoo.reconcile.empty') }}
+                <AppEmptyState
+                  compact
+                  :title="t('yahoo.reconcile.empty')"
+                  :description="t('yahoo.reconcile.emptyHint')"
+                />
               </template>
             </el-table>
 
@@ -758,7 +775,11 @@ onBeforeUnmount(() => {
                 </template>
               </el-table-column>
               <template #empty>
-                {{ t('yahoo.reconcile.empty') }}
+                <AppEmptyState
+                  compact
+                  :title="t('yahoo.reconcile.empty')"
+                  :description="t('yahoo.reconcile.emptyHint')"
+                />
               </template>
             </el-table>
 

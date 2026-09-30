@@ -1,49 +1,114 @@
 /**
- * 品牌设计系统（docs/05-UI设计规范.md 的代码落地）——双壳（Vant 移动端 / Element Plus
+ * 品牌设计系统 v2（docs/07-UI设计规范.md 的代码落地）——双壳（Vant 移动端 / Element Plus
  * 桌面端）共享同一套语义令牌，两个 UI 库通过各自的 CSS 变量体系桥接到令牌：
- * 换主色只改 :root 一处，全端同步。设计基准=日本業務 SaaS（Zaico/freee 系）：
- * 克制的单主色 + 中性灰阶、信息密度合理、栅格对齐、无装饰性渐变/重阴影。
+ * 换主色只改 ① 一处，全端同步。设计基准=日本業務 SaaS（Zaico/freee 系）：
+ * 克制的单主色 + 冷调中性阶、信息密度合理、栅格对齐、无装饰性渐变/重阴影。
  *
- * 结构：①设计令牌 ②基础样式 ③Vant 主题桥接 ④Element Plus 主题桥接 ⑤共享基元。
+ * v2（2026-09-30，D-102）相对 v1 的升级与理由：
+ *   ① 中性阶由暖灰改为**冷调低彩度**（向主色相偏 0.005–0.01 彩度）：大面积暖灰+白卡片
+ *      是"没有配色"的观感来源；冷调中性让白面与页面底自然分层，不靠加阴影。
+ *   ② 新增**第二中性层 chrome（--kcgl-ink-*）**：侧栏/顶栏与内容面分离——业务系统的
+ *      导航是骨架不是内容，与数据同色会被读成"同一层"。深墨蓝侧栏同时给桌面端一个
+ *      品牌记忆点（原 v1 通体白，界面辨识度为零）。
+ *   ③ 间距/字号/圆角/动效**全部令牌化**：v1 的间距是散落的字面值（28px 卡片内边距
+ *      到处一样 → 处处同节奏=无节奏），v2 给出 4/8 栅格令牌，按"面 vs 元素"取不同档。
+ *   ④ 动效令牌 + prefers-reduced-motion：时长 120/180/260ms、ease-out 指数曲线；
+ *      同时把 Element Plus 的 --el-transition-* 一起接管，库组件与自绘组件同一节奏。
+ *   ⑤ 全站 :focus-visible 统一焦点环：v1 只在部分自绘输入上有 focus 态，键盘可达性
+ *      不达标（docs/07 §6 要求桌面键盘可达）。
+ *
+ * 结构：①设计令牌 ②基础样式 ③Vant 主题桥接 ④Element Plus 主题桥接 ⑤共享基元
+ *      ⑥动效与可访问性 ⑦数据面微观调整。
  */
 
 /* ---------------------------------------------------------------- ① 设计令牌 */
 
 :root {
-  /* 品牌主色：业务蓝（按压态加深，浅底用于选中/信息面） */
-  --kcgl-color-primary: #2062a6;
-  --kcgl-color-primary-dark: #1b5290;
-  --kcgl-color-primary-bg: #eaf2fa;
+  /* 品牌主色：業務藍（沿用 v1 色相——已随交付物/印刷校色确认，且仓库强光下辨识度实测达标；
+     v2 只收敛用法：主色仅出现在「可点击/已选中/进行中」，不再作装饰） */
+  --kcgl-color-primary: #1b5aa6;
+  --kcgl-color-primary-dark: #164a8a;
+  --kcgl-color-primary-soft: #dce9f7;
+  --kcgl-color-primary-bg: #eef4fb;
 
-  /* 文字三级 */
-  --kcgl-color-text: #1f2329;
-  --kcgl-color-text-sub: #5f6672;
-  --kcgl-color-text-faint: #9aa1ac;
+  /* chrome 第二中性层：侧栏/顶栏（导航骨架，与内容面刻意分离） */
+  --kcgl-ink-900: #0e1c30;
+  --kcgl-ink-800: #16283f;
+  --kcgl-ink-700: #1e3552;
+  --kcgl-ink-text: #e8eef7;
+  --kcgl-ink-text-dim: #9fb0c7;
+  --kcgl-ink-line: #24374f;
 
-  /* 面与边框 */
-  --kcgl-color-bg: #f5f6f7;
+  /* 文字三级（冷调，向主色相偏彩度） */
+  --kcgl-color-text: #16202f;
+  --kcgl-color-text-sub: #56657c;
+  --kcgl-color-text-faint: #8b97a9;
+
+  /* 面与边框：三级面（页面底 / 卡片 / 凹陷填充）+ 三级边 */
+  --kcgl-color-bg: #f1f4f9;
   --kcgl-color-card: #ffffff;
-  --kcgl-color-border: #dcdfe6;
-  --kcgl-color-border-strong: #c0c4cc;
+  --kcgl-color-fill: #f6f8fc;
+  --kcgl-color-border: #dde3ec;
+  --kcgl-color-border-strong: #c2cbd9;
+  --kcgl-color-divider: #eaeff5;
 
-  /* 语义四色（文字/浅底/描边三件套） */
+  /* 语义四色（文字/浅底/描边三件套）；neutral 供"已上架/印刷完了"等中性状态用 */
   --kcgl-color-danger: #b3261e;
   --kcgl-color-danger-bg: #fdeceb;
   --kcgl-color-danger-border: #f2c4c1;
-  --kcgl-color-success: #2e7d32;
-  --kcgl-color-success-bg: #eaf2ea;
-  --kcgl-color-success-border: #c0d8c2;
+  --kcgl-color-success: #1f7a3d;
+  --kcgl-color-success-bg: #e9f5ec;
+  --kcgl-color-success-border: #bfdcc7;
   --kcgl-color-warning: #8a6116;
   --kcgl-color-warning-bg: #faf3e2;
   --kcgl-color-warning-border: #e8d8ab;
-  --kcgl-color-info-text: #1b5290;
-  --kcgl-color-info-bg: #eaf2fa;
+  --kcgl-color-info-text: #164a8a;
+  --kcgl-color-info-bg: #eef4fb;
   --kcgl-color-info-border: #c5d9ee;
+  --kcgl-color-neutral: #56657c;
+  --kcgl-color-neutral-bg: #f1f4f9;
+  --kcgl-color-neutral-border: #dde3ec;
 
-  /* 圆角两档 + 卡片投影一档 */
+  /* 间距（4/8 栅格令牌；"面"用大档、"元素内"用小档——处处同档=无节奏） */
+  --kcgl-space-1: 4px;
+  --kcgl-space-2: 8px;
+  --kcgl-space-3: 12px;
+  --kcgl-space-4: 16px;
+  --kcgl-space-5: 24px;
+  --kcgl-space-6: 32px;
+  --kcgl-space-7: 48px;
+
+  /* 圆角三档：控件 4 / 面 8 / 胶囊（仅有语义的状态片用） */
   --kcgl-radius-s: 4px;
-  --kcgl-radius-m: 6px;
-  --kcgl-shadow-card: 0 1px 2px rgba(31, 35, 41, 0.04);
+  --kcgl-radius-m: 8px;
+  --kcgl-radius-pill: 999px;
+
+  /* 海拔两档：静置与浮起（浮层交给 UI 库默认层级投影） */
+  --kcgl-shadow-card: 0 1px 2px rgba(14, 28, 48, 0.05);
+  --kcgl-shadow-raised: 0 2px 10px rgba(14, 28, 48, 0.08);
+  --kcgl-shadow-chrome: 0 1px 0 rgba(14, 28, 48, 0.06);
+
+  /* 动效令牌：时长三档 + 指数 ease-out（无回弹、无弹性） */
+  --kcgl-dur-fast: 120ms;
+  --kcgl-dur: 180ms;
+  --kcgl-dur-slow: 260ms;
+  --kcgl-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --kcgl-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* 焦点环（键盘可达性，docs/07 §6） */
+  --kcgl-focus-ring: 0 0 0 3px rgba(27, 90, 166, 0.28);
+
+  /* 字体栈：日文系统栈（不引日文 webfont——MB 级且跨境加载更糟，docs/07 §3） */
+  --kcgl-font-sans:
+    Hiragino Kaku Gothic ProN,
+    'Hiragino Sans',
+    'Yu Gothic UI',
+    YuGothic,
+    Meiryo,
+    'Noto Sans CJK JP',
+    sans-serif;
+  /* 等宽：管理番号/货架号屏显与标签打印同字面（docs/07 §3） */
+  --kcgl-font-mono: 'Courier New', 'Noto Sans Mono CJK JP', monospace;
 
   font-size: 16px;
 }
@@ -61,19 +126,25 @@ body {
 }
 
 body {
-  /* 字体栈（docs/01 7.8）：Hiragino(iOS/mac) + Yu Gothic UI/Meiryo(Windows) + Noto Sans CJK JP(Android) */
-  font-family:
-    Hiragino Kaku Gothic ProN,
-    'Hiragino Sans',
-    'Yu Gothic UI',
-    YuGothic,
-    Meiryo,
-    'Noto Sans CJK JP',
-    sans-serif;
+  font-family: var(--kcgl-font-sans);
   color: var(--kcgl-color-text);
   background: var(--kcgl-color-bg);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 选中态跟随主色（默认系统蓝在浅色业务面上突兀） */
+::selection {
+  background: var(--kcgl-color-primary-soft);
+  color: var(--kcgl-color-text);
+}
+
+/* 键盘焦点统一可见；鼠标点击不出现焦点环（:focus-visible 语义） */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--kcgl-focus-ring);
+  border-radius: var(--kcgl-radius-s);
 }
 
 /* ------------------------------------------------- ③ Vant 主题桥接（移动端） */
@@ -89,22 +160,31 @@ body {
   --van-radius-sm: var(--kcgl-radius-s);
   --van-radius-md: var(--kcgl-radius-m);
 
-  /* 按钮（primary/danger 对齐品牌语义色） */
+  /* 按钮（primary/danger 对齐品牌语义色；44px 触控下限 docs/07 §6） */
   --van-button-primary-background: var(--kcgl-color-primary);
   --van-button-primary-border-color: var(--kcgl-color-primary);
   --van-button-danger-background: var(--kcgl-color-danger);
   --van-button-danger-border-color: var(--kcgl-color-danger);
   --van-button-radius: var(--kcgl-radius-s);
+  --van-button-default-height: 44px;
+  --van-button-normal-font-size: 0.95rem;
 
   /* 单元格/表单（录入页高频面） */
   --van-cell-background: var(--kcgl-color-card);
   --van-cell-text-color: var(--kcgl-color-text);
-  --van-cell-border-color: var(--kcgl-color-border);
+  --van-cell-border-color: var(--kcgl-color-divider);
   --van-cell-group-background: var(--kcgl-color-card);
+  --van-cell-vertical-padding: 12px;
   --van-field-input-text-color: var(--kcgl-color-text);
   --van-field-placeholder-text-color: var(--kcgl-color-text-faint);
   --van-field-label-color: var(--kcgl-color-text-sub);
   --van-popup-background: var(--kcgl-color-card);
+
+  /* 顶栏（移动壳 app bar）：深墨底 + 浅字，与桌面侧栏同一 chrome 层 */
+  --van-nav-bar-background: var(--kcgl-ink-900);
+  --van-nav-bar-title-text-color: var(--kcgl-ink-text);
+  --van-nav-bar-icon-color: var(--kcgl-ink-text);
+  --van-nav-bar-height: 52px;
 
   /* 选择器（会场/日期确认按钮） */
   --van-picker-confirm-action-color: var(--kcgl-color-primary);
@@ -117,18 +197,18 @@ body {
   /* 主色梯度（hover=light-3 / disabled=light-5 / 浅底=light-9，与品牌浅底对齐） */
   --el-color-primary: var(--kcgl-color-primary);
   --el-color-primary-dark-2: var(--kcgl-color-primary-dark);
-  --el-color-primary-light-3: #6391c1;
-  --el-color-primary-light-5: #90b0d2;
-  --el-color-primary-light-7: #bcd0e4;
-  --el-color-primary-light-8: #d2e0ed;
+  --el-color-primary-light-3: #5a89c0;
+  --el-color-primary-light-5: #8dacd2;
+  --el-color-primary-light-7: #bed0e4;
+  --el-color-primary-light-8: #d4e1ee;
   --el-color-primary-light-9: var(--kcgl-color-primary-bg);
 
   /* 语义色对齐品牌（error 与 danger 同值） */
   --el-color-success: var(--kcgl-color-success);
-  --el-color-success-light-3: #6da470;
-  --el-color-success-light-5: #96be98;
-  --el-color-success-light-7: #c0d8c2;
-  --el-color-success-light-8: #d5e5d6;
+  --el-color-success-light-3: #5f9c73;
+  --el-color-success-light-5: #8fbb9d;
+  --el-color-success-light-7: #bfdcc7;
+  --el-color-success-light-8: #d4e7d9;
   --el-color-success-light-9: var(--kcgl-color-success-bg);
   --el-color-danger: var(--kcgl-color-danger);
   --el-color-danger-light-3: #ca6762;
@@ -156,45 +236,128 @@ body {
   --el-text-color-placeholder: var(--kcgl-color-text-faint);
   --el-text-color-disabled: var(--kcgl-color-text-faint);
   --el-border-color: var(--kcgl-color-border);
-  --el-border-color-light: #e4e7ed;
-  --el-border-color-lighter: #ebeef5;
-  --el-border-color-extra-light: #f2f6fc;
+  --el-border-color-light: var(--kcgl-color-divider);
+  --el-border-color-lighter: var(--kcgl-color-divider);
+  --el-border-color-extra-light: #f1f4f9;
   --el-border-color-dark: var(--kcgl-color-border-strong);
+  --el-border-color-darker: var(--kcgl-color-border-strong);
   --el-bg-color: var(--kcgl-color-card);
   --el-bg-color-page: var(--kcgl-color-bg);
   --el-bg-color-overlay: var(--kcgl-color-card);
   --el-fill-color-blank: var(--kcgl-color-card);
-  --el-fill-color-light: #f5f7fa;
+  --el-fill-color: var(--kcgl-color-fill);
+  --el-fill-color-light: var(--kcgl-color-fill);
   --el-fill-color-lighter: var(--kcgl-color-bg);
+
+  /* 控件尺寸：桌面业务面取紧凑档（v1 用默认档，一屏信息量偏低） */
+  --el-component-size: 32px;
+  --el-component-size-small: 28px;
 
   /* 圆角/投影/字体对齐 */
   --el-border-radius-base: var(--kcgl-radius-s);
   --el-border-radius-small: 2px;
-  --el-box-shadow: var(--kcgl-shadow-card);
-  --el-box-shadow-light: 0 1px 4px rgba(31, 35, 41, 0.06);
-  --el-font-family:
-    Hiragino Kaku Gothic ProN,
-    'Hiragino Sans',
-    'Yu Gothic UI',
-    YuGothic,
-    Meiryo,
-    'Noto Sans CJK JP',
-    sans-serif;
+  --el-box-shadow: var(--kcgl-shadow-raised);
+  --el-box-shadow-light: var(--kcgl-shadow-card);
+  --el-font-family: var(--kcgl-font-sans);
+
+  /* 库组件动效接管到品牌节奏（下拉/弹层/折叠与自绘组件同一时长曲线） */
+  --el-transition-duration: var(--kcgl-dur);
+  --el-transition-duration-fast: var(--kcgl-dur-fast);
+  --el-transition-function-ease-in-out-bezier: var(--kcgl-ease-out);
+
+  /* 表格：表头浅底 + 行悬停染色 + 细边框（业务面读表是主任务） */
+  --el-table-header-bg-color: var(--kcgl-color-fill);
+  --el-table-header-text-color: var(--kcgl-color-text-sub);
+  --el-table-row-hover-bg-color: var(--kcgl-color-primary-bg);
+  --el-table-current-row-bg-color: var(--kcgl-color-primary-bg);
+  --el-table-border-color: var(--kcgl-color-divider);
+  --el-table-text-color: var(--kcgl-color-text);
+  --el-table-bg-color: var(--kcgl-color-card);
+  --el-table-tr-bg-color: var(--kcgl-color-card);
+
+  /* 标签/徽标：矩形 4px 与控件同圆角（胶囊只留给状态片） */
+  --el-tag-border-radius: var(--kcgl-radius-s);
+
+  /* 卡片/对话框：面 8px 圆角 + 静置投影 */
+  --el-card-border-radius: var(--kcgl-radius-m);
+  --el-card-border-color: var(--kcgl-color-border);
+  --el-card-padding: var(--kcgl-space-5);
+  --el-dialog-border-radius: var(--kcgl-radius-m);
+
+  /* 描述列表（商品详情）：标签格给浅底，与值格形成读表节奏（v1 两面同白，扫读费眼） */
+  --el-descriptions-item-bordered-label-background: var(--kcgl-color-fill);
+}
+
+/* 表单控件悬停/聚焦：边框转主色，聚焦加焦点环（v1 只有默认边框变色） */
+.el-input__wrapper,
+.el-textarea__inner,
+.el-select__wrapper {
+  transition:
+    border-color var(--kcgl-dur) var(--kcgl-ease-out),
+    box-shadow var(--kcgl-dur) var(--kcgl-ease-out);
+}
+
+.el-input__wrapper.is-focus,
+.el-select__wrapper.is-focused,
+.el-textarea__inner:focus {
+  box-shadow: 0 0 0 1px var(--kcgl-color-primary) inset, var(--kcgl-focus-ring);
+}
+
+/* 表格：表头字重 600 + 行悬停过渡（默认表头与正文同重，扫读缺少锚点） */
+.el-table th.el-table__cell {
+  font-weight: 600;
+}
+
+.el-table tbody tr {
+  transition: background-color var(--kcgl-dur-fast) var(--kcgl-ease-out);
+}
+
+/* 标签页：激活态主色 + 600 字重（默认仅下划线变色） */
+.el-tabs__item {
+  transition: color var(--kcgl-dur) var(--kcgl-ease-out);
+}
+
+.el-tabs__item.is-active {
+  font-weight: 600;
+}
+
+/* 危险按钮的悬停不再整块变实心红（业务面上是破坏性操作的强提示，悬停即通红过冲） */
+.el-button--danger.is-plain:hover {
+  background: var(--kcgl-color-danger);
+  border-color: var(--kcgl-color-danger);
+  color: #fff;
 }
 
 /* ---------------------------------------------------------------- ⑤ 共享基元 */
 
+/* 卡片：面（可含标题行/工具行）——内边距按"面"给 20/24，不再处处 28 */
 .kcgl-card {
   background: var(--kcgl-color-card);
   border: 1px solid var(--kcgl-color-border);
   border-radius: var(--kcgl-radius-m);
   box-shadow: var(--kcgl-shadow-card);
-  padding: 28px;
+  padding: var(--kcgl-space-5);
+}
+
+/* 区块：无阴影的轻面（数据区/表单区，与卡片区分层次；避免"卡中卡"） */
+.kcgl-panel {
+  background: var(--kcgl-color-card);
+  border: 1px solid var(--kcgl-color-border);
+  border-radius: var(--kcgl-radius-m);
+  padding: var(--kcgl-space-4) var(--kcgl-space-5);
+}
+
+/* 区块小标题：靠字重+字号分层，不用彩色条/左侧描边（docs/07 §1 自查清单） */
+.kcgl-section-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--kcgl-color-text);
 }
 
 .kcgl-field {
   display: grid;
-  gap: 4px;
+  gap: var(--kcgl-space-1);
 }
 
 .kcgl-label {
@@ -205,32 +368,44 @@ body {
 .kcgl-input {
   width: 100%;
   height: 44px;
-  padding: 0 12px;
+  padding: 0 var(--kcgl-space-3);
   border: 1px solid var(--kcgl-color-border);
   border-radius: var(--kcgl-radius-s);
   font: inherit;
   font-size: 1rem; /* 16px：防止 iOS Safari 聚焦自动放大 */
   color: var(--kcgl-color-text);
   background: var(--kcgl-color-card);
+  transition:
+    border-color var(--kcgl-dur) var(--kcgl-ease-out),
+    box-shadow var(--kcgl-dur) var(--kcgl-ease-out);
 }
 
 .kcgl-input::placeholder {
   color: var(--kcgl-color-text-faint);
 }
 
+.kcgl-input:hover {
+  border-color: var(--kcgl-color-border-strong);
+}
+
 .kcgl-input:focus {
   outline: none;
   border-color: var(--kcgl-color-primary);
+  box-shadow: var(--kcgl-focus-ring);
 }
 
 .kcgl-btn {
   height: 44px;
-  padding: 0 16px;
+  padding: 0 var(--kcgl-space-4);
   border: none;
   border-radius: var(--kcgl-radius-s);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
+  transition:
+    background-color var(--kcgl-dur) var(--kcgl-ease-out),
+    border-color var(--kcgl-dur) var(--kcgl-ease-out),
+    transform var(--kcgl-dur-fast) var(--kcgl-ease-out);
 }
 
 .kcgl-btn:disabled {
@@ -247,33 +422,139 @@ body {
   background: var(--kcgl-color-primary-dark);
 }
 
+/* 按压回馈：1px 下沉（触屏上没有 hover，按压态是唯一反馈） */
+.kcgl-btn-primary:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
 .kcgl-btn-block {
   width: 100%;
 }
 
-.kcgl-error-box {
-  padding: 10px 12px;
-  border: 1px solid var(--kcgl-color-danger-border);
+/* 提示条基元：三件套配色 + 圆角与控件一致 */
+.kcgl-error-box,
+.kcgl-info-box,
+.kcgl-warning-box {
+  padding: var(--kcgl-space-3) var(--kcgl-space-4);
+  border: 1px solid;
   border-radius: var(--kcgl-radius-s);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.kcgl-error-box {
+  border-color: var(--kcgl-color-danger-border);
   background: var(--kcgl-color-danger-bg);
   color: var(--kcgl-color-danger);
-  font-size: 0.9rem;
 }
 
 .kcgl-info-box {
-  padding: 10px 12px;
-  border: 1px solid var(--kcgl-color-info-border);
-  border-radius: var(--kcgl-radius-s);
+  border-color: var(--kcgl-color-info-border);
   background: var(--kcgl-color-info-bg);
   color: var(--kcgl-color-info-text);
-  font-size: 0.9rem;
 }
 
 .kcgl-warning-box {
-  padding: 10px 12px;
-  border: 1px solid var(--kcgl-color-warning-border);
-  border-radius: var(--kcgl-radius-s);
+  border-color: var(--kcgl-color-warning-border);
   background: var(--kcgl-color-warning-bg);
   color: var(--kcgl-color-warning);
-  font-size: 0.9rem;
+}
+
+/* 数字/编号：表格金额与管理番号必须等宽对齐（比例字体下数字列永远参差） */
+.kcgl-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.kcgl-code {
+  font-family: var(--kcgl-font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+/* ---------------------------------------------------------------- ⑥ 动效与可访问性 */
+
+/* 路由/视图切换：仅内容区淡入上移 4px——表达"换了页"，不做编排式入场 */
+.kcgl-view-enter-active,
+.kcgl-view-leave-active {
+  transition:
+    opacity var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    transform var(--kcgl-dur-fast) var(--kcgl-ease-out);
+}
+
+.kcgl-view-enter-from,
+.kcgl-view-leave-to {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+/* 列表行/缩略图出现：表达"新增了一条"，用完即止（无循环动画） */
+@keyframes kcgl-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.kcgl-pop-in {
+  animation: kcgl-pop-in var(--kcgl-dur) var(--kcgl-ease-out);
+}
+
+/* 骨架屏微光：仅表达"正在加载"，不叠加位移 */
+@keyframes kcgl-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.kcgl-skeleton {
+  border-radius: var(--kcgl-radius-s);
+  background: linear-gradient(
+    90deg,
+    var(--kcgl-color-fill) 25%,
+    #edf1f8 37%,
+    var(--kcgl-color-fill) 63%
+  );
+  background-size: 400% 100%;
+  animation: kcgl-shimmer 1.4s ease-in-out infinite;
+}
+
+/* 系统级"减少动态效果"：一律降为瞬时（前庭敏感用户，docs/07 §6 可达性） */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------------------------------------------------------------- ⑦ 数据面微观调整 */
+
+/* 表格数字列等宽；单元格内链接/次要说明的字色统一 */
+.el-table .cell {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 表格内的空态由页面给（AppEmptyState），库默认的"暂无数据"文案层不加粗。
+   宽度 50% 与 60px 行高是给"一行纯文本"设计的：空态槽里放组件时会把整块挤成
+   半个表宽、文字行距拉散，故放开宽度与行高（纯文本空态视觉不变） */
+.el-table__empty-text {
+  width: auto;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--kcgl-color-text-sub);
+}
+
+/* 表单必填星号用语义红而非主色（EP 默认沿用主色，见"必填"误读为主色品牌色） */
+.el-form-item.is-required:not(.is-no-asterisk) > .el-form-item__label::before {
+  color: var(--kcgl-color-danger);
 }

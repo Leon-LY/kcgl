@@ -528,6 +528,7 @@
       "errorRaw": "Row content",
       "errorReason": "Reason",
       "emptyList": "No imports yet.",
+      "emptyHint": "Import an order file with the button above and the processing result will appear here.",
       "loadFailed": "Failed to load import history.",
       "unmatchedNote": "Unmatched rows are kept in listing records with the raw code from the order file."
     },
@@ -535,6 +536,7 @@
       "title": "Pending shipments",
       "count": "{n} items pending",
       "empty": "No pending shipments.",
+      "emptyHint": "Import a Yahoo order file and the products waiting to ship will appear here.",
       "delayed": "Delayed",
       "closedAt": "Ordered at",
       "goSell": "Sell this item",
@@ -546,6 +548,7 @@
       "canceledNotRelisted": "Unsold, awaiting relist",
       "withdrawNeeded": "Shipped but still listed (withdraw)",
       "empty": "None",
+      "emptyHint": "Import an order file to see mismatches such as sold but not shipped here.",
       "delayed": "Stalled",
       "recentlySynced": "Synced recently",
       "lastSyncedAt": "Last synced",
@@ -582,6 +585,7 @@
       "errorRaw": "Row content",
       "errorReason": "Reason",
       "emptyList": "No imports yet.",
+      "emptyHint": "Import an Excel file with the button above and the history will appear here.",
       "noteHint": "The numbering note records when importing existing codes advanced the counter (e.g. A0→A5). Later generated codes continue from the advanced position."
     },
     "export": {
@@ -781,6 +785,7 @@
     "withdrawNeeded": "Needs withdrawal",
     "lastImport": "Last import: {file} ({at})",
     "lastImportNone": "No order file imported yet",
+    "importHint": "Import an order file from Yahoo linkage and the waiting counts will appear here.",
     "goPendingShipments": "Open pending shipments",
     "goYahoo": "Open Yahoo"
   },

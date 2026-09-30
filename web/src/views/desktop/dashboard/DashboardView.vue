@@ -87,6 +87,12 @@ const lastImportLine = computed(() => {
   })
 })
 
+/** 尚无成功导入批次：把这一行从"灰字一行"升级成带下一步引导的说明块
+    （用户的实测反馈：三个 0 + 一行灰字被读成"内容加载不出来"）。 */
+const noImportYet = computed(
+  () => yahoo.value === null || yahoo.value.lastImportFilename === null,
+)
+
 function warehouseCell(row: WarehouseStats, column: (typeof WAREHOUSE_COLUMNS)[number]): string {
   if (column === 'stockValue') {
     return formatYen(row.stockValue)
@@ -197,9 +203,22 @@ useSyncInvalidation(['ITEM', 'INVENTORY', 'YAHOO_IMPORT', 'SETTING'], () => void
               <dd>{{ card.value }}</dd>
             </div>
           </dl>
-          <p class="dashboard-last-import">
-            {{ lastImportLine }}
-          </p>
+          <!-- 无导入批次时这一块整体转为说明块：说清"为什么是 0"与"下一步点哪"
+               （文案与计数断言口径不变：.dashboard-last-import 仍是那行原句） -->
+          <div
+            class="dashboard-note"
+            :class="{ 'is-empty': noImportYet }"
+          >
+            <p class="dashboard-last-import">
+              {{ lastImportLine }}
+            </p>
+            <p
+              v-if="noImportYet"
+              class="dashboard-note-next"
+            >
+              {{ t('dashboard.importHint') }}
+            </p>
+          </div>
           <div class="dashboard-actions">
             <button
               type="button"
@@ -268,26 +287,26 @@ useSyncInvalidation(['ITEM', 'INVENTORY', 'YAHOO_IMPORT', 'SETTING'], () => void
 <style scoped>
 .dashboard-view {
   display: grid;
-  gap: 16px;
+  gap: var(--kcgl-space-5);
 }
 
 .dashboard-title {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   font-weight: 600;
 }
 
 .dashboard-card {
   display: grid;
-  gap: 12px;
-  padding: 20px;
+  gap: var(--kcgl-space-4);
+  padding: var(--kcgl-space-5);
 }
 
 .dashboard-card-title {
   margin: 0;
   font-size: 0.95rem;
   font-weight: 600;
-  color: var(--kcgl-color-text-sub);
+  color: var(--kcgl-color-text);
 }
 
 .dashboard-loading {
@@ -296,20 +315,25 @@ useSyncInvalidation(['ITEM', 'INVENTORY', 'YAHOO_IMPORT', 'SETTING'], () => void
   color: var(--kcgl-color-text-sub);
 }
 
+/* 指标面板＝**键线网格**（1px 细线分格）：v1 是"外卡片里再套 9 个带边框灰底小卡"
+   ——卡片套卡片，且九个等大框并列无主次，正是演示品观感。键线网格把九个数字
+   收成一块可扫读的面板：标签一行、数字一行，线只是分隔不是装饰。 */
 .dashboard-grid {
   margin: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--kcgl-color-divider);
+  border: 1px solid var(--kcgl-color-divider);
+  border-radius: var(--kcgl-radius-m);
+  overflow: hidden;
 }
 
 .dashboard-stat {
   display: grid;
-  gap: 4px;
-  padding: 12px;
-  border: 1px solid var(--kcgl-color-border);
-  border-radius: 4px;
-  background: var(--kcgl-color-bg);
+  gap: 2px;
+  padding: var(--kcgl-space-4);
+  background: var(--kcgl-color-card);
 }
 
 .dashboard-stat dt {
@@ -319,8 +343,9 @@ useSyncInvalidation(['ITEM', 'INVENTORY', 'YAHOO_IMPORT', 'SETTING'], () => void
 
 .dashboard-stat dd {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.5rem;
   font-weight: 600;
+  line-height: 1.3;
   font-variant-numeric: tabular-nums;
 }
 
@@ -335,35 +360,64 @@ useSyncInvalidation(['ITEM', 'INVENTORY', 'YAHOO_IMPORT', 'SETTING'], () => void
 
 .dashboard-columns {
   display: grid;
-  grid-template-columns: minmax(0, 520px);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* 无导入批次：整块转为信息说明（浅底+描边），把"三个 0"从疑似故障改读成待办 */
+.dashboard-note {
+  display: grid;
+  gap: var(--kcgl-space-1);
+}
+
+.dashboard-note.is-empty {
+  padding: var(--kcgl-space-3) var(--kcgl-space-4);
+  border: 1px solid var(--kcgl-color-info-border);
+  background: var(--kcgl-color-info-bg);
+  border-radius: var(--kcgl-radius-s);
 }
 
 .dashboard-last-import {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
+  font-weight: 600;
   color: var(--kcgl-color-text-sub);
   word-break: break-all;
 }
 
+.dashboard-note.is-empty .dashboard-last-import,
+.dashboard-note-next {
+  color: var(--kcgl-color-info-text);
+}
+
+.dashboard-note-next {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
 .dashboard-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--kcgl-space-2);
 }
 
 .dashboard-link-btn {
   height: 36px;
-  padding: 0 14px;
+  padding: 0 var(--kcgl-space-4);
   border: 1px solid var(--kcgl-color-border);
-  border-radius: 4px;
-  background: #fff;
+  border-radius: var(--kcgl-radius-s);
+  background: var(--kcgl-color-card);
   color: var(--kcgl-color-text);
   font-size: 0.9rem;
   cursor: pointer;
+  transition:
+    border-color var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    color var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    background-color var(--kcgl-dur-fast) var(--kcgl-ease-out);
 }
 
 .dashboard-link-btn:hover {
   border-color: var(--kcgl-color-primary);
   color: var(--kcgl-color-primary);
+  background: var(--kcgl-color-primary-bg);
 }
 
 .dashboard-error {
@@ -378,10 +432,10 @@ useSyncInvalidation(['ITEM', 'INVENTORY', 'YAHOO_IMPORT', 'SETTING'], () => void
 
 .dashboard-retry {
   height: 36px;
-  padding: 0 14px;
+  padding: 0 var(--kcgl-space-4);
   border: 1px solid var(--kcgl-color-border);
-  border-radius: 4px;
-  background: #fff;
+  border-radius: var(--kcgl-radius-s);
+  background: var(--kcgl-color-card);
   color: var(--kcgl-color-text);
   font-size: 0.9rem;
   cursor: pointer;
@@ -400,20 +454,38 @@ useSyncInvalidation(['ITEM', 'INVENTORY', 'YAHOO_IMPORT', 'SETTING'], () => void
 
 .dashboard-table th,
 .dashboard-table td {
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--kcgl-color-border);
+  padding: var(--kcgl-space-2) var(--kcgl-space-3);
+  border-bottom: 1px solid var(--kcgl-color-divider);
   text-align: right;
   white-space: nowrap;
 }
 
 .dashboard-table thead th {
+  background: var(--kcgl-color-fill);
   color: var(--kcgl-color-text-sub);
-  font-weight: 500;
+  font-weight: 600;
   font-size: 0.8rem;
+}
+
+.dashboard-table tbody tr:hover {
+  background: var(--kcgl-color-primary-bg);
 }
 
 .dashboard-table tbody th {
   text-align: left;
   font-weight: 600;
+}
+
+/* 窄屏：三列键线网格退到两列/一列（3×3 是九枚指标的整除布局，不留下空格子） */
+@media (max-width: 900px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>

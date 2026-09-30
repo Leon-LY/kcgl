@@ -69,7 +69,15 @@ onBeforeUnmount(() => {
       class="shell-main"
       :class="{ 'has-tabbar': showTabbar }"
     >
-      <RouterView />
+      <!-- 与桌面壳同一换页动效（见 DesktopShell） -->
+      <RouterView v-slot="{ Component }">
+        <Transition
+          name="kcgl-view"
+          mode="out-in"
+        >
+          <component :is="Component" />
+        </Transition>
+      </RouterView>
     </main>
     <van-tabbar
       v-if="showTabbar"
@@ -119,24 +127,27 @@ onBeforeUnmount(() => {
   flex-direction: column;
 }
 
+/* 顶栏=chrome 层（深墨底），与桌面侧栏同一层：移动端顶部一条深色带在
+   仓库强光下也稳得住边界，且与内容面（白卡/浅底）拉开层次。 */
 .shell-header {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: var(--kcgl-color-card);
-  border-bottom: 1px solid var(--kcgl-color-border);
+  background: var(--kcgl-ink-900);
+  box-shadow: var(--kcgl-shadow-chrome);
   height: 52px;
-  padding: 0 16px;
+  padding: 0 var(--kcgl-space-4);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--kcgl-space-3);
 }
 
 .shell-title {
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 600;
   letter-spacing: 0.02em;
+  color: var(--kcgl-ink-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -145,30 +156,42 @@ onBeforeUnmount(() => {
 .shell-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--kcgl-space-2);
   flex-shrink: 0;
 }
 
 .shell-logout {
   height: 32px;
-  padding: 0 12px;
-  border: 1px solid var(--kcgl-color-border);
-  border-radius: 4px;
-  background: var(--kcgl-color-card);
-  color: var(--kcgl-color-text-sub);
+  padding: 0 var(--kcgl-space-3);
+  border: 1px solid var(--kcgl-ink-line);
+  border-radius: var(--kcgl-radius-s);
+  background: transparent;
+  color: var(--kcgl-ink-text-dim);
   font-size: 0.85rem;
   cursor: pointer;
+  transition:
+    border-color var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    color var(--kcgl-dur-fast) var(--kcgl-ease-out);
+}
+
+.shell-logout:active {
+  color: var(--kcgl-ink-text);
+  border-color: var(--kcgl-ink-text-dim);
 }
 
 .shell-main {
   flex: 1;
   width: 100%;
-  padding: 16px;
-  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  /* 列向 flex：让登录页等"占满剩余高度"的页面用 min-height:100% 落位，
+     不再靠 calc(100vh - 52px) 之类硬编码——安装引导条一出现就失准 */
+  display: flex;
+  flex-direction: column;
+  padding: var(--kcgl-space-4);
+  padding-bottom: calc(var(--kcgl-space-4) + env(safe-area-inset-bottom));
 }
 
 /* 底栏固定悬浮：内容区让出 tabbar 高度 + 安全区，防最后一屏被遮 */
 .shell-main.has-tabbar {
-  padding-bottom: calc(66px + env(safe-area-inset-bottom));
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
 }
 </style>

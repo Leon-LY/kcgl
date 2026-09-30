@@ -134,7 +134,9 @@ describe('pending shipments view', () => {
     apiMocks.fetchPendingShipments.mockResolvedValue(page([]))
     const { wrapper } = await mountView()
 
-    expect(wrapper.find('.shipment-empty').text()).toBe('出荷待ちの商品はありません。')
+    // 空态现在带一句「下一步」引导（共用基元 AppEmptyState），标题仍是原句：
+    // 用 toContain 锚住标题文案，不再断言整段文本只有一个句子
+    expect(wrapper.find('.shipment-empty').text()).toContain('出荷待ちの商品はありません。')
     expect(cards(wrapper)).toHaveLength(0)
   })
 

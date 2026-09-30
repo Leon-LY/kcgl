@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useSyncInvalidation } from '@/composables/useSyncInvalidation'
+import AppEmptyState from '@/components/AppEmptyState.vue'
 import { formatJstDateTime, formatYen } from '@/utils/format'
 import { toDisplayMessage } from '@/utils/errors'
 import { fetchPendingShipments } from '@/utils/api'
@@ -97,12 +98,15 @@ onMounted(() => {
         {{ t('common.loading') }}
       </p>
 
-      <p
+      <!-- 空态改用共用基元（雅虎/Excel 两页同款）：标题仍是原句，下面多一句
+           「下一步」——只报「没有」的空态会被读成加载失败（实测反馈） -->
+      <AppEmptyState
         v-else-if="items.length === 0"
         class="shipment-empty"
-      >
-        {{ t('yahoo.shipments.empty') }}
-      </p>
+        compact
+        :title="t('yahoo.shipments.empty')"
+        :description="t('yahoo.shipments.emptyHint')"
+      />
 
       <div
         v-else
@@ -184,12 +188,17 @@ onMounted(() => {
   color: var(--kcgl-color-text-sub);
 }
 
-.shipment-loading,
-.shipment-empty {
+.shipment-loading {
   padding: 40px 0;
   text-align: center;
   color: var(--kcgl-color-text-faint);
   font-size: 0.9rem;
+}
+
+/* 空态留白/居中/字色由 AppEmptyState 自带，这里只补上下呼吸位 */
+.shipment-empty {
+  padding-top: 24px;
+  padding-bottom: 24px;
 }
 
 .shipment-retry {

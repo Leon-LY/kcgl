@@ -91,12 +91,17 @@ function onSwitchMobile(): void {
 
 <template>
   <div class="shell shell-desktop">
-    <aside class="shell-sidebar">
+    <!-- 游客态（登录页/会话过期）不渲染侧栏：导航项全按角色过滤，未登录时
+         只剩一条 208px 空白栏——用户会误判成加载失败。侧栏出现时机与顶栏
+         用户名/登出一致（都挂在 auth.me 上）。 -->
+    <aside
+      v-if="auth.me"
+      class="shell-sidebar"
+    >
       <div class="shell-sidebar-top">
         <span class="shell-title">{{ t('common.appTitle') }}</span>
       </div>
       <nav
-        v-if="auth.me"
         class="shell-nav"
         :aria-label="t('nav.label')"
       >
@@ -152,7 +157,16 @@ function onSwitchMobile(): void {
       </header>
       <main class="shell-main">
         <PwaInstallBar warning-only />
-        <RouterView />
+        <!-- 换页淡入 4px：表达"换了页"而非编排式入场；out-in 避免两页并置
+             （时长取 --kcgl-dur-fast，两段合计 240ms，仍在 250ms 预算内） -->
+        <RouterView v-slot="{ Component }">
+          <Transition
+            name="kcgl-view"
+            mode="out-in"
+          >
+            <component :is="Component" />
+          </Transition>
+        </RouterView>
       </main>
     </div>
   </div>
@@ -164,36 +178,40 @@ function onSwitchMobile(): void {
   display: flex;
 }
 
+/* 侧栏=chrome 层（深墨蓝），与内容面刻意分离：导航是骨架不是数据。
+   v1 通体白面 + 仅靠右边框分隔，导航与内容读成同一层，整屏"没有设计"的观感来源。 */
 .shell-sidebar {
   position: sticky;
   top: 0;
   height: 100vh;
-  width: 208px;
+  width: 216px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 16px 12px;
-  background: var(--kcgl-color-card);
-  border-right: 1px solid var(--kcgl-color-border);
+  gap: var(--kcgl-space-5);
+  padding: var(--kcgl-space-4) var(--kcgl-space-3) var(--kcgl-space-5);
+  background: var(--kcgl-ink-900);
   overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .shell-sidebar-top {
-  padding: 0 8px;
+  padding: 0 var(--kcgl-space-2) var(--kcgl-space-4);
+  border-bottom: 1px solid var(--kcgl-ink-line);
 }
 
 .shell-title {
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 600;
   letter-spacing: 0.02em;
+  color: var(--kcgl-ink-text);
   white-space: nowrap;
 }
 
 .shell-nav {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--kcgl-space-5);
   min-height: 0;
 }
 
@@ -202,59 +220,67 @@ function onSwitchMobile(): void {
   gap: 2px;
 }
 
+/* 分组标题：小字距 + 降透明度，做"分组标签"而非"条目"（在深底上靠明度分层） */
 .shell-nav-group-title {
-  margin: 0 0 6px;
-  padding: 0 8px;
+  margin: 0 0 var(--kcgl-space-2);
+  padding: 0 var(--kcgl-space-2);
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.08em;
-  color: var(--kcgl-color-text-sub);
+  color: var(--kcgl-ink-text-dim);
 }
 
 .shell-nav-link {
-  height: 34px;
-  padding: 0 10px;
+  height: 36px;
+  padding: 0 var(--kcgl-space-3);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--kcgl-radius-s);
   background: transparent;
-  color: var(--kcgl-color-text-sub);
+  color: var(--kcgl-ink-text-dim);
   font: inherit;
   font-size: 0.9rem;
   text-align: left;
   white-space: nowrap;
   cursor: pointer;
+  transition:
+    background-color var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    color var(--kcgl-dur-fast) var(--kcgl-ease-out);
 }
 
 .shell-nav-link:hover {
-  color: var(--kcgl-color-text);
-  background: var(--kcgl-color-bg);
+  color: var(--kcgl-ink-text);
+  background: var(--kcgl-ink-800);
 }
 
+/* 选中态：整块染色 + 加亮字重（不用左侧彩条——docs/07 §1 明令禁止侧描边装饰） */
 .shell-nav-link.is-active {
-  color: var(--kcgl-color-primary);
-  background: var(--kcgl-color-primary-bg);
+  color: #fff;
+  background: var(--kcgl-ink-700);
   font-weight: 600;
 }
 
 .shell-sidebar-bottom {
   margin-top: auto;
-  padding: 0 4px;
+  padding: 0 var(--kcgl-space-1);
 }
 
 .shell-mobile-switch {
   width: 100%;
-  height: 34px;
-  border: 1px dashed var(--kcgl-color-border);
-  border-radius: 4px;
+  height: 36px;
+  border: 1px solid var(--kcgl-ink-line);
+  border-radius: var(--kcgl-radius-s);
   background: transparent;
-  color: var(--kcgl-color-text-sub);
+  color: var(--kcgl-ink-text-dim);
   font-size: 0.82rem;
   cursor: pointer;
+  transition:
+    border-color var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    color var(--kcgl-dur-fast) var(--kcgl-ease-out);
 }
 
 .shell-mobile-switch:hover {
-  color: var(--kcgl-color-text);
-  border-color: var(--kcgl-color-text-sub);
+  color: var(--kcgl-ink-text);
+  border-color: var(--kcgl-ink-text-dim);
 }
 
 .shell-body {
@@ -270,18 +296,18 @@ function onSwitchMobile(): void {
   z-index: 10;
   background: var(--kcgl-color-card);
   border-bottom: 1px solid var(--kcgl-color-border);
-  height: 52px;
-  padding: 0 24px;
+  height: 56px;
+  padding: 0 var(--kcgl-space-6);
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 16px;
+  gap: var(--kcgl-space-4);
 }
 
 .shell-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--kcgl-space-3);
   flex-shrink: 0;
 }
 
@@ -292,33 +318,38 @@ function onSwitchMobile(): void {
 
 .shell-logout {
   height: 32px;
-  padding: 0 12px;
+  padding: 0 var(--kcgl-space-3);
   border: 1px solid var(--kcgl-color-border);
-  border-radius: 4px;
+  border-radius: var(--kcgl-radius-s);
   background: var(--kcgl-color-card);
   color: var(--kcgl-color-text-sub);
   font-size: 0.85rem;
   cursor: pointer;
+  transition:
+    border-color var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    color var(--kcgl-dur-fast) var(--kcgl-ease-out);
 }
 
 .shell-logout:hover {
-  color: var(--kcgl-color-text);
-  border-color: var(--kcgl-color-text-sub);
+  color: var(--kcgl-color-danger);
+  border-color: var(--kcgl-color-danger-border);
 }
 
+/* 内容容器：1280 上限（docs/07 §4 v2 由 1080 放宽——桌面主任务是读表，
+   1080 在 1440 屏上左右各留 180px 空白，列表列数被迫压缩） */
 .shell-main {
   flex: 1;
   width: 100%;
-  max-width: 1080px;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 24px;
+  padding: var(--kcgl-space-5) var(--kcgl-space-6) var(--kcgl-space-7);
 }
 
 @media (max-width: 720px) {
   /* 窄屏兜底：桌面壳被强制使用（UA/偏好）时侧栏收窄保内容可用 */
   .shell-sidebar {
     width: 64px;
-    padding: 16px 6px;
+    padding: var(--kcgl-space-4) 6px;
   }
 
   .shell-nav-group-title,
@@ -328,6 +359,10 @@ function onSwitchMobile(): void {
 
   .shell-title {
     font-size: 0.85rem;
+  }
+
+  .shell-main {
+    padding: var(--kcgl-space-4);
   }
 }
 </style>

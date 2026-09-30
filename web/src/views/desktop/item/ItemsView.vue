@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useSyncInvalidation } from '@/composables/useSyncInvalidation'
+import AppEmptyState from '@/components/AppEmptyState.vue'
 import { formatJstDate, formatJstDateTime, formatYen } from '@/utils/format'
 import { toDisplayMessage } from '@/utils/errors'
 import { fetchRecycleBin, fetchVenues, restoreItem, searchItems } from '@/utils/api'
@@ -343,23 +344,26 @@ onMounted(() => {
                   :value="venue.id"
                 />
               </el-select>
-              <el-date-picker
-                v-model="buyDateFrom"
-                type="date"
-                :placeholder="t('items.buyDateFrom')"
-                value-format="YYYY-MM-DD"
-                class="items-filter-date"
-                @change="onSearch"
-              />
-              <span class="items-range-sep">〜</span>
-              <el-date-picker
-                v-model="buyDateTo"
-                type="date"
-                :placeholder="t('items.buyDateTo')"
-                value-format="YYYY-MM-DD"
-                class="items-filter-date"
-                @change="onSearch"
-              />
+              <!-- 区间两端与分隔符同一组：换行时整组换行，不让「〜」被折到下一行孤悬 -->
+              <span class="items-filter-range">
+                <el-date-picker
+                  v-model="buyDateFrom"
+                  type="date"
+                  :placeholder="t('items.buyDateFrom')"
+                  value-format="YYYY-MM-DD"
+                  class="items-filter-date"
+                  @change="onSearch"
+                />
+                <span class="items-range-sep">〜</span>
+                <el-date-picker
+                  v-model="buyDateTo"
+                  type="date"
+                  :placeholder="t('items.buyDateTo')"
+                  value-format="YYYY-MM-DD"
+                  class="items-filter-date"
+                  @change="onSearch"
+                />
+              </span>
               <el-select
                 v-model="warnLevel"
                 class="items-filter-slow"
@@ -536,7 +540,10 @@ onMounted(() => {
                 </template>
               </el-table-column>
               <template #empty>
-                {{ t('items.empty') }}
+                <AppEmptyState
+                  compact
+                  :title="t('items.empty')"
+                />
               </template>
             </el-table>
             <el-pagination
@@ -677,7 +684,10 @@ onMounted(() => {
                 </template>
               </el-table-column>
               <template #empty>
-                {{ t('items.recycle.empty') }}
+                <AppEmptyState
+                  compact
+                  :title="t('items.recycle.empty')"
+                />
               </template>
             </el-table>
             <el-pagination
@@ -699,30 +709,39 @@ onMounted(() => {
 <style scoped>
 .items-view {
   display: grid;
-  gap: 16px;
+  gap: var(--kcgl-space-4);
 }
 
 .items-body {
-  padding: 20px 24px;
+  padding: var(--kcgl-space-5) var(--kcgl-space-6);
 }
 
 .items-toolbar {
   display: grid;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: var(--kcgl-space-3);
+  margin-bottom: var(--kcgl-space-3);
 }
 
 .items-search {
   display: flex;
-  gap: 8px;
+  gap: var(--kcgl-space-2);
   max-width: 520px;
 }
 
 .items-filters {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--kcgl-space-2);
+  /* 行间距必须显式给：只有 column-gap 时换行后的控件会贴着上一行，看着像挤成一团 */
+  row-gap: var(--kcgl-space-2);
   flex-wrap: wrap;
+}
+
+/* 日期区间整组换行（两端 + 分隔符是一个语义单位） */
+.items-filter-range {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--kcgl-space-2);
 }
 
 .items-filter-wh {
@@ -756,19 +775,34 @@ onMounted(() => {
 }
 
 .items-note {
-  margin: 0 0 10px;
+  margin: 0 0 var(--kcgl-space-3);
   font-size: 0.85rem;
   color: var(--kcgl-color-text-sub);
 }
 
+/* 件数是筛选结果的回执：做成标签而非一行灰字——灰字落在表格上方，与"加载失败"
+   的留白长得一样（实测里用户正是把空结果读成"内容没加载出来"） */
 .items-count {
-  margin: 0 0 10px;
-  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0 var(--kcgl-space-3);
+  padding: 0 var(--kcgl-space-3);
+  border: 1px solid var(--kcgl-color-border);
+  border-radius: 999px;
+  background: var(--kcgl-color-fill);
   color: var(--kcgl-color-text-sub);
+  font-size: 0.85rem;
+  line-height: 22px;
 }
 
 .items-table {
   width: 100%;
+}
+
+/* 金额列（align=right）数字加粗一档：tabular-nums 保证位对齐，字重让"数字成块"，
+   长列表纵向扫读时价格/成本/利润能一眼连成列 */
+.items-table :deep(.el-table__cell.is-right) .cell {
+  font-weight: 600;
 }
 
 /* 行整体即详情入口（Zaico 式整行点击） */
@@ -789,9 +823,9 @@ onMounted(() => {
   flex-shrink: 0;
   width: 40px;
   height: 40px;
-  border: 1px solid var(--kcgl-color-border);
+  border: 1px solid var(--kcgl-color-divider);
   border-radius: var(--kcgl-radius-s);
-  background: var(--kcgl-color-bg);
+  background: var(--kcgl-color-fill);
   overflow: hidden;
 }
 
@@ -816,10 +850,11 @@ onMounted(() => {
 
 .items-tag {
   display: inline-block;
-  padding: 2px 8px;
+  padding: 0 var(--kcgl-space-2);
   border: 1px solid var(--kcgl-color-border);
   border-radius: var(--kcgl-radius-s);
   font-size: 0.75rem;
+  line-height: 20px;
   color: var(--kcgl-color-text-sub);
   white-space: nowrap;
 }
@@ -849,7 +884,7 @@ onMounted(() => {
 }
 
 .items-pagination {
-  margin-top: 14px;
+  margin-top: var(--kcgl-space-4);
   justify-content: flex-end;
 }
 </style>
