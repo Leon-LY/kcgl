@@ -37,14 +37,16 @@ public class SystemStatusService {
     private final SseHub sseHub;
     private final ImageProperties imageProperties;
     private final Clock clock;
+    private final BackupStatusReader backupStatusReader;
 
     public SystemStatusService(JdbcTemplate jdbcTemplate, DataSource dataSource, SseHub sseHub,
-            ImageProperties imageProperties, Clock clock) {
+            ImageProperties imageProperties, Clock clock, BackupStatusReader backupStatusReader) {
         this.jdbcTemplate = jdbcTemplate;
         this.dataSource = dataSource;
         this.sseHub = sseHub;
         this.imageProperties = imageProperties;
         this.clock = clock;
+        this.backupStatusReader = backupStatusReader;
     }
 
     public SystemStatusResponse status() {
@@ -64,7 +66,10 @@ public class SystemStatusService {
                 codeEngine(),
                 excelBatches(),
                 clientErrorsPerDay(),
-                count("sys_alert", "status = 0"));
+                count("sys_alert", "status = 0"),
+                backupStatusReader.read().map(b -> new SystemStatusResponse.BackupStatus(
+                        b.lastSuccessAt(), b.lastSuccessAtJst(), b.staleSeconds(), b.detail()))
+                        .orElse(null));
     }
 
     /** jar 清单版本（Boot repackage 写入）；本地未打包运行为 null → dev。 */

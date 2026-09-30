@@ -13,14 +13,22 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.mysql.MySQLContainer;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -54,6 +62,22 @@ class SystemStatusIntegrationTest {
 
     static final BCryptPasswordEncoder ENCODER = new BCryptPasswordEncoder(12);
     static final String PASSWORD = "Sts-1234-t";
+
+    /** backup-status.json 桩：路径静态注册，内容随用例改写（reader 每次现场重读）。 */
+    static final Path BACKUP_STATUS_FILE = createStatusFile();
+
+    static Path createStatusFile() {
+        try {
+            return Files.createTempFile("kcgl-backup-status", ".json");
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @DynamicPropertySource
+    static void backupStatusProperty(DynamicPropertyRegistry registry) {
+        registry.add("kcgl.backup.status-path", () -> BACKUP_STATUS_FILE.toString());
+    }
 
     @Autowired
     MockMvc mockMvc;
@@ -203,6 +227,48 @@ class SystemStatusIntegrationTest {
         assertThat(perDay.get(6).path("count").asLong()).isEqualTo(2);
 
         assertThat(data.path("openAlerts").asLong()).isEqualTo(1);
+
+        // backup：本用例时点状态文件为空（createTempFile）或已被 lifecycle 用例删除——
+        // 两种形态都=不可知 → null（占位显示，不当故障）
+        assertThat(data.path("backup").isNull()).isTrue();
+    }
+
+    @Test
+    void backupFieldReflectsStatusFileLifecycle() throws Exception {
+        MockHttpSession session = loginAs("boss");
+
+        // ① 正常：2 小时前成功（date -Is 格式）→ lastSuccessAt 回显 + staleSeconds ~7200
+        String twoHoursAgo = OffsetDateTime.now(JST).minusHours(2).toString();
+        writeStatus("{\"lastRunAt\":\"" + twoHoursAgo + "\",\"lastSuccessAt\":\"" + twoHoursAgo
+                + "\",\"lastErrorAt\":\"\",\"detail\":\"db 1.2MiB\"}");
+        JsonNode backup = fetchData("/api/stats/system", session).path("backup");
+        assertThat(backup.path("lastSuccessAt").asString()).isEqualTo(twoHoursAgo);
+        assertThat(backup.path("detail").asString()).isEqualTo("db 1.2MiB");
+        assertThat(backup.path("staleSeconds").asLong()).isBetween(7140L, 7260L);
+        // 展示用 naive JST 墙钟：与 JST 现在差 ~2 小时（dayjs.tz 吞 offset，服务端换算）
+        LocalDateTime shownJst = LocalDateTime.parse(backup.path("lastSuccessAtJst").asString());
+        assertThat(Duration.between(shownJst, LocalDateTime.now(JST)).toSeconds())
+                .isBetween(7140L, 7260L);
+
+        // ② 坏 JSON：诊断页不炸，backup=null
+        writeStatus("not json at all {{{");
+        assertThat(fetchData("/api/stats/system", session).path("backup").isNull()).isTrue();
+
+        // ③ 文件缺失（从未运行过备份）：backup=null
+        Files.delete(BACKUP_STATUS_FILE);
+        assertThat(fetchData("/api/stats/system", session).path("backup").isNull()).isTrue();
+
+        // ④ 诊断导出同源携带 backup 段（删除态=null，字段在场）
+        MvcResult result = mockMvc.perform(get("/api/diagnostics/export").session(session))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertThat(objectMapper.readTree(
+                result.getResponse().getContentAsString(StandardCharsets.UTF_8))
+                .path("backup").isNull()).isTrue();
+    }
+
+    private void writeStatus(String content) throws IOException {
+        Files.writeString(BACKUP_STATUS_FILE, content);
     }
 
     @Test

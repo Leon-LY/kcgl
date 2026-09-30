@@ -1322,6 +1322,16 @@ export interface SystemStatus {
   /** 近 7 日按日计数（旧在前，含今天，JST 日界）。 */
   clientErrors7d: { date: string; count: number }[]
   openAlerts: number
+  /** 直近バックアップ（M7）：null=不可知（未配置/无状态文件/坏 JSON），展示占位。 */
+  backup: {
+    /** 原文（date -Is 带宿主时区 offset，诊断导出用）。 */
+    lastSuccessAt: string
+    /** 展示用 naive JST 墙钟。 */
+    lastSuccessAtJst: string
+    /** 距今秒数（25h 陈旧判定与 kcgl-doctor 同阈值）。 */
+    staleSeconds: number
+    detail: string
+  } | null
 }
 
 export function fetchSystemStatus(): Promise<SystemStatus> {

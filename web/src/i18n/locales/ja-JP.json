@@ -841,6 +841,7 @@
     "appVersion": "アプリバージョン",
     "flywayVersion": "DBバージョン",
     "startedAt": "起動時刻",
+    "backupLastSuccess": "直近バックアップ成功時刻",
     "uptime": "稼働時間",
     "uptimeDays": "{d} 日 {h} 時間",
     "uptimeHours": "{h} 時間 {m} 分",

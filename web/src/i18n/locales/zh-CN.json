@@ -841,6 +841,7 @@
     "appVersion": "应用版本",
     "flywayVersion": "数据库版本",
     "startedAt": "启动时刻",
+    "backupLastSuccess": "最近备份成功时刻",
     "uptime": "运行时长",
     "uptimeDays": "{d} 天 {h} 小时",
     "uptimeHours": "{h} 小时 {m} 分",

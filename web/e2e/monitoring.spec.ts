@@ -111,6 +111,12 @@ test.describe('monitoring pages (desktop-chromium)', () => {
     await expect(page.locator('.system-stat.is-items')).toBeVisible()
     await expect(page.locator('.system-stat.is-codeSkipped')).toBeVisible()
 
+    // 直近バックアップ（M7）：E2E 栈未配 KCGL_BACKUP_STATUS → null=不可知占位（显示
+    // 但不当故障——部署环境 backup.sh 产出状态文件后显示实际时刻，>25h 标红）
+    await expect(page.locator('.system-stat.is-backup')).toBeVisible()
+    await expect(page.locator('.system-stat.is-backup dd')).toHaveText('利用不可')
+    await expect(page.locator('.system-stat.is-backup dd.is-danger')).toHaveCount(0)
+
     // 近 7 日前端错误：固定 7 格（缺日补零）
     await expect(page.locator('.system-error-bar')).toHaveCount(7)
 

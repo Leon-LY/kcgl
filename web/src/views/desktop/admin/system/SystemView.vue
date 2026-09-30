@@ -21,6 +21,9 @@ import type { SelfCheckReport, SysAlert, SystemStatus } from '@/utils/api'
 
 const { t } = useI18n()
 
+/** 备份陈旧阈值 25h（与 kcgl-doctor 检查 4 同口径：lastSuccessAt >25h 即警示）。 */
+const BACKUP_STALE_SECONDS = 25 * 3600
+
 // ------------------------------------------------------------- システム状況
 
 const status = ref<SystemStatus | null>(null)
@@ -55,7 +58,7 @@ function uptimeText(seconds: number | undefined): string {
   return t('system.uptimeMinutes', { m: minutes })
 }
 
-/** 堆/池/磁盘用速览卡；数值键值对由模板就地拼装。 */
+/** 堆/池/磁盘用速览卡；数值键值对由模板就地拼装。backup 超 25h 标红（D-3 故障首查项）。 */
 const overviewCards = computed(() => {
   const s = status.value
   if (s === null) {
@@ -66,10 +69,18 @@ const overviewCards = computed(() => {
     { key: 'flyway', label: t('system.flywayVersion'), value: s.flywayVersion ?? '—' },
     { key: 'startedAt', label: t('system.startedAt'), value: formatJstDateTime(s.startedAt) },
     { key: 'uptime', label: t('system.uptime'), value: uptimeText(s.uptimeSeconds) },
+    { key: 'backup', label: t('system.backupLastSuccess'), value: s.backup === null
+      ? t('system.unavailable')
+      : formatJstDateTime(s.backup.lastSuccessAtJst) },
     { key: 'sse', label: t('system.sseConnections'), value: String(s.sseConnections) },
     { key: 'openAlerts', label: t('system.openAlerts'), value: String(s.openAlerts) },
   ]
 })
+
+/** backup 卡是否陈旧（>25h）——dd 标红，runbook D-3 引导。null=不可知不标红。 */
+function isBackupStale(): boolean {
+  return (status.value?.backup?.staleSeconds ?? 0) > BACKUP_STALE_SECONDS
+}
 
 const resourceCards = computed(() => {
   const s = status.value
@@ -366,7 +377,9 @@ onMounted(() => {
             :class="`is-${card.key}`"
           >
             <dt>{{ card.label }}</dt>
-            <dd>{{ card.value }}</dd>
+            <dd :class="{ 'is-danger': card.key === 'backup' && isBackupStale() }">
+              {{ card.value }}
+            </dd>
           </div>
         </dl>
       </div>
@@ -678,6 +691,11 @@ onMounted(() => {
   font-size: 0.95rem;
   font-weight: 600;
   word-break: break-all;
+}
+
+/* backup 陈旧（>25h）红字——kcgl-doctor 检查 4 同口径，runbook D-3 首查项 */
+.system-stat dd.is-danger {
+  color: var(--kcgl-color-danger);
 }
 
 .system-error-bars {

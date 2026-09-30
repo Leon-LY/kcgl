@@ -21,7 +21,8 @@ public record SystemStatusResponse(
         CodeEngine codeEngine,
         ExcelBatches excelBatches,
         List<DayCount> clientErrors7d,
-        long openAlerts) {
+        long openAlerts,
+        BackupStatus backup) {
 
     /** JVM 堆（字节）。 */
     public record Heap(long usedBytes, long maxBytes) {
@@ -54,5 +55,14 @@ public record SystemStatusResponse(
 
     /** client_error 近 7 日按日计数（旧在前）。 */
     public record DayCount(String date, long count) {
+    }
+
+    /**
+     * 直近バックアップ（M7 增量）：null=不可知（未配置路径/状态文件缺失/
+     * 从未成功/坏 JSON）——展示层占位，不当故障。lastSuccessAtJst=展示用 naive
+     * JST（lastSuccessAt 原文带宿主时区 offset，留诊断导出）；staleSeconds 判 25h 陈旧。
+     */
+    public record BackupStatus(String lastSuccessAt, java.time.LocalDateTime lastSuccessAtJst,
+            long staleSeconds, String detail) {
     }
 }

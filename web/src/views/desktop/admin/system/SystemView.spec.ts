@@ -70,6 +70,18 @@ const STATUS: SystemStatus = {
     { date: '2026-09-30', count: 1 },
   ],
   openAlerts: 1,
+  // backup=null（未配置/无状态文件）= 不可知占位——测试默认形态
+  backup: null,
+}
+
+/** 新鲜备份（1 小时前成功）。 */
+function freshBackup() {
+  return {
+    lastSuccessAt: '2026-09-30T02:17:00+09:00',
+    lastSuccessAtJst: '2026-09-30 03:17:00',
+    staleSeconds: 3600,
+    detail: 'db 1.2MiB',
+  }
 }
 
 function alert(overrides: Partial<SysAlert> = {}): SysAlert {
@@ -158,6 +170,27 @@ describe('system view (M5-4)', () => {
     expect(batchRows[0]!.text()).toContain('在庫リスト9月.xlsx')
     expect(batchRows[0]!.text()).toContain('失敗')
     expect(batchRows[0]!.text()).toContain('2')
+  })
+
+  it('renders backup last-success time: placeholder when unknown, danger when stale over 25h', async () => {
+    // ① null=不可知（未配置/无状态文件/坏 JSON）→ 占位 + 不标红（不当故障）
+    let wrapper = await mountView()
+    expect(wrapper.find('.system-stat.is-backup').text()).toContain('利用不可')
+    expect(wrapper.find('.system-stat.is-backup dd').classes()).not.toContain('is-danger')
+
+    // ② 新鲜（1 小时前）→ naive JST 墙钟展示 + 不标红
+    apiMocks.fetchSystemStatus.mockResolvedValue({ ...STATUS, backup: freshBackup() })
+    wrapper = await mountView()
+    expect(wrapper.find('.system-stat.is-backup').text()).toContain('2026/09/30 03:17')
+    expect(wrapper.find('.system-stat.is-backup dd').classes()).not.toContain('is-danger')
+
+    // ③ 陈旧（26h > 25h 阈值，与 kcgl-doctor 检查 4 同口径）→ 红字（runbook D-3 首查项）
+    apiMocks.fetchSystemStatus.mockResolvedValue({
+      ...STATUS,
+      backup: { ...freshBackup(), staleSeconds: 26 * 3600 },
+    })
+    wrapper = await mountView()
+    expect(wrapper.find('.system-stat.is-backup dd').classes()).toContain('is-danger')
   })
 
   it('marks an open alert read and refreshes both alerts and status', async () => {

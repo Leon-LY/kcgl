@@ -8,8 +8,8 @@ import java.util.List;
 /**
  * 诊断信息一键导出（GET /api/diagnostics/export，M5-④，docs/01 9.3）：
  * 白名单字段（版本/Flyway/uptime/池/磁盘/水位计数/告警近 30/环形缓冲日志/
- * client_error 统计与样本/Excel 批次近况）。备份标记与 doctor 输出随 M7
- * 接入后并入——现在不造空字段（诚实呈现）。
+ * client_error 统计与样本/Excel 批次近况）。backup（M7 接入）=直近备份
+ * 状态快照，null=不可知（未配置/无状态文件），与系统状况页同源。
  */
 public record DiagnosticsExport(
         LocalDateTime generatedAt,
@@ -24,6 +24,7 @@ public record DiagnosticsExport(
         SystemStatusResponse.CodeEngine codeEngine,
         SystemStatusResponse.ExcelBatches excelBatches,
         long openAlerts,
+        SystemStatusResponse.BackupStatus backup,
         List<AlertRow> alerts,
         ClientErrors clientErrors,
         List<String> ringBufferLogs) {

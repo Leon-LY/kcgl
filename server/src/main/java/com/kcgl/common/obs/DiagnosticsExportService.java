@@ -56,6 +56,7 @@ public class DiagnosticsExportService {
                 status.codeEngine(),
                 status.excelBatches(),
                 status.openAlerts(),
+                status.backup(),
                 alerts.stream().map(a -> new DiagnosticsExport.AlertRow(
                         a.getId(), a.getType(), a.getLevel(), a.getMessage(),
                         a.getStatus(), a.getCreatedAt()))
