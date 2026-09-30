@@ -22,6 +22,8 @@ if [ ! -f .env ]; then
 fi
 # shellcheck disable=SC1091
 source .env
+# shellcheck source=db-cli.sh
+source ./db-cli.sh
 
 BACKUP_DIR="${KCGL_BACKUP_DIR:-/opt/kcgl/backup}"
 # BACKUP_DIR 既是宿主命令（mkdir/ls/du）的路径，也被 docker -v 当**宿主源**——而 Git
@@ -33,9 +35,32 @@ case "$BACKUP_DIR" in
     /[a-zA-Z]/*) command -v cygpath >/dev/null 2>&1 && BACKUP_DIR="$(cygpath -w "$BACKUP_DIR")" ;;
 esac
 ROOT_PW="${MYSQL_ROOT_PASSWORD_BACKUP:-$MYSQL_ROOT_PASSWORD}"
+# 样板值不是口令：.env.example 曾把 MYSQL_ROOT_PASSWORD_BACKUP 预置成 change-me-root，
+# 甲方照抄不改 → 每晚备份全部 Access denied、静默失败到告警为止（D-090 实测）。
+# 空值走上面的回退（正常），样板值直接拒跑。
+case "$ROOT_PW" in
+    change-me*|"")
+        echo "错误：备份管理口令未配置（MYSQL_ROOT_PASSWORD_BACKUP 留空即可，脚本会沿用 MYSQL_ROOT_PASSWORD）" >&2
+        exit 1
+        ;;
+esac
 DISK_WARN_PERCENT=80
-COMPOSE_PROJECT=kcgl
-IMAGE_VOLUME="${COMPOSE_PROJECT}_kcgl-app-data"   # compose project=kcgl + 卷名 kcgl-app-data
+
+# /data 卷名从 app 容器**实挂载**解析，不按 `<project>_kcgl-app-data` 拼：
+# compose 顶层的 `name: kcgl` 会被 -p/COMPOSE_PROJECT_NAME 覆盖（同机第二套栈即如此），
+# 拼出来的名字会指向**另一套栈**的卷——rsync 会静默快照到错数据或建空目录，
+# 比直接报错更危险（D-087 干净主机演练实测）。容器名/工程名都不参与，故对改名免疫。
+resolve_image_volume() {
+    local cid
+    cid=$(docker compose ps -q app 2>/dev/null | head -1)
+    [ -n "$cid" ] || return 1
+    docker inspect -f '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Name}}{{end}}{{end}}' "$cid" 2>/dev/null
+}
+IMAGE_VOLUME="$(resolve_image_volume)"
+if [ -z "$IMAGE_VOLUME" ]; then
+    echo "错误：未能从 app 容器解析 /data 卷（先确认栈已启动：docker compose ps -a）" >&2
+    exit 1
+fi
 
 TODAY=$(TZ=Asia/Tokyo date +%F)
 WEEKDAY=$(TZ=Asia/Tokyo date +%u)                # 1=周一
@@ -62,12 +87,22 @@ if [ "$USAGE" -gt "$DISK_WARN_PERCENT" ]; then
     exit 1
 fi
 
+# ---------- 口令预检（口令不对要一眼可辨，不能等到 dump 中途才 Access denied） ----------
+# 填错 MYSQL_ROOT_PASSWORD_BACKUP（例如另生成一个随机值、与服务器 root 口令不一致）时，
+# 失败只出现在 mysqldump 的一行 stderr 里，而 cron 日志没人天天看——备份会一直悄悄失败，
+# 直到磁盘或新鲜度告警才发现（D-090 实测）。这里提前一次 SELECT 1 并落失败状态。
+if ! kcgl_mysql "$ROOT_PW" -uroot -N -B -e 'SELECT 1' >/dev/null 2>&1; then
+    echo "错误：备份管理口令被 MySQL 拒绝——MYSQL_ROOT_PASSWORD_BACKUP 须与 root 真实口令一致，留空则沿用 MYSQL_ROOT_PASSWORD" >&2
+    write_status fail "backup admin password rejected by mysql (check MYSQL_ROOT_PASSWORD_BACKUP)"
+    exit 1
+fi
+
 # ---------- DB dump（zstd 压缩，SQL 文本 5-8 倍压缩比） ----------
 DUMP_DIR="$BACKUP_DIR/daily/$TODAY"
 mkdir -p "$DUMP_DIR"
 echo "[$(TZ=Asia/Tokyo date '+%F %T')] 开始备份 → $DUMP_DIR"
 
-if ! docker compose exec -T mysql mysqldump -uroot -p"$ROOT_PW" \
+if ! kcgl_mysqldump "$ROOT_PW" -uroot \
         --single-transaction --set-gtid-purged=OFF kcgl \
         | zstd -q -f -o "$DUMP_DIR/db.sql.zst"; then
     echo "错误：mysqldump/zstd 失败" >&2

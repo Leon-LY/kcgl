@@ -11,7 +11,7 @@
 #   backup.sh restore.sh verify-grants.sh kcgl-doctor.sh security-selfcheck.sh
 #   images/kcgl-app-<版本>.tar  images/kcgl-web-<版本>.tar
 #   docs/デプロイ手順書.md docs/運用手順書.md（甲方日文文档）
-#   MANIFEST.txt（含 sha256，交付留档/完整性核对）
+#   MANIFEST.txt（`#` 头部 + sha256 行，甲方可直接 sha256sum -c 校验文件完整性）
 #
 # 用法：./pack-release.sh <版本号> [输出目录]      例：./pack-release.sh v1.0.0 ../dist
 # 前置：本机可 docker build（app 由 server/Dockerfile 源码构建、web 由 web/Dockerfile）。
@@ -30,10 +30,10 @@ WEB_IMAGE="ghcr.io/leon-ly/kcgl-web:$VERSION"
 
 echo "== 打包 kcgl $VERSION → $PKG =="
 rm -rf "$PKG"
-mkdir -p "$PKG/images" "$PKG/docs"
+mkdir -p "$PKG/images" "$PKG/docs" "$PKG/migrations"
 
 # ---------- 1. 部署工件（显式列举：多拷一个开发脚本进交付包=多一份被误用的风险） ----------
-for f in docker-compose.yml .env.example grants.sql backup.sh restore.sh verify-grants.sh kcgl-doctor.sh security-selfcheck.sh; do
+for f in docker-compose.yml .env.example grants.sql backup.sh restore.sh verify-grants.sh kcgl-doctor.sh security-selfcheck.sh db-cli.sh; do
     cp -p "$f" "$PKG/"
 done
 cp -rp db-init nginx "$PKG/"
@@ -64,17 +64,21 @@ copy_ja_doc "deployment-ja.md" "デプロイ手順書.md"
 copy_ja_doc "runbook.md"       "運用手順書.md"
 
 # ---------- 5. 清单与校验和 ----------
+# 头部行一律以 `#` 开头：sha256sum -c 会**静默忽略** # 注释行（实测 GNU coreutils），
+# 于是甲方在本目录直接 `sha256sum -c MANIFEST.txt` 就能一次过。曾经写成人类可读的
+# 纯文本头（"kcgl 交付包 …"/"== sha256 =="），校验虽也退出 0，却会伴随一串
+# "improperly formatted" 警告——非专业读者会以为包坏了（D-086 收尾发现）。
 {
-    echo "kcgl 交付包 $VERSION"
-    echo "打包时间（JST）：$(TZ=Asia/Tokyo date '+%F %T')"
-    echo "镜像：$APP_IMAGE / $WEB_IMAGE"
-    echo
-    echo "== sha256 =="
+    echo "# kcgl 交付包 $VERSION"
+    echo "# 打包时间（JST）：$(TZ=Asia/Tokyo date '+%F %T')"
+    echo "# 镜像：$APP_IMAGE / $WEB_IMAGE"
+    echo "# 校验方法：在本目录执行 sha256sum -c MANIFEST.txt（全部 OK 即文件完整）"
     (cd "$PKG" && find . -type f ! -name MANIFEST.txt -print0 | sort -z | xargs -0 sha256sum)
 } > "$PKG/MANIFEST.txt"
 
 echo "== 完成 =="
 du -sh "$PKG" 2>/dev/null || true
 echo "交付步骤（甲方侧）：scp/介质送达 → tar -xf → docker load -i images/*.tar → cp .env.example .env（填强口令）→ docker compose up -d"
+echo "完整性核对（甲方侧，任选）：cd kcgl-$VERSION && sha256sum -c MANIFEST.txt"
 echo "自检（我方或甲方）：cd kcgl-$VERSION && ./security-selfcheck.sh"
 cd "$CUR"

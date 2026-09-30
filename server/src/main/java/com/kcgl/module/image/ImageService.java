@@ -241,6 +241,9 @@ public class ImageService {
             Thumbnails.of(image).size(THUMB_EDGE, THUMB_EDGE).outputQuality(THUMB_QUALITY)
                     .outputFormat("JPEG").toFile(thumbFile.toFile());
         } catch (IOException e) {
+            // 原因を必ずログに残す：業務文言だけでは「なぜ書けないか」（ディスク枯渇・
+            // 卷の属主違い等）がログから追えず、再現でしか分からない（D-089 実録）
+            log.error("画像ファイルの保存に失敗: {}", origFile, e);
             throw new BizException(ErrorCode.INTERNAL, "画像ファイルの保存に失敗しました");
         }
     }

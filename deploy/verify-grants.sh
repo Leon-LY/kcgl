@@ -15,8 +15,11 @@ if [ ! -f .env ]; then
 fi
 # shellcheck disable=SC1091
 source .env
+# shellcheck source=db-cli.sh
+source ./db-cli.sh
 
 DB_PASSWORD="${DB_PASSWORD:?DB_PASSWORD 未配置}"
+ROOT_PW="${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD 未配置}"
 
 # 期望的 kcgl 账号 GRANT 集合——**直接解析 grants.sql（单一事实源）**，不在脚本内另立
 # 清单：D-078 把表级授权拆到 grants.sql 后，两处清单必然漂移（实测——清单里的 year_code
@@ -29,7 +32,7 @@ if [ -z "$RW_TABLES" ] || [ -z "$APPEND_ONLY_TABLES" ]; then
 fi
 
 mysql_exec() {
-    docker compose exec -T mysql mysql -uroot -p"${MYSQL_ROOT_PASSWORD:?}" "$@"
+    kcgl_mysql "$ROOT_PW" -uroot "$@"
 }
 
 fail=0

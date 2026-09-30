@@ -21,6 +21,8 @@ if [ ! -f .env ]; then
 fi
 # shellcheck disable=SC1091
 source .env
+# shellcheck source=db-cli.sh
+source ./db-cli.sh
 
 WEB_PORT="${WEB_PORT:-8082}"
 BASE_URL="${KCGL_ALLOWED_ORIGINS%%,*}"
@@ -81,9 +83,11 @@ else
     note_fail
 fi
 
-# 负例四条 + 正例一条：口令取自 .env（与 app 同一业务账号），经容器内客户端执行
+# 负例四条 + 正例一条：口令取自 .env（与 app 同一业务账号），经容器内客户端执行。
+# 口令经 db-cli.sh 走 stdin——**曾经用 `-p"$DB_PASSWORD"` 传参**，在 Git Bash 下被
+# MSYS 当路径改写（32→45 字符），于是正例失败、四条负例却条条「被拒 ✓」假绿（D-088）。
 mysql_probe() {  # $1=SQL；输出行，退出码即 mysql 退出码
-    docker compose exec -T mysql mysql -ukcgl -p"${DB_PASSWORD:?}" \
+    kcgl_mysql "${DB_PASSWORD:?}" -ukcgl \
         --default-character-set=utf8mb4 -N -B kcgl -e "$1" 2>/dev/null
 }
 probe_must_fail() {  # $1=描述 $2=SQL

@@ -40,9 +40,11 @@ if [ ! -f .env ]; then
 fi
 # shellcheck disable=SC1091
 source .env
+# shellcheck source=db-cli.sh
+source ./db-cli.sh
 ROOT_PW="${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD 未配置}"
 
-mysql_root() { docker compose exec -T mysql mysql -uroot -p"$ROOT_PW" "$@"; }
+mysql_root() { kcgl_mysql "$ROOT_PW" -uroot "$@"; }
 
 # zstd 是**宿主**命令（它的输出经管道喂给容器内 mysql），因此要喂宿主原生路径：
 # Windows 版 zstd 不认 Git Bash 习惯的 `/c/Users/...`（报 `can't stat ...: No such
@@ -53,7 +55,7 @@ DUMP_RUN="$DUMP"
 command -v cygpath >/dev/null 2>&1 && DUMP_RUN="$(cygpath -w "$DUMP")"
 mysql_root_db() {  # $1=库名，其余参数透传 mysql
     local db="$1"; shift
-    docker compose exec -T mysql mysql -uroot -p"$ROOT_PW" "$db" "$@"
+    kcgl_mysql "$ROOT_PW" -uroot "$db" "$@"
 }
 
 VERIFY_DB=kcgl_verify
@@ -114,7 +116,8 @@ run_assertions() {  # $1=目标库名
 }
 
 import_to() {  # $1=目标库名（须已存在）
-    zstd -dc "$DUMP_RUN" | docker compose exec -T mysql mysql -uroot -p"$ROOT_PW" "$1"
+    # stdin 已被 dump 流占用 → 由 kcgl_mysql_import 把口令行前置在流首
+    zstd -dc "$DUMP_RUN" | kcgl_mysql_import "$ROOT_PW" "$1"
 }
 
 # ---------------------------------------------------------------- 演练模式
