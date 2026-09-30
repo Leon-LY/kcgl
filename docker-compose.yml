@@ -52,6 +52,8 @@ services:
       # 启动期弱值拒启（验收 12）在**部署面**开启，本地沙箱按设计用弱默认值
       # （.env.example 首行即声明），故此处置 false——仅在沙箱关闭，见 SecretStrengthGuard
       KCGL_SECRET_GUARD: "false"
+      # 发布版本透传（与部署 compose 同口径）：空值→退回 jar 清单版本（本地常为 dev）
+      KCGL_VERSION: ${KCGL_VERSION:-}
     ports:
       - "127.0.0.1:${APP_PORT:-8080}:8080"
     depends_on:

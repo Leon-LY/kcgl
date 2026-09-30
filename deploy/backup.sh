@@ -112,15 +112,29 @@ fi
 chmod 600 "$DUMP_DIR/db.sql.zst"
 
 # ---------- 图片硬链快照（link-dest 指向最近一份，未变文件零空间） ----------
-# rsync 在一次性 alpine 容器内执行（宿主不直接触碰 docker 卷内部布局）；
+# rsync 在一次性容器内执行（宿主不直接触碰 docker 卷内部布局）；
 # link-dest 用容器内路径：$BACKUP_DIR 挂载为 /backup
 #
+# 用随包交付的 kcgl-tools 镜像，**不在运行时装包**：曾经写的是 alpine + `apk add rsync`，
+# 即每晚备份都要连公网包源；实测 alpine 源一次 SSL 抖动就让备份失败并中止了整条升级流程。
+# 离线交付的产品里，关键任务的依赖必须随包到位（deploy/tools/Dockerfile 有完整理由）。
+#
+# rsync 的路径参数必须留在 `sh -c "…"` 里，不能直接当 docker run 的参数：Git Bash（MSYS）
+# 会把 `/data/images/` 改写成带盘符的路径（D:/...），rsync 见冒号即判为远端主机，报
+# 「The source and destination cannot both be remote」（改这行时实测踩到，第 7 次同族问题）。
+TOOLS_IMAGE="ghcr.io/leon-ly/kcgl-tools:${KCGL_VERSION:-latest}"
+if ! docker image inspect "$TOOLS_IMAGE" >/dev/null 2>&1; then
+    echo "错误：缺少备份工具镜像 $TOOLS_IMAGE（先装载交付包内的 images/kcgl-tools-*.tar）" >&2
+    write_status fail "tools image $TOOLS_IMAGE not loaded"
+    exit 1
+fi
+
 # 图片目录由 app 按需懒创建——全新部署（尚无任何照片）时 /data/images 不存在，
 # 「没有图片」不是失败：否则空部署下每晚 cron 必失败、kcgl-doctor 备份新鲜度
 # 随之误报（本地预览抓出）。探测语句整段走 sh -c：裸 /data/images 参数在
 # Git Bash（MSYS）下会被改写成 D:/soft/Git/data/images。
 IMAGES_NOTE="images: none yet"
-if docker run --rm -v "$IMAGE_VOLUME":/data:ro alpine:3.20 sh -c '[ -d /data/images ]'; then
+if docker run --rm -v "$IMAGE_VOLUME":/data:ro "$TOOLS_IMAGE" sh -c '[ -d /data/images ]'; then
     PREV_SNAP=$(ls -1d "$BACKUP_DIR"/daily/*/images 2>/dev/null | sort | tail -1 || true)
     PREV_DAY=${PREV_SNAP:+$(basename "$(dirname "$PREV_SNAP")")}
     LINK_ARG=""
@@ -129,7 +143,7 @@ if docker run --rm -v "$IMAGE_VOLUME":/data:ro alpine:3.20 sh -c '[ -d /data/ima
     if ! docker run --rm \
             -v "$IMAGE_VOLUME":/data:ro \
             -v "$BACKUP_DIR":/backup \
-            alpine:3.20 sh -c "apk add -q --no-cache rsync && rsync -a --delete $LINK_ARG /data/images/ /backup/daily/$TODAY/images/"; then
+            "$TOOLS_IMAGE" sh -c "rsync -a --delete $LINK_ARG /data/images/ /backup/daily/$TODAY/images/"; then
         echo "错误：图片 rsync 快照失败" >&2
         write_status fail "image rsync snapshot failed"
         exit 1

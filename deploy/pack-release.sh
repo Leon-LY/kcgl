@@ -9,7 +9,8 @@
 # 产物结构（$OUT/kcgl-<版本>/）：
 #   docker-compose.yml .env.example db-init/ nginx/ grants.sql migrations/
 #   backup.sh restore.sh verify-grants.sh kcgl-doctor.sh security-selfcheck.sh
-#   images/kcgl-app-<版本>.tar  images/kcgl-web-<版本>.tar
+#   db-cli.sh upgrade.sh
+#   images/kcgl-app-<版本>.tar  images/kcgl-web-<版本>.tar  images/kcgl-tools-<版本>.tar
 #   docs/デプロイ手順書.md docs/運用手順書.md（甲方日文文档）
 #   MANIFEST.txt（`#` 头部 + sha256 行，甲方可直接 sha256sum -c 校验文件完整性）
 #
@@ -27,16 +28,22 @@ PKG="$OUT/kcgl-$VERSION"
 
 APP_IMAGE="ghcr.io/leon-ly/kcgl-app:$VERSION"
 WEB_IMAGE="ghcr.io/leon-ly/kcgl-web:$VERSION"
+TOOLS_IMAGE="ghcr.io/leon-ly/kcgl-tools:$VERSION"
 
 echo "== 打包 kcgl $VERSION → $PKG =="
 rm -rf "$PKG"
 mkdir -p "$PKG/images" "$PKG/docs" "$PKG/migrations"
 
 # ---------- 1. 部署工件（显式列举：多拷一个开发脚本进交付包=多一份被误用的风险） ----------
-for f in docker-compose.yml .env.example grants.sql backup.sh restore.sh verify-grants.sh kcgl-doctor.sh security-selfcheck.sh db-cli.sh; do
+for f in docker-compose.yml .env.example grants.sql backup.sh restore.sh verify-grants.sh kcgl-doctor.sh security-selfcheck.sh db-cli.sh upgrade.sh; do
     cp -p "$f" "$PKG/"
 done
 cp -rp db-init nginx "$PKG/"
+
+# .env.example 的 KCGL_VERSION 落成**本次打包的版本**：仓库里写的是 latest（CI/测试环境
+# 走 ghcr 的默认 tag），而交付包内的镜像 tar 是 vX.Y.Z——甲方照抄 latest 会 Image not found。
+# 包内改这一行，甲方需要改的就只剩三个口令（deployment-ja §3.2）。
+sed -i "s|^KCGL_VERSION=.*|KCGL_VERSION=$VERSION|" "$PKG/.env.example"
 
 # ---------- 2. 迁移目录（单一事实源=仓库 server/src/main/resources/db/migration；
 #               镜像内也有一份，此处外挂是为了让「迁移与镜像同版本」在包内可核） ----------
@@ -47,8 +54,13 @@ echo "  构建 app 镜像 …"
 docker build -q -t "$APP_IMAGE" "$ROOT/server" >/dev/null
 echo "  构建 web 镜像 …"
 docker build -q -t "$WEB_IMAGE" "$ROOT/web" >/dev/null
+# 运维工具镜像（rsync）：备份的图片快照用它执行。随包交付的理由见 deploy/tools/Dockerfile
+# ——关键任务不能依赖公网包源，否则一次 CDN 抖动就让每晚备份失败（演练实测过）。
+echo "  构建 tools 镜像 …"
+docker build -q -t "$TOOLS_IMAGE" "$CUR/tools" >/dev/null
 docker save "$APP_IMAGE" -o "$PKG/images/kcgl-app-$VERSION.tar"
 docker save "$WEB_IMAGE" -o "$PKG/images/kcgl-web-$VERSION.tar"
+docker save "$TOOLS_IMAGE" -o "$PKG/images/kcgl-tools-$VERSION.tar"
 
 # ---------- 4. 甲方日文文档（与镜像同版本交付；中文工程文档不入包） ----------
 # 仓库内文件名是工程向（deployment-ja/runbook），包内换成甲方看得懂的名字。
@@ -71,7 +83,7 @@ copy_ja_doc "runbook.md"       "運用手順書.md"
 {
     echo "# kcgl 交付包 $VERSION"
     echo "# 打包时间（JST）：$(TZ=Asia/Tokyo date '+%F %T')"
-    echo "# 镜像：$APP_IMAGE / $WEB_IMAGE"
+    echo "# 镜像：$APP_IMAGE / $WEB_IMAGE / $TOOLS_IMAGE"
     echo "# 校验方法：在本目录执行 sha256sum -c MANIFEST.txt（全部 OK 即文件完整）"
     (cd "$PKG" && find . -type f ! -name MANIFEST.txt -print0 | sort -z | xargs -0 sha256sum)
 } > "$PKG/MANIFEST.txt"

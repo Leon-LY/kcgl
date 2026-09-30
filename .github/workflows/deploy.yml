@@ -91,9 +91,26 @@ jobs:
           server/src/main/resources/db/migration/
           ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}:${{ env.DEPLOY_DIR }}/migrations/
 
+      - name: 同步部署工件（与镜像同版本）
+        # D-093（生产侧为 deploy/upgrade.sh）：部署工件是**一整套**。只同步
+        # migrations/ 而不同步 compose，则 compose 里的 KCGL_VERSION 透传永远到不了
+        # 服务器——镜像换了、巡检全绿，但「システム状況」的版本一直停在 jar 清单
+        # 版本（0.1.0-SNAPSHOT），核对项永远通不过。生产走 upgrade.sh 批量同步，
+        # 测试环境在此对齐。
+        # 不同步：.env（服务器私密配置，只由首次部署生成）、db-init/（仅首启生效）、
+        # nginx/（web 层，独立生命周期）。
+        run: >
+          rsync -az -e "ssh -F ~/.ssh/ssh_config"
+          deploy/docker-compose.yml deploy/grants.sql deploy/backup.sh deploy/restore.sh
+          deploy/verify-grants.sh deploy/kcgl-doctor.sh deploy/security-selfcheck.sh
+          deploy/db-cli.sh
+          ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}:${{ env.DEPLOY_DIR }}/
+
       - name: 拉取镜像并滚动更新
-        # --force-recreate：migrate/grants 一次性容器 Exited 后 up 不会重跑，
-        # 升级时新迁移将永不执行——强制重建重放（Flyway 自判已应用、GRANT 幂等）
+        # --force-recreate：确保应用本体被替换（推荐，非必需）。旧文称「不带则
+        # 新迁移永不执行」实测不成立——Compose v5.5.1 下 up -d 也会重启已退出
+        # 的一次性容器并应用新迁移（D-092，真实 V5 探针验到 schema 4→5）。
+        # 故是否生效一律核对结果：migrate 退出码 0 且运行镜像 tag = 目标版本。
         run: >
           ssh -F ~/.ssh/ssh_config ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}
           "cd ${{ env.DEPLOY_DIR }} &&
@@ -108,6 +125,20 @@ jobs:
           done;
           cd ${{ env.DEPLOY_DIR }} && docker compose ps -a;
           curl -fsS -o /dev/null -w 'login page HTTP %{http_code}\n' http://127.0.0.1:8082/"
+
+      - name: 核对版本透传（不信任 up 已生效，D-092/D-093）
+        # 与 deploy/upgrade.sh 同口径：升级是否生效**核对结果**，不看是否带了
+        # --force-recreate。运行镜像 tag ≠ 目标版本即失败——这正是 D-093 的症状
+        # （镜像换了、巡检全绿，但版本显示没变）在本流水线上的表现。
+        run: >
+          ssh -F ~/.ssh/ssh_config ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}
+          "cd ${{ env.DEPLOY_DIR }} &&
+          running=\$(docker compose ps -q app | xargs -r docker inspect -f '{{.Config.Image}}') &&
+          echo \"app 运行镜像：\${running:-<空>}\" &&
+          case \"\$running\" in
+          *:${{ needs.build-push.outputs.version }}) echo \"✓ 版本核对通过（:${{ needs.build-push.outputs.version }}）\" ;;
+          *) echo \"✗ 运行镜像 '\${running:-<空>}' 与目标版本不符——compose 未同步或镜像未拉取？\"; exit 1 ;;
+          esac"
 
       - name: 部署后巡检
         run: >

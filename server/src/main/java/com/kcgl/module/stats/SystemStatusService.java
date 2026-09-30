@@ -7,6 +7,7 @@ import com.kcgl.module.image.ImageProperties;
 import com.kcgl.module.stats.dto.SystemStatusResponse;
 import com.zaxxer.hikari.HikariDataSource;
 import com.zaxxer.hikari.HikariPoolMXBean;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -38,15 +39,18 @@ public class SystemStatusService {
     private final ImageProperties imageProperties;
     private final Clock clock;
     private final BackupStatusReader backupStatusReader;
+    private final String releaseVersion;
 
     public SystemStatusService(JdbcTemplate jdbcTemplate, DataSource dataSource, SseHub sseHub,
-            ImageProperties imageProperties, Clock clock, BackupStatusReader backupStatusReader) {
+            ImageProperties imageProperties, Clock clock, BackupStatusReader backupStatusReader,
+            @Value("${kcgl.version:}") String releaseVersion) {
         this.jdbcTemplate = jdbcTemplate;
         this.dataSource = dataSource;
         this.sseHub = sseHub;
         this.imageProperties = imageProperties;
         this.clock = clock;
         this.backupStatusReader = backupStatusReader;
+        this.releaseVersion = releaseVersion;
     }
 
     public SystemStatusResponse status() {
@@ -72,8 +76,19 @@ public class SystemStatusService {
                         .orElse(null));
     }
 
-    /** jar 清单版本（Boot repackage 写入）；本地未打包运行为 null → dev。 */
-    private static String appVersion() {
+    /**
+     * 版本展示口径：**优先交付包注入的发布版本**（compose 把 .env 的 KCGL_VERSION＝镜像 tag
+     * 传进容器），其次 jar 清单版本（本地/开发运行），最后 dev。
+     *
+     * 为什么以环境变量优先：jar 清单版本是 Maven 的 &lt;version&gt;（本项目恒为 0.1.0-SNAPSHOT），
+     * **升级后不会变**——而甲方核对升级是否生效，用的正是「システム状況」页的这一栏
+     * （deployment-ja §5.3）。一度只报 jar 版本：升级完页面还是 0.1.0-SNAPSHOT，
+     * 检查项永远无法通过（D-091 版本升级演练实测）。
+     */
+    private String appVersion() {
+        if (releaseVersion != null && !releaseVersion.isBlank()) {
+            return releaseVersion;
+        }
         String version = KcglApplication.class.getPackage().getImplementationVersion();
         return version == null || version.isBlank() ? "dev" : version;
     }

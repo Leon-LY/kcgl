@@ -70,8 +70,9 @@ services:
     restart: "no"
 
   # 表级授权一次性容器：业务账号最小 GRANT 必须在建表之后执行（首启顺序
-  # initdb.d 建号 → migrate 建表 → 本容器 → app）。幂等可重跑；部署时
-  # compose up --force-recreate 确保迁移/授权随版本更新重放（deploy.yml）
+  # initdb.d 建号 → migrate 建表 → 本容器 → app）。幂等可重跑；升级时
+  # compose up -d 会连同上游一次性容器一并重放（Compose v5.5.1 实测，D-092：
+  # 不依赖 --force-recreate；是否生效一律核对容器退出码与运行镜像 tag）
   grants:
     image: mysql:8.4
     container_name: kcgl-grants
@@ -110,6 +111,10 @@ services:
       # 弱值拒启（验收 12）显式开启：与 application.yml 默认值一致，写出来是为了让
       # 「部署面开着这道闸」在部署工件上可读可审；关掉它=样板口令（change-me-*）也能起
       KCGL_SECRET_GUARD: "true"
+      # 发布版本（=镜像 tag）透传进 app：系统状况页「アプリバージョン」显示此值。
+      # 这是甲方核对「升级是否生效」的判据——jar 清单版本恒为 Maven <version>
+      # （0.1.0-SNAPSHOT），升级后不变，只报它会让 §5.3 检查项永远通不过（D-091）。
+      KCGL_VERSION: ${KCGL_VERSION:?请在 .env 配置 KCGL_VERSION}
     volumes:
       - kcgl-app-data:/data
       # 备份目录只读挂载：app 只读状态文件，绝无写备份面（备份写入仅宿主 backup.sh）
