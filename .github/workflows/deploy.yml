@@ -92,11 +92,13 @@ jobs:
           ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}:${{ env.DEPLOY_DIR }}/migrations/
 
       - name: 拉取镜像并滚动更新
+        # --force-recreate：migrate/grants 一次性容器 Exited 后 up 不会重跑，
+        # 升级时新迁移将永不执行——强制重建重放（Flyway 自判已应用、GRANT 幂等）
         run: >
           ssh -F ~/.ssh/ssh_config ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}
           "cd ${{ env.DEPLOY_DIR }} &&
           KCGL_VERSION=${{ needs.build-push.outputs.version }} docker compose pull &&
-          KCGL_VERSION=${{ needs.build-push.outputs.version }} docker compose up -d --remove-orphans"
+          KCGL_VERSION=${{ needs.build-push.outputs.version }} docker compose up -d --force-recreate --remove-orphans"
 
       - name: 健康验证（登录页 200 = web/app/mysql 整链路通）
         run: >

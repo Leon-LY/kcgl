@@ -1,7 +1,7 @@
 #!/bin/bash
 # kcgl 部署后 DB 最小权限逐项自检（docs/01 9.2 交付物）。
 # 验证内容：
-#   1. 业务账号 kcgl 的 GRANT 集合与 db-init/01-accounts.sh 声明逐条一致（正向断言）；
+#   1. 业务账号 kcgl 的 GRANT 集合与 grants.sql 声明逐条一致（正向断言）；
 #   2. kcgl 不含任何 DDL / 流水表 UPDATE/DELETE 权限（负向断言——权限面与
 #      「stock_ledger/operation_log 只增不改不删」纪律双保险，验收 9）；
 #   3. 迁移账号 kcgl_migrate 存在（app 侧永远不使用它，仅 migrate 一次性容器）。
@@ -18,11 +18,15 @@ source .env
 
 DB_PASSWORD="${DB_PASSWORD:?DB_PASSWORD 未配置}"
 
-# 期望的 kcgl 账号 GRANT 集合（与 db-init/01-accounts.sh 保持同步——两处改动必须成对）
-RW_TABLES="sys_user auction_venue year_code price_band item seq_item_code item_image \
-yahoo_listing yahoo_import_batch stocktake stocktake_scan stocktake_diff sys_setting \
-sys_alert client_error excel_import_batch"
-APPEND_ONLY_TABLES="stock_ledger operation_log"
+# 期望的 kcgl 账号 GRANT 集合——**直接解析 grants.sql（单一事实源）**，不在脚本内另立
+# 清单：D-078 把表级授权拆到 grants.sql 后，两处清单必然漂移（实测——清单里的 year_code
+# 是 V3 已退役表，授权实际正确却报「缺失」）。解析失败即硬失败，绝不静默空集通过。
+RW_TABLES=$(sed -n 's/^GRANT SELECT, INSERT, UPDATE, DELETE ON kcgl\.\([a-z_]*\) *TO.*/\1/p' grants.sql)
+APPEND_ONLY_TABLES=$(sed -n 's/^GRANT SELECT, INSERT ON kcgl\.\([a-z_]*\) *TO.*/\1/p' grants.sql)
+if [ -z "$RW_TABLES" ] || [ -z "$APPEND_ONLY_TABLES" ]; then
+    echo "错误：无法从 grants.sql 解析授权清单（文件缺失或格式变更）" >&2
+    exit 1
+fi
 
 mysql_exec() {
     docker compose exec -T mysql mysql -uroot -p"${MYSQL_ROOT_PASSWORD:?}" "$@"
@@ -47,7 +51,7 @@ if ! grep -qxF "GRANT SELECT ON \`kcgl\`.\`flyway_schema_history\` TO \`kcgl\`@\
     echo "  [缺失] flyway_schema_history 的 SELECT（SystemStatus 显示 DB 版本依赖）"
     fail=1
 fi
-[ "$fail" -eq 0 ] && echo "  全部 ${#RW_TABLES} 张业务表 + 2 张流水表 + flyway_history 就位"
+[ "$fail" -eq 0 ] && echo "  全部 $(wc -w <<<"$RW_TABLES") 张业务表 + $(wc -w <<<"$APPEND_ONLY_TABLES") 张流水表 + flyway_history 就位"
 
 echo "== 2. 负向断言：kcgl 不得持有 DDL / 流水表写改权 =="
 if grep -qiE 'ALTER|DROP|CREATE|TRUNCATE|REFERENCES|INDEX' <<<"$GRANTS"; then
@@ -57,7 +61,9 @@ if grep -qiE 'ALTER|DROP|CREATE|TRUNCATE|REFERENCES|INDEX' <<<"$GRANTS"; then
 else
     echo "  无 DDL 权限 ✓"
 fi
-if grep -qE 'UPDATE|DELETE ON `kcgl`\.`(stock_ledger|operation_log)`' <<<"$GRANTS"; then
+# 括号必须包住择一：原写法 `UPDATE|DELETE ON ...` 的左支只是裸 UPDATE，
+# 任何含 UPDATE 的业务表授权行都命中 → 必然假阳性（实测）
+if grep -qE '(UPDATE|DELETE) ON `kcgl`\.`(stock_ledger|operation_log)`' <<<"$GRANTS"; then
     echo "  [危险] 不可变流水表持有 UPDATE/DELETE"
     fail=1
 else

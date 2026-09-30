@@ -67,17 +67,21 @@ WHERE NOT (
   OR (i.id IS NOT NULL AND (i.stock_status <> 1 OR i.deleted = 1 OR i.voided = 1) AND t.p1 = 0 AND t.p2 = 0)
 )"
 
-# 计数器倒退断言：cur_seq < 已用最大 seq_no → 下一号必撞 uk（D-0xx 防线前兆）
-SEQ_BACKWARD_SQL="SELECT s.venue_id, s.\`year\`, s.month, s.cur_prefix, s.cur_seq, MAX(i.seq_no) AS max_seq
+# 计数器倒退断言：cur_seq < 已用最大 seq_no → 下一号必撞 uk（D-0xx 防线前兆）。
+# 桶键=（venue_id, month）——V3 去年代号后无 year 列；JOIN 限定 cur_prefix
+# 只比当前前缀下的 MAX(seq_no)（进位后历史前缀的 1..99 与新前缀无关）。
+SEQ_BACKWARD_SQL="SELECT s.venue_id, s.month, s.cur_prefix, s.cur_seq, MAX(i.seq_no) AS max_seq
 FROM seq_item_code s JOIN item i
-  ON i.venue_id = s.venue_id AND i.\`year\` = s.\`year\` AND i.buy_month = s.month AND i.seq_prefix = s.cur_prefix
-GROUP BY s.venue_id, s.\`year\`, s.month, s.cur_prefix, s.cur_seq
+  ON i.venue_id = s.venue_id AND i.buy_month = s.month AND i.seq_prefix = s.cur_prefix
+GROUP BY s.venue_id, s.month, s.cur_prefix, s.cur_seq
 HAVING s.cur_seq < MAX(i.seq_no)"
 
-# 桶行丢失断言：item 有该桶的件但 seq_item_code 无对应行 → 生成路径失去依据
-MISSING_BUCKET_SQL="SELECT DISTINCT i.venue_id, i.\`year\`, i.buy_month, i.seq_prefix
+# 桶行丢失断言：item 有该桶的件但 seq_item_code 无桶行 → 生成路径失去依据。
+# 仅按桶键匹配（venue_id, month）——若按前缀匹配，桶进位后（cur_prefix=C）
+# 历史前缀（A/B）件会误报丢失。
+MISSING_BUCKET_SQL="SELECT DISTINCT i.venue_id, i.buy_month
 FROM item i LEFT JOIN seq_item_code s
-  ON s.venue_id = i.venue_id AND s.\`year\` = i.\`year\` AND s.month = i.buy_month AND s.cur_prefix = i.seq_prefix
+  ON s.venue_id = i.venue_id AND s.month = i.buy_month
 WHERE s.id IS NULL"
 
 run_assertions() {  # $1=目标库名

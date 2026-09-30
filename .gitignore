@@ -26,6 +26,10 @@ pnpm-debug.log*
 data/
 uploads/
 
+# 部署目录的同步产物（迁移脚本单一事实源在 server/src/main/resources/db/migration，
+# 由部署流程 rsync 到 deploy/migrations/——入库会造成双源漂移）
+deploy/migrations/
+
 # ===== IDE / 编辑器 =====
 .idea/
 .vscode/

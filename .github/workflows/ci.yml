@@ -72,7 +72,9 @@ jobs:
         run: npm ci
       - name: 安装 Playwright 浏览器
         working-directory: web
-        run: npx playwright install --with-deps chromium
+        # webkit 必须装：webkit-smoke project（iPhone 13 设备=WebKit 引擎）
+        # 曾只装 chromium，两例被静默 skip——CI 假绿（M6-③ 引入，此处修正）
+        run: npx playwright install --with-deps chromium webkit
       - name: 运行 E2E
         working-directory: web
         run: npx playwright test

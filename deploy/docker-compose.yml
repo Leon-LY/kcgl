@@ -48,12 +48,15 @@ services:
           # 1120M 为防失控上限，稳态实际 ~800M；独立主机按规格放宽
           memory: 448M
 
-  # 迁移一次性容器：Flyway 官方镜像 + 迁移目录挂载，kcgl_migrate 账号（库全权）
+  # 迁移一次性容器：Flyway 官方镜像（flyway/flyway，官方没有 library 短名）
+  # + 迁移目录挂载，kcgl_migrate 账号（库全权）
   migrate:
-    image: flyway:11-alpine
+    image: flyway/flyway:11-alpine
     container_name: kcgl-migrate
+    # allowPublicKeyRetrieval：MySQL 8.4 默认 caching_sha2_password，容器内网
+    # 非 TLS 首连需 RSA 公钥检索（app 侧 application.yml 同参数）
     command: >
-      -url=jdbc:mysql://mysql:3306/kcgl
+      -url=jdbc:mysql://mysql:3306/kcgl?allowPublicKeyRetrieval=true
       -user=kcgl_migrate
       -password=${DB_MIGRATE_PASSWORD}
       -connectRetries=10
@@ -64,6 +67,24 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    restart: "no"
+
+  # 表级授权一次性容器：业务账号最小 GRANT 必须在建表之后执行（首启顺序
+  # initdb.d 建号 → migrate 建表 → 本容器 → app）。幂等可重跑；部署时
+  # compose up --force-recreate 确保迁移/授权随版本更新重放（deploy.yml）
+  grants:
+    image: mysql:8.4
+    container_name: kcgl-grants
+    command: sh -c "mysql -hmysql -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --show-warnings kcgl < /grants.sql"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请在 .env 配置 MYSQL_ROOT_PASSWORD}
+    volumes:
+      - ./grants.sql:/grants.sql:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: "no"
 
   app:
@@ -84,12 +105,18 @@ services:
       KCGL_IMAGE_DIR: /data/images
       KCGL_YAHOO_IMPORTS_DIR: /data/imports/yahoo
       KCGL_EXCEL_IMPORTS_DIR: /data/imports/excel
+      # backup-status.json（backup.sh 产出）→ 系统状况页「直近バックアップ成功時刻」
+      KCGL_BACKUP_STATUS: /data/backup/backup-status.json
     volumes:
       - kcgl-app-data:/data
+      # 备份目录只读挂载：app 只读状态文件，绝无写备份面（备份写入仅宿主 backup.sh）
+      - ${KCGL_BACKUP_DIR:?请在 .env 配置 KCGL_BACKUP_DIR}:/data/backup:ro
     depends_on:
       mysql:
         condition: service_healthy
       migrate:
+        condition: service_completed_successfully
+      grants:
         condition: service_completed_successfully
     restart: unless-stopped
     # app 优雅停机 30s（SSE/在途请求排空），compose 宽限期须大于它，否则 10s 即 SIGKILL
