@@ -93,7 +93,7 @@
     <dependency>
       <groupId>net.coobird</groupId>
       <artifactId>thumbnailator</artifactId>
-      <version>0.4.20</version>
+      <version>0.4.21</version>
     </dependency>
     <!-- Excel 导入导出（docs/01 3.1）：FastExcel=EasyExcel 原班人马接棒（后者已官方归档），
          默认流式低内存；POI 由其传递引入（≥5.4.1，满足 CVE-2025-31672），不直接依赖。
