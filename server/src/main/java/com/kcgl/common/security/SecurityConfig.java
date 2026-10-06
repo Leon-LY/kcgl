@@ -9,6 +9,8 @@ import com.kcgl.module.auth.LoginThrottleFilter;
 import com.kcgl.module.user.SysUserMapper;
 import com.kcgl.module.user.UserRole;
 import jakarta.servlet.DispatcherType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -45,9 +47,23 @@ import java.util.HashSet;
 @EnableMethodSecurity
 public class SecurityConfig {
 
+    private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);
+    }
+
+    /**
+     * CSRF 双保险之二（B2）：白名单留空时本层是**全拒**而非「仅 SameSite」——同源浏览器的
+     * 登录/写操作必带 Origin，届时 403 一片而原因不显。启动期把这条说清楚，省掉一轮排查。
+     */
+    private static OriginCheckFilter originCheckFilter(SecurityProperties properties, ObjectMapper objectMapper) {
+        if (properties.allowedOrigins().isEmpty()) {
+            log.warn("kcgl.security.allowed-origins 为空：Origin 校验处于全拒模式，"
+                    + "带 Origin 头的浏览器写请求（含登录）将返回 403；请在部署 .env 配置实际访问源");
+        }
+        return new OriginCheckFilter(new HashSet<>(properties.allowedOrigins()), objectMapper);
     }
 
     @Bean
@@ -89,8 +105,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated())
                 .addFilterAfter(new AccountStatusFilter(userMapper, clock, objectMapper),
                         SecurityContextHolderFilter.class)
-                .addFilterBefore(new OriginCheckFilter(
-                                new HashSet<>(properties.allowedOrigins()), objectMapper),
+                .addFilterBefore(originCheckFilter(properties, objectMapper),
                         UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(new LoginThrottleFilter(lockService, objectMapper),
                         UsernamePasswordAuthenticationFilter.class)

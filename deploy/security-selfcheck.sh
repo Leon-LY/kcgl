@@ -146,6 +146,14 @@ case "$BASE_URL" in
             echo "  [危险] HTTPS 入口未下发 Strict-Transport-Security" >&2
             note_fail
         fi
+        # 反向的同一项：例子里 COOKIE_SECURE=false 是给 HTTP 预演用的样板值，
+        # 切 HTTPS 时若照抄不改，会话 cookie 就缺 Secure 标志（明文 HTTP 请求也会带上）。
+        if [ "${COOKIE_SECURE:-false}" = "true" ]; then
+            echo "  协议/COOKIE_SECURE 一致（HTTPS 部署 + COOKIE_SECURE=true）✓"
+        else
+            echo "  [危险] 对外入口是 HTTPS 但 COOKIE_SECURE=false：会话 cookie 缺 Secure 标志，明文请求也会携带" >&2
+            note_fail
+        fi
         ;;
     *)
         echo "  HSTS：SKIP（当前入口为 HTTP——备案域名/TLS 就绪后本项转为实测）"
