@@ -65,6 +65,12 @@ public class ExcelImportService {
     static final int ERROR_SAMPLE_LIMIT = 1000;
     /** note 列宽（V2 DDL excel_import_batch.note VARCHAR(500)）。 */
     private static final int NOTE_MAX = 500;
+    /**
+     * error_message 列宽（V2 DDL VARCHAR(500)）。表头不符消息内嵌原格文本可超列宽，
+     * 不截断则 updateById 在 strict mode 下报 1406，异常于 catch 块内再抛 → 批次永远停在
+     * processing（A3/D-110）。对齐雅虎管线的 truncateMessage。
+     */
+    private static final int ERROR_MESSAGE_MAX = 500;
 
     private final ExcelProperties props;
     private final ExcelImportBatchMapper batchMapper;
@@ -180,7 +186,7 @@ public class ExcelImportService {
         batch.setRowCount((int) listener.dataRows);
         batch.setGeneratedCount((int) listener.generated);
         batch.setImportedCount((int) listener.imported);
-        batch.setErrorCount(listener.errors.size());
+        batch.setErrorCount((int) listener.errorCount);
         batch.setErrorRowsJson(toJson(listener.errors));
         batch.setNote(joinNotes(listener.jumpNotes));
         batch.setStatus(ExcelImportBatchEntity.STATUS_DONE);
@@ -197,9 +203,15 @@ public class ExcelImportService {
             return;
         }
         batch.setStatus(ExcelImportBatchEntity.STATUS_FAILED);
-        batch.setErrorMessage(message);
+        batch.setErrorMessage(truncateMessage(message));
         batch.setFinishedAt(LocalDateTime.now(clock));
         batchMapper.updateById(batch);
+    }
+
+    /** 落库消息截断（表头不符消息内嵌原格文本可超列宽——对齐雅虎管线 truncateMessage）。 */
+    private static String truncateMessage(String message) {
+        return message.length() > ERROR_MESSAGE_MAX
+                ? message.substring(0, ERROR_MESSAGE_MAX - 1) + "…" : message;
     }
 
     /** 启动自愈：上次进程中断遗留的 processing 批次标记失败（sha 占位保留）。 */
@@ -306,6 +318,8 @@ public class ExcelImportService {
         final List<String> jumpNotes = new ArrayList<>();
         boolean headerSeen;
         long dataRows;
+        /** 错误行**总数**（无界累积的只有这个计数，不是 errors 列表）。 */
+        long errorCount;
         long generated;
         long imported;
         String headerError;
@@ -344,7 +358,7 @@ public class ExcelImportService {
             }
             ExcelRowParser.ParseOutcome outcome = parser.parse(cells);
             if (outcome instanceof ExcelRowParser.ParseOutcome.Err err) {
-                errors.add(new ErrorRow(dataRows + 1, abbreviate(cells), err.reason()));
+                recordError(cells, err.reason());
                 return;
             }
             ExcelRowParser.ParsedRow parsed = ((ExcelRowParser.ParseOutcome.Ok) outcome).row();
@@ -366,7 +380,20 @@ public class ExcelImportService {
             } catch (Exception e) {
                 // 行级失败（校验/重复号/并发）：记错误行继续——一行不连坐全批
                 log.warn("excel import row {} failed", dataRows + 1, e);
-                errors.add(new ErrorRow(dataRows + 1, abbreviate(cells), reasonOf(e)));
+                recordError(cells, reasonOf(e));
+            }
+        }
+
+        /**
+         * 记一条错误：计数**恒增**（{@link #errorCount} 才是总数），采样列表按
+         * {@link #ERROR_SAMPLE_LIMIT} 截断。二者分离的原因：解析期若直接用
+         * {@code errors.size() < LIMIT} 设界，errorCount 会一并被截成 1000（少报）；
+         * 而只留无界列表则 20k 行错误可撑爆堆（A3/D-110）。
+         */
+        private void recordError(List<String> cells, String reason) {
+            errorCount++;
+            if (errors.size() < ERROR_SAMPLE_LIMIT) {
+                errors.add(new ErrorRow(dataRows + 1, abbreviate(cells), reason));
             }
         }
 

@@ -36,6 +36,13 @@ public final class ExcelRowParser {
     /** 会场码形态（V1 DDL auction_venue.code CHAR(2) [A-Z]{2}）。 */
     private static final Pattern VENUE_CODE = Pattern.compile("^[A-Z]{2}$");
 
+    /**
+     * 行错误 reason 内嵌单元格原文上限（xlsx 单格 ≤32767 字）。不截断则错误采样随行数
+     * 无界累积（A3/D-110）：20k 行 × 32KB 原文 = 数百 MB 堆，逼近 OOM。取雅虎管线同口径
+     * （{@code YahooOrderParser.REASON_RAW_MAX}），两条导入管线的错误报告内存上界一致。
+     */
+    private static final int REASON_RAW_MAX = 60;
+
     /** 日期双格式：ISO 补零与和式斜杠（M/d 宽度自适应，2026/09/05 亦可）。 */
     private static final DateTimeFormatter DATE_SLASH = new DateTimeFormatterBuilder()
             .appendPattern("yyyy/M/d")
@@ -78,7 +85,7 @@ public final class ExcelRowParser {
             String actual = i < cells.size() ? cells.get(i).trim() : "";
             if (!expected.get(i).equals(actual)) {
                 return (i + 1) + "列目の見出しが「" + expected.get(i)
-                        + "」であるべきですが「" + actual + "」になっています";
+                        + "」であるべきですが「" + shortRaw(actual) + "」になっています";
             }
         }
         return null;
@@ -141,7 +148,7 @@ public final class ExcelRowParser {
         if (!rawItemCode.isEmpty()) {
             itemCode = CodeNormalizer.normalize(rawItemCode);
             if (!ItemCodeFormatter.matches(itemCode)) {
-                throw new RowException("管理番号の形式が不正です: " + rawItemCode);
+                throw new RowException("管理番号の形式が不正です: " + shortRaw(rawItemCode));
             }
         }
 
@@ -151,7 +158,7 @@ public final class ExcelRowParser {
         }
         String venueCode = CodeNormalizer.normalize(rawVenue);
         if (!VENUE_CODE.matcher(venueCode).matches()) {
-            throw new RowException("会場コードは半角英字2桁で入力してください: " + rawVenue);
+            throw new RowException("会場コードは半角英字2桁で入力してください: " + shortRaw(rawVenue));
         }
 
         LocalDate buyDate = requiredDateCell(cell(cells, 2), props.columns().buyDate());
@@ -188,6 +195,11 @@ public final class ExcelRowParser {
         return index < cells.size() ? cells.get(index).trim() : "";
     }
 
+    /** 行错误 reason 内嵌原文截断（前缀 + 省略号——错误采样内存有界，同雅虎管线口径）。 */
+    private static String shortRaw(String raw) {
+        return raw.length() > REASON_RAW_MAX ? raw.substring(0, REASON_RAW_MAX) + "…" : raw;
+    }
+
     /** 必填金额：≥1（仕入単価 @Min(1) 对齐）。 */
     private Long moneyCell(String raw, String name, boolean required) {
         if (raw.isEmpty()) {
@@ -203,7 +215,7 @@ public final class ExcelRowParser {
         try {
             value = parseWhole(normalized);
         } catch (NumberFormatException e) {
-            throw new RowException(name + "を数値として解釈できません: " + raw);
+            throw new RowException(name + "を数値として解釈できません: " + shortRaw(raw));
         }
         if (value > MAX_PRICE) {
             throw new RowException(name + "が上限（" + MAX_PRICE + "円）を超えています");
@@ -226,7 +238,7 @@ public final class ExcelRowParser {
         return switch (normalized) {
             case "1", "名古屋" -> 1;
             case "2", "福岡" -> 2;
-            default -> throw new RowException("倉庫は 1／2／名古屋／福岡 で入力してください: " + raw);
+            default -> throw new RowException("倉庫は 1／2／名古屋／福岡 で入力してください: " + shortRaw(raw));
         };
     }
 
@@ -253,7 +265,7 @@ public final class ExcelRowParser {
         try {
             return LocalDate.parse(normalized, DATE_SLASH);
         } catch (DateTimeParseException e) {
-            throw new RowException(name + "を日付として解釈できません: " + raw);
+            throw new RowException(name + "を日付として解釈できません: " + shortRaw(raw));
         }
     }
 
@@ -275,7 +287,7 @@ public final class ExcelRowParser {
         try {
             value = (int) parseWhole(normalized);
         } catch (NumberFormatException e) {
-            throw new RowException(props.columns().weightG() + "を数値として解釈できません: " + raw);
+            throw new RowException(props.columns().weightG() + "を数値として解釈できません: " + shortRaw(raw));
         }
         if (value < 1 || value > MAX_WEIGHT_G) {
             throw new RowException(props.columns().weightG() + "は1～" + MAX_WEIGHT_G + "の範囲で入力してください");

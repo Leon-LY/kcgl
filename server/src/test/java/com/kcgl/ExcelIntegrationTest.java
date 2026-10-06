@@ -14,6 +14,7 @@ import com.kcgl.module.itemcode.ItemCodeService;
 import com.kcgl.module.user.SysUserEntity;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -385,6 +386,25 @@ class ExcelIntegrationTest {
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT error_message FROM excel_import_batch WHERE id = ?", String.class, batchId))
                 .contains("1列目").contains("管理番号").contains("商品番号");
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM item", Long.class)).isZero();
+    }
+
+    @Test
+    @Tag("regression")
+    void oversizedHeaderCell_batchStillFails_messageBounded() throws Exception {
+        // 修复前：表头不符消息原样内嵌 3000 字原格 → 超 error_message VARCHAR(500) →
+        // strict mode 1406 在 process 的 catch 块内再抛 → 批次永停 processing（awaitBatch 超时）。
+        // 修复后：原格文本截断（reason 侧）且落库消息兜底截断（列宽侧），批次照常判失败。
+        MockHttpSession editor = loginAs("eichi");
+        byte[] bytes = xlsx(List.of("あ".repeat(3000)), List.of(
+                dataRow("", "HT", "2026-09-01", "1000", "1")));
+        long batchId = upload(editor, bytes, "huge-header.xlsx");
+        String report = awaitBatch(editor, batchId);
+        assertThat(report).contains("\"status\":2");
+        String message = jdbcTemplate.queryForObject(
+                "SELECT error_message FROM excel_import_batch WHERE id = ?", String.class, batchId);
+        assertThat(message).as("须落库告警文案而非被业务异常顶掉").contains("1列目").contains("…");
+        assertThat(message).as("列宽 VARCHAR(500) 之内").hasSizeLessThanOrEqualTo(500);
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM item", Long.class)).isZero();
     }
 

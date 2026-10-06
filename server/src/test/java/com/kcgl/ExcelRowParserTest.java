@@ -4,6 +4,7 @@ import com.kcgl.module.excel.ExcelProperties;
 import com.kcgl.module.excel.ExcelRowParser;
 import com.kcgl.module.excel.ExcelRowParser.ParseOutcome;
 import com.kcgl.module.excel.ExcelRowParser.ParsedRow;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -251,6 +252,32 @@ class ExcelRowParserTest {
         ParseOutcome outcome = parser.parse(cells);
         assertThat(outcome).isInstanceOf(ParseOutcome.Err.class);
         assertThat(((ParseOutcome.Err) outcome).reason()).contains("200");
+    }
+
+    @Test
+    @Tag("regression")
+    void parse_hugeRawCell_reasonEmbedsTruncatedPrefixOnly() {
+        // xlsx 单格 ≤32767 字。错误 reason 内嵌原文若不截断，错误采样内存随行数无界累积
+        // （20k 行 x 32KB 原文 ≈ 数百 MB 堆）。守卫：内嵌原文有界（A3/D-110）。
+        List<String> cells = new ArrayList<>(row("あ".repeat(30_000), "HT", "2026-09-01", "1000",
+                "", "", "", "1", "", "", "", "", "", "", "", "", "", "", ""));
+        ParseOutcome outcome = parser.parse(cells);
+        assertThat(outcome).isInstanceOf(ParseOutcome.Err.class);
+        String reason = ((ParseOutcome.Err) outcome).reason();
+        assertThat(reason).contains("管理番号").endsWith("…");
+        assertThat(reason).as("原文 3 万字须被截到上界内，而非原样内嵌").hasSizeLessThan(200);
+    }
+
+    @Test
+    @Tag("regression")
+    void headerMismatch_hugeHeaderCell_reportsTruncatedActualOnly() {
+        // 表头不符消息同样内嵌原格文本：不截断则消息超 error_message VARCHAR(500)，
+        // strict mode 下 1406 在 catch 块内再抛 → 批次永停 processing（A3/D-110）。
+        List<String> cells = new ArrayList<>(PROPS.columns().headerOrder());
+        cells.set(0, "あ".repeat(30_000));
+        String message = parser.headerMismatch(cells);
+        assertThat(message).contains("1列目").contains("管理番号").endsWith("…」になっています");
+        assertThat(message).hasSizeLessThan(500);
     }
 
     @Test
