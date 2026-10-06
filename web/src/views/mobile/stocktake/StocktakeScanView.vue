@@ -75,20 +75,20 @@ const flushFailedCodes = computed(() =>
 const displayScannedCount = computed(() => (summary.value?.scannedCount ?? 0) + queuedHere.value)
 
 // 回放清空（网络恢复自动冲）→ 重取服务端计数：离线乐观数换成真实账
+// （回放直接打端点、不更新本页 summary，故此处重取是口径切换的唯一入口）
 watch(queuedHere, (now, was) => {
   if (was > 0 && now === 0) {
-    void loadSummary()
+    requestSummaryRefresh()
   }
 })
 
 /**
- * 他端失效重取（SSE）：他人扫同一单（STOCKTAKE）计数+1、他人 close 后
- * 本页转只读摘要（close 导航仅发起端收到）。扫码请求在途时跳过——响应
- * 到达时本就刷新计数，避免乐观写入被重取竞态回卷。
+ * 他端失效重取（SSE，D-070 回声抑制）：他人扫同一单（STOCKTAKE）计数+1、
+ * 他人 close 后本页转只读摘要（close 导航仅发起端收到）。重取一律经
+ * {@link requestSummaryRefresh} 排队，不得在扫码在途时直取（C2）。
  */
 useSyncInvalidation(['STOCKTAKE', 'INVENTORY'], () => {
-  if (scanning.value) return
-  void loadSummary()
+  requestSummaryRefresh()
 })
 
 // ------------------------------------------------------------- 摄像头（QR 连续取流，同 ScanView）
@@ -137,6 +137,25 @@ const scannedCard = ref<{ code: string; thumbUrl: string | null; warningKey: str
 const scanning = ref(false)
 const scanError = ref('')
 
+/**
+ * 计数重取的**挂起与结算**（SSE 失效 / 离线队列排空共用唯一入口，C2）。
+ *
+ * 为何不在扫码在途时直取：{@link record} 的乐观写入以**发起时捕获的 summary**
+ * 为基数，若在途期间重取结果先落地，随后到达的乐观写入会按旧基数把它覆盖回去
+ * → 计数回卷（离线回放 N 件时正好少记 N 件）。
+ * 为何也不静默丢弃：排空是**一次性**事件，丢弃后本次回放就再不会有口径刷新，
+ * 服务端计数会永久少记 N 件。故在途时只挂起，待本次扫码结算后再补取一次。
+ */
+let refreshPending = false
+
+function requestSummaryRefresh(): void {
+  if (scanning.value) {
+    refreshPending = true
+    return
+  }
+  void loadSummary()
+}
+
 /** 卡内警示派生（docs/01 7.3 照记不拦）：冻结品（不可调整）＞他仓＞系统非在库。 */
 function warningKeyFor(item: ItemResponse, stocktake: StocktakeSummary): string | null {
   if (item.voided || item.deleted) return 'warnFrozen'
@@ -181,6 +200,16 @@ async function record(code: string): Promise<void> {
     }
   } finally {
     scanning.value = false
+    // 卡片未出现=本次扫码以失败告终：解锁同码重扫（C3）。否则重扫落在 3s 同码窗内
+    // 被静默吞掉——听不到提示音、卡与报错都不刷新，操作员只会以为扫码枪失效。
+    // 成功路径**不解锁**：同码短窗重扫正是扫码枪的回声，仍是本页主输入方式，须继续抑制。
+    if (scannedCard.value == null) {
+      gate.reset()
+    }
+    if (refreshPending) {
+      refreshPending = false
+      void loadSummary()
+    }
   }
 }
 

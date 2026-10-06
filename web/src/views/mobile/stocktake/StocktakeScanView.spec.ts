@@ -374,3 +374,98 @@ describe('stocktake offline queue (M6-2)', () => {
     expect(wrapper.text()).not.toContain('送信できなかったスキャン')
   })
 })
+
+/**
+ * 扫码闸门与计数重取的时序（审计项 C2/C3）。
+ *
+ * C2：排空触发的重取与扫码在途**互斥**——在途直取会让随后的乐观写入按旧基数
+ * 覆盖回取结果（回卷），静默丢弃又会让本次回放的口径切换永久缺席；故挂起 + 结算后补取。
+ * C3：失败扫码（卡片未出现）须解锁同码重扫；成功扫码**不得**解锁（同码短窗重扫=扫码枪回声）。
+ */
+describe('stocktake scan gate and refresh sequencing (C2/C3)', () => {
+  it('suspends the drain-triggered refresh while a scan is in flight, then settles it after the response', async () => {
+    apiMocks.fetchStocktake.mockResolvedValue(summary())
+    const wrapper = await mountView()
+
+    // 入队必须在挂载**之后**：init() 见队列非空会自己冲一次（fire-and-forget），
+    // 那次回放会抢在下面装的在途桩之前消耗 mockImplementationOnce，时序就不再受控
+    await scanQueue.enqueue(5, 'HT9-A2Y')
+    await flushPromises()
+    expect(wrapper.text()).toContain('スキャン済み 4 件')
+
+    // 手工输入持有在途请求（不经扫码闸门：本项只关乎重取时序）；后续回放那次照常放行
+    let releaseScan: ((value: unknown) => void) | undefined
+    apiMocks.scanStocktakeItem
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            releaseScan = resolve
+          }),
+      )
+      .mockResolvedValue({ repeated: false, item: item(), thumbUrl: null })
+
+    await wrapper.find('#stocktake-manual-input').setValue('HT9-A1X')
+    void wrapper.find('.session-manual').trigger('submit')
+    await vi.waitFor(() => {
+      expect(apiMocks.scanStocktakeItem).toHaveBeenCalledTimes(1)
+    })
+
+    // 排空恰好落在扫码在途窗口内
+    apiMocks.fetchStocktake.mockResolvedValue(summary({ scannedCount: 9 }))
+    await scanQueue.flush()
+    await flushPromises()
+
+    // 在途期间不得直取（直取结果会被随后到达的乐观写入按旧基数覆盖 → 回卷）
+    expect(apiMocks.fetchStocktake).toHaveBeenCalledTimes(1)
+
+    // 结算后补取一次：口径切到服务端（否则本次回放永久少记）
+    expect(releaseScan).toBeDefined()
+    releaseScan?.({ repeated: false, item: item(), thumbUrl: null })
+    await vi.waitFor(() => {
+      expect(apiMocks.fetchStocktake).toHaveBeenCalledTimes(2)
+    })
+    await vi.waitFor(() => {
+      expect(wrapper.text()).toContain('スキャン済み 9 件')
+    })
+  })
+
+  it('releases the same-code gate when a scan fails: the same code can be rescanned at once', async () => {
+    apiMocks.fetchStocktake.mockResolvedValue(summary())
+    apiMocks.scanStocktakeItem.mockRejectedValue(new ApiError(404001, 'NOT_FOUND'))
+    const wrapper = await mountView()
+    const camera = wrapper.findComponent({ name: 'QrcodeStream' })
+
+    camera.vm.$emit('detect', [{ rawValue: 'HT9-XXX' }])
+    await vi.waitFor(() => {
+      expect(wrapper.find('.session-error').exists()).toBe(true)
+    })
+
+    // 同码即时重扫（间隔远小于 3s 同码窗）必须真打端点——否则操作员听不到提示音、
+    // 报错也不刷新，只会以为扫码枪失效
+    camera.vm.$emit('detect', [{ rawValue: 'HT9-XXX' }])
+    await vi.waitFor(() => {
+      expect(apiMocks.scanStocktakeItem).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  it('keeps suppressing the same-code echo while scans succeed', async () => {
+    apiMocks.fetchStocktake.mockResolvedValue(summary())
+    apiMocks.scanStocktakeItem.mockResolvedValue({
+      repeated: false,
+      item: item(),
+      thumbUrl: null,
+    })
+    const wrapper = await mountView()
+    const camera = wrapper.findComponent({ name: 'QrcodeStream' })
+
+    camera.vm.$emit('detect', [{ rawValue: 'HT9-A1X' }])
+    await vi.waitFor(() => {
+      expect(wrapper.find('.session-card').exists()).toBe(true)
+    })
+
+    // 成功路径不解锁：同码短窗重扫是扫码枪回声，仍须抑制
+    camera.vm.$emit('detect', [{ rawValue: 'HT9-A1X' }])
+    await flushPromises()
+    expect(apiMocks.scanStocktakeItem).toHaveBeenCalledTimes(1)
+  })
+})
