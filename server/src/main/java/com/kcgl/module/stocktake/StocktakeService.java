@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.kcgl.common.audit.AuditRecorder;
 import com.kcgl.common.sse.SseHub;
 import com.kcgl.common.sse.SyncEvent;
+import com.kcgl.common.obs.AlertService;
 import com.kcgl.common.web.BizException;
 import com.kcgl.common.web.ErrorCode;
 import com.kcgl.module.image.FirstThumbReader;
@@ -29,6 +30,11 @@ import com.kcgl.module.stocktake.dto.StocktakeScanResultResponse;
 import com.kcgl.module.stocktake.dto.StocktakeSummaryResponse;
 import com.kcgl.module.user.SysUserEntity;
 import com.kcgl.module.user.SysUserMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.DeadlockLoserDataAccessException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -48,6 +54,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -75,7 +82,11 @@ import java.util.stream.Stream;
 @Service
 public class StocktakeService {
 
+    private static final Logger log = LoggerFactory.getLogger(StocktakeService.class);
+
     private static final int MAX_PAGE_SIZE = 100;
+    /** 发起重试上限（同管理号引擎 {@code ItemCodeService.MAX_ATTEMPTS}，D-111）。 */
+    static final int MAX_ATTEMPTS = 3;
     private static final int STATUS_ACTIVE = 0;
     private static final int STATUS_PENDING_CONFIRM = 1;
     private static final int STATUS_CONFIRMED = 2;
@@ -97,11 +108,12 @@ public class StocktakeService {
     private final TransactionTemplate txTemplate;
     private final Clock clock;
     private final SseHub sseHub;
+    private final AlertService alertService;
 
     public StocktakeService(StocktakeMapper stocktakeMapper, StocktakeScanMapper scanMapper,
             StocktakeDiffMapper diffMapper, ItemMapper itemMapper, StockLedgerMapper ledgerMapper,
             SysUserMapper userMapper, FirstThumbReader firstThumbReader, AuditRecorder auditRecorder,
-            TransactionTemplate txTemplate, Clock clock, SseHub sseHub) {
+            TransactionTemplate txTemplate, Clock clock, SseHub sseHub, AlertService alertService) {
         this.stocktakeMapper = stocktakeMapper;
         this.scanMapper = scanMapper;
         this.diffMapper = diffMapper;
@@ -113,36 +125,89 @@ public class StocktakeService {
         this.txTemplate = txTemplate;
         this.clock = clock;
         this.sseHub = sseHub;
+        this.alertService = alertService;
     }
 
     // ------------------------------------------------------------------ 发起
 
-    /** 发起盘点：同仓已有进行中单 → 409009；单号 PD+日期(JST)+两位序号。 */
+    /**
+     * 发起盘点：同仓已有进行中单 → 409009；单号 PD+日期(JST)+两位序号。
+     *
+     * <p>空表上的跨仓并发发起必有一方失败（审计项 A2）：{@link StocktakeMapper#lockActiveIds}
+     * 的谓词无索引走全表扫描，**空区间只拿到相容的间隙锁**——两事务互不排斥，于是都通过
+     * 按仓探测、都数到 0 并各自铸出「PD+日期+01」，随后在 {@code INSERT INTO stocktake}
+     * 的插入意向锁上互等而**死锁**，败者拿 {@code DeadlockLoserDataAccessException}（实测
+     * 12/12 轮复现）。重试落在事务边界之外（本类 close/scan 的 C1 纪律、管理号引擎
+     * {@code ItemCodeService#createWithRetry} 同形，D-111）：败者换新事务重进时表已有行，
+     * 全扫即锁到实记录，「按仓探测 + 当日计数」才真正被串行化（详见 createOnce）。
+     */
     public StocktakeSummaryResponse create(StocktakeCreateRequest req, long operatorId) {
-        int warehouse = req.warehouse();
-        StocktakeEntity st = txTemplate.execute(status -> {
-            // 一仓一进行中单：FOR UPDATE 探测串行化「查无→插入」（当日序号计数同受保护）
-            if (!stocktakeMapper.lockActiveIds(warehouse).isEmpty()) {
-                throw new BizException(ErrorCode.STOCKTAKE_ACTIVE_EXISTS);
-            }
-            String prefix = "PD" + LocalDate.now(clock).format(NO_FORMAT) + "-";
-            Long todayCount = stocktakeMapper.selectCount(new LambdaQueryWrapper<StocktakeEntity>()
-                    .likeRight(StocktakeEntity::getStocktakeNo, prefix));
-            StocktakeEntity entity = new StocktakeEntity();
-            entity.setStocktakeNo(prefix + String.format(Locale.ROOT, "%02d",
-                    (todayCount == null ? 0 : todayCount) + 1));
-            entity.setWarehouse(warehouse);
-            entity.setStatus(STATUS_ACTIVE);
-            entity.setScannedCount(0);
-            entity.setCreatedBy(operatorId);
-            entity.setCreatedAt(LocalDateTime.now(clock));
-            stocktakeMapper.insert(entity);
-            auditRecorder.record("STOCKTAKE_CREATE", "stocktake", entity.getId(),
-                    Map.of("stocktakeNo", entity.getStocktakeNo(), "warehouse", warehouse));
-            return entity;
-        });
+        StocktakeEntity st = createWithRetry(req.warehouse(), operatorId);
         sseHub.broadcast(SyncEvent.TYPE_STOCKTAKE, st.getStocktakeNo(), operatorId);
         return summaryOf(st, null, operatorId);
+    }
+
+    /**
+     * 发起重试：信号仅限并发类异常（死锁败者/锁等待超时/单号 uk 冲突），业务校验异常
+     * 原样上抛不消耗重试；耗尽落 INTERNAL + sys_alert 持久红点（非在线即逝的日志行）。
+     */
+    private StocktakeEntity createWithRetry(int warehouse, long operatorId) {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return txTemplate.execute(status -> createOnce(warehouse, operatorId));
+            } catch (DuplicateKeyException | CannotAcquireLockException
+                    | DeadlockLoserDataAccessException e) {
+                if (attempt >= MAX_ATTEMPTS) {
+                    log.error("棚卸開始のリトライ回数が上限に達しました attempts={} {} warehouse={}",
+                            MAX_ATTEMPTS, e.getClass().getSimpleName(), warehouse, e);
+                    alertService.record("STOCKTAKE", AlertService.LEVEL_ERROR,
+                            "棚卸の開始が混雑のため失敗しました（" + MAX_ATTEMPTS + "回試行）",
+                            "stocktake-create-retry-exhausted",
+                            "{\"cause\":\"" + e.getClass().getSimpleName() + "\",\"warehouse\":"
+                                    + warehouse + "}");
+                    throw new BizException(ErrorCode.INTERNAL);
+                }
+                log.warn("棚卸開始の衝突リトライ attempt={}/{} type={} warehouse={}", attempt,
+                        MAX_ATTEMPTS, e.getClass().getSimpleName(), warehouse);
+                backoff();
+            }
+        }
+    }
+
+    /** 微抖动退避：死锁双败者同时重进会再次相撞，随机化错开（同管理号引擎）。 */
+    private static void backoff() {
+        try {
+            Thread.sleep(20 + ThreadLocalRandom.current().nextInt(30));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BizException(ErrorCode.INTERNAL);
+        }
+    }
+
+    /**
+     * 单轮（事务内）：按仓探测 → 当日计数铸号 → 插入 → 审计。
+     * 计数与探测都在事务内现读，故重试轮必然据现态重算单号（不会复用败者那轮的旧计数）。
+     */
+    private StocktakeEntity createOnce(int warehouse, long operatorId) {
+        // 一仓一进行中单：FOR UPDATE 探测串行化「查无→插入」（当日序号计数同受保护）
+        if (!stocktakeMapper.lockActiveIds(warehouse).isEmpty()) {
+            throw new BizException(ErrorCode.STOCKTAKE_ACTIVE_EXISTS);
+        }
+        String prefix = "PD" + LocalDate.now(clock).format(NO_FORMAT) + "-";
+        Long todayCount = stocktakeMapper.selectCount(new LambdaQueryWrapper<StocktakeEntity>()
+                .likeRight(StocktakeEntity::getStocktakeNo, prefix));
+        StocktakeEntity entity = new StocktakeEntity();
+        entity.setStocktakeNo(prefix + String.format(Locale.ROOT, "%02d",
+                (todayCount == null ? 0 : todayCount) + 1));
+        entity.setWarehouse(warehouse);
+        entity.setStatus(STATUS_ACTIVE);
+        entity.setScannedCount(0);
+        entity.setCreatedBy(operatorId);
+        entity.setCreatedAt(LocalDateTime.now(clock));
+        stocktakeMapper.insert(entity);
+        auditRecorder.record("STOCKTAKE_CREATE", "stocktake", entity.getId(),
+                Map.of("stocktakeNo", entity.getStocktakeNo(), "warehouse", warehouse));
+        return entity;
     }
 
     // ------------------------------------------------------------------ 查询
