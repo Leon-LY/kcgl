@@ -37,6 +37,16 @@ spring:
 server:
   port: 8080
   shutdown: graceful
+  # 反代拓扑下的真实客户端 IP（B1/D-108）。系统唯一入口是 nginx（app 服务不映射端口），
+  # 而 Spring Boot 默认 forward-headers-strategy=NONE → getRemoteAddr() 恒为 nginx 容器 IP，
+  # 登录节流的 (账号+IP) 维度整体退化：任一客户端连错 5 次即锁死该账号的**所有**来源，
+  # 且「≥2 个源 IP 才升级账号级锁」永不触发。native 启用 Tomcat RemoteIpValve：
+  # 仅当直连对端属可信代理（Boot 默认私网段，覆盖 Docker 网络）时才采信 X-Forwarded-For，
+  # 且取**最右**的非可信代理地址 → nginx 用 $proxy_add_x_forwarded_for 拼在真实地址之前的
+  # 客户端伪造值不被采纳，无法借伪造 XFF 绕过节流。
+  # 生效性与取值取向均由 ForwardedClientIpTest 以真实 HTTP 实证；该用例必须走真实容器——
+  # MockMvc 不经过 Tomcat 阀门，看不见本配置（B1 首版修复正是漏判于此）。
+  forward-headers-strategy: native
   servlet:
     session:
       timeout: 12h

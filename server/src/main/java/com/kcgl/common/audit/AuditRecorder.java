@@ -82,17 +82,22 @@ public class AuditRecorder {
         log.debug("审计 action={} entity={}/{} operator={}", action, entityType, entityId, operatorName);
     }
 
-    /** 反代拓扑下取 X-Forwarded-For 首值，直连取 remoteAddr。 */
+    /**
+     * 客户端 IP：统一取 {@code getRemoteAddr()}——反代拓扑下由 Tomcat RemoteIpValve
+     * （{@code server.forward-headers-strategy=native}）从 X-Forwarded-For 自右向左跳过可信代理
+     * 解析而来，已是真实客户端地址。
+     *
+     * <p>**禁止直读 X-Forwarded-For 首值**：nginx 用 {@code $proxy_add_x_forwarded_for}
+     * 拼出「客户端自带值 + , + 真实地址」，首值完全由客户端控制——直读会把审计 IP 栽赃成任意
+     * 地址（伪造操作来源、污染取证）。
+     */
     private String currentIp() {
         ServletRequestAttributes attrs =
                 (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         if (attrs == null) {
             return null;
         }
-        String forwarded = attrs.getRequest().getHeader("X-Forwarded-For");
-        String ip = forwarded != null && !forwarded.isBlank()
-                ? forwarded.split(",")[0].trim()
-                : attrs.getRequest().getRemoteAddr();
+        String ip = attrs.getRequest().getRemoteAddr();
         return ip != null && ip.length() > IP_MAX ? ip.substring(0, IP_MAX) : ip;
     }
 

@@ -13,6 +13,7 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.mysql.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -151,6 +152,70 @@ class AuthIntegrationTest {
                 .andExpect(status().isLocked())
                 .andExpect(jsonPath("$.code").value(423001))
                 .andExpect(jsonPath("$.data.remainingMinutes").isNumber());
+    }
+
+    /** B1 回归：单一源 IP 连错 5 次只锁该 (账号+IP)，不得锁死整个账号（否则任一 IP 可 DoS 他人）。 */
+    @Test
+    @org.junit.jupiter.api.Tag("regression")
+    void login_fiveFailuresFromOneIp_doesNotLockAccountForOtherIps() throws Exception {
+        insertUser("guard", 1, 1);
+        for (int i = 0; i < 5; i++) {
+            loginFrom("10.0.0.1", "guard", "wrong-password");
+        }
+        // 同一源 IP：内存锁生效 → 即使密码正确也 423（该 IP 仍被防爆破拦住）
+        mockMvc.perform(post("/api/auth/login")
+                        .param("username", "guard").param("password", RAW_PWD).with(fromIp("10.0.0.1")))
+                .andExpect(status().isLocked());
+        // 另一源 IP：账号不得被单一 IP 锁死——正确密码应放行
+        mockMvc.perform(post("/api/auth/login")
+                        .param("username", "guard").param("password", RAW_PWD).with(fromIp("10.0.0.2")))
+                .andExpect(status().isOk());
+    }
+
+    /** 多个不同源 IP 分别连错 → 判定为分布式撞库 → 账号级持久锁（保留管理端可见/可解锁语义）。 */
+    @Test
+    void login_failuresFromMultipleIps_escalateToAccountWideLock() throws Exception {
+        insertUser("dist", 2, 1);
+        for (int i = 0; i < 5; i++) {
+            loginFrom("10.0.0.1", "dist", "wrong-password");
+        }
+        for (int i = 0; i < 5; i++) {
+            loginFrom("10.0.0.2", "dist", "wrong-password");
+        }
+        // 两个不同源 IP 均达阈值 → 账号级锁生效，第三方 IP 正确密码也 423
+        mockMvc.perform(post("/api/auth/login")
+                        .param("username", "dist").param("password", RAW_PWD).with(fromIp("10.0.0.3")))
+                .andExpect(status().isLocked())
+                .andExpect(jsonPath("$.code").value(423001));
+    }
+
+    /**
+     * F2 前提实证：{@code sys_user.username} 建在 utf8mb4_0900_ai_ci 上，大小写/重音变体在 DB 层
+     * 就是同一账号——所以它们**必须**共用同一个节流桶（归一逻辑与桶合并见 LoginLockServiceTest）。
+     * 若哪天排序规则改成大小写敏感，本用例先红，提醒归一逻辑的前提已变。
+     */
+    @Test
+    @org.junit.jupiter.api.Tag("regression")
+    void login_caseAndAccentVariant_authenticatesSameAccount() throws Exception {
+        insertUser("cafe", 2, 1);
+        mockMvc.perform(post("/api/auth/login")
+                        .param("username", "CAFÉ").param("password", RAW_PWD))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.username").value("cafe"));
+    }
+
+    /** 指定源 IP 发一次登录（B1：锁维度含 IP，MockMvc 默认 remoteAddr 无法区分）。 */
+    private void loginFrom(String ip, String username, String password) throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .param("username", username).param("password", password).with(fromIp(ip)))
+                .andReturn();
+    }
+
+    private static RequestPostProcessor fromIp(String ip) {
+        return request -> {
+            request.setRemoteAddr(ip);
+            return request;
+        };
     }
 
     @Test
