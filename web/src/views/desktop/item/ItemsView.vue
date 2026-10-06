@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed, markRaw, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter, type LocationQuery } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useSyncInvalidation } from '@/composables/useSyncInvalidation'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import { formatJstDate, formatJstDateTime, formatYen } from '@/utils/format'
 import { toDisplayMessage } from '@/utils/errors'
 import { fetchRecycleBin, fetchVenues, restoreItem, searchItems } from '@/utils/api'
-import type { ItemSearchRow, RecycleBinRow, Venue } from '@/utils/api'
+import type { ItemSearchParams, ItemSearchRow, RecycleBinRow, Venue } from '@/utils/api'
 
 /**
  * 商品一覧（M5-①，D-061）：kw 搜索（管理号＞日期＞模糊 LIKE 优先级链）+
@@ -22,6 +22,7 @@ const PAGE_SIZE = 20
 const { t } = useI18n()
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 
 const isAdmin = computed(() => auth.me != null && auth.me.role === 1)
 
@@ -58,24 +59,93 @@ const listLoading = ref(true)
 const listError = ref('')
 let listSeq = 0
 
+/** 可投影到 URL 的键（与检索参数同名；size 恒定，不投影）。 */
+const QUERY_KEYS = [
+  'kw', 'warehouse', 'stockStatus', 'saleStatus', 'venueId',
+  'buyDateFrom', 'buyDateTo', 'warnLevel', 'page',
+] as const
+
+/** 各下拉的合法取值（与模板选项同域）。URL 是用户可手改的输入：域外值落回「すべて」，
+ *  否则 el-select 匹配不到任何选项（筛选条显空白）且检索会发出非法参数。 */
+const FILTER_DOMAINS: Record<string, readonly number[]> = {
+  warehouse: [1, 2],
+  stockStatus: [0, 1, 2],
+  saleStatus: [0, 1, 2, 3],
+  warnLevel: [1, 2],
+}
+
+function domainFilter(raw: unknown, domain: readonly number[]): typeof ALL | number {
+  const value = typeof raw === 'string' ? Number(raw) : Number.NaN
+  return Number.isInteger(value) && domain.includes(value) ? value : ALL
+}
+
+function positiveInt(raw: unknown): number | null {
+  const value = typeof raw === 'string' ? Number(raw) : Number.NaN
+  return Number.isInteger(value) && value >= 1 ? value : null
+}
+
+/** 日付筛选只认 el-date-picker 的 value-format 口径（YYYY-MM-DD），其余视为未选。 */
+function dateFilter(raw: unknown): string | null {
+  return typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null
+}
+
+/** URL 查询串 → 列表态（首载前调用一次，C1）。 */
+function hydrateFromQuery(): void {
+  const query = route.query
+  kw.value = typeof query.kw === 'string' ? query.kw : ''
+  warehouse.value = domainFilter(query.warehouse, FILTER_DOMAINS.warehouse)
+  stockStatus.value = domainFilter(query.stockStatus, FILTER_DOMAINS.stockStatus)
+  saleStatus.value = domainFilter(query.saleStatus, FILTER_DOMAINS.saleStatus)
+  warnLevel.value = domainFilter(query.warnLevel, FILTER_DOMAINS.warnLevel)
+  venueId.value = positiveInt(query.venueId) ?? ALL
+  buyDateFrom.value = dateFilter(query.buyDateFrom)
+  buyDateTo.value = dateFilter(query.buyDateTo)
+  page.value = positiveInt(query.page) ?? 1
+}
+
+/** 列表态 → URL：只投影**非默认**项，空态保持 /items 裸路径（下钻详情后返回即回到同一屏幕）。 */
+function projectQuery(params: ItemSearchParams): void {
+  const query: Record<string, string> = {}
+  for (const key of QUERY_KEYS) {
+    const value = params[key]
+    if (value == null || value === '' || (key === 'page' && value === 1)) {
+      continue
+    }
+    query[key] = String(value)
+  }
+  if (sameQuery(route.query, query)) {
+    return
+  }
+  // replace：筛选/换页不产生历史项——后退键回到进入列表前的页面，而非逐条回放筛选
+  void router.replace({ name: 'items', query })
+}
+
+function sameQuery(current: LocationQuery, next: Record<string, string>): boolean {
+  const keys = Object.keys(next)
+  return Object.keys(current).length === keys.length && keys.every((key) => current[key] === next[key])
+}
+
 async function loadList(): Promise<void> {
   const seq = ++listSeq
   listLoading.value = true
   listError.value = ''
+  const params: ItemSearchParams = {
+    kw: kw.value.trim() === '' ? undefined : kw.value.trim(),
+    // 对象哨兵不可被 === 收窄（对象类型无名义恒等）：以 typeof 判别业务值分支
+    warehouse: typeof warehouse.value === 'number' ? warehouse.value : undefined,
+    stockStatus: typeof stockStatus.value === 'number' ? stockStatus.value : undefined,
+    saleStatus: typeof saleStatus.value === 'number' ? saleStatus.value : undefined,
+    venueId: typeof venueId.value === 'number' ? venueId.value : undefined,
+    buyDateFrom: buyDateFrom.value ?? undefined,
+    buyDateTo: buyDateTo.value ?? undefined,
+    warnLevel: typeof warnLevel.value === 'number' ? warnLevel.value : undefined,
+    page: page.value,
+    size: PAGE_SIZE,
+  }
+  // URL 投影与真正发出的检索参数**同源**：不会出现「URL 带筛选而列表没有」的漂移
+  projectQuery(params)
   try {
-    const data = await searchItems({
-      kw: kw.value.trim() === '' ? undefined : kw.value.trim(),
-      // 对象哨兵不可被 === 收窄（对象类型无名义恒等）：以 typeof 判别业务值分支
-      warehouse: typeof warehouse.value === 'number' ? warehouse.value : undefined,
-      stockStatus: typeof stockStatus.value === 'number' ? stockStatus.value : undefined,
-      saleStatus: typeof saleStatus.value === 'number' ? saleStatus.value : undefined,
-      venueId: typeof venueId.value === 'number' ? venueId.value : undefined,
-      buyDateFrom: buyDateFrom.value ?? undefined,
-      buyDateTo: buyDateTo.value ?? undefined,
-      warnLevel: typeof warnLevel.value === 'number' ? warnLevel.value : undefined,
-      page: page.value,
-      size: PAGE_SIZE,
-    })
+    const data = await searchItems(params)
     if (seq !== listSeq) {
       return
     }
@@ -218,6 +288,8 @@ function reload(): void {
 useSyncInvalidation(['ITEM', 'INVENTORY', 'YAHOO_IMPORT'], reload)
 
 onMounted(() => {
+  // 首载先消费 URL（从详情返回/深链直达时带回落札筛选与页码，C1）
+  hydrateFromQuery()
   void fetchVenues(false)
     .then((data) => {
       venues.value = data

@@ -94,21 +94,29 @@ function recycleRow(overrides: Partial<RecycleBinRow> = {}): RecycleBinRow {
   }
 }
 
-async function mountView(role: 1 | 3 = 1): Promise<{ wrapper: VueWrapper; router: Router }> {
+async function mountView(
+  role: 1 | 3 = 1,
+  query: Record<string, string> = {},
+): Promise<{ wrapper: VueWrapper; router: Router }> {
   const auth = useAuthStore()
   auth.me = role === 1 ? meAdmin : meViewer
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
+      { path: '/', name: 'home', component: { template: '<div />' } },
       { path: '/items', name: 'items', component: { template: '<div />' } },
       { path: '/items/:id', name: 'item-detail', component: { template: '<div />' } },
       { path: '/excel', name: 'excel', component: { template: '<div />' } },
     ],
   })
-  await router.push({ name: 'items' })
+  // 先落一站「上一页」，再进列表：列表态投影用 replace 写 URL，后退一步应直接离开列表
+  // （C1 的判定依据）；内存历史只有一条记录时 back() 无处可去，测不出 push/replace 之别
+  await router.push({ name: 'home' })
+  await router.push({ name: 'items', query })
   const wrapper = mount(ItemsView, {
     global: { plugins: [i18n, router] },
   })
+
   await flushPromises()
   return { wrapper, router }
 }
@@ -282,5 +290,95 @@ describe('items bulk import/export entry (D-106)', () => {
 
     expect(router.currentRoute.value.name).toBe('excel')
     expect(router.currentRoute.value.query.tab).toBe('export')
+  })
+})
+
+/**
+ * 列表态 ↔ URL 查询串（审计项 C1）：详情下钻一趟回来不该丢筛选与页码。
+ * 列表把**实际发出的检索参数**投影进 query（唯一写入点在 loadList，与请求同源，
+ * 不会出现「URL 带筛选而列表没有」），首载按 query 还原；默认态保持 /items 裸路径。
+ */
+describe('items list state in the URL (C1)', () => {
+  beforeEach(() => {
+    apiMocks.searchItems.mockResolvedValue(result({ total: 60 }))
+  })
+
+  it('hydrates filters and the page from the query on mount', async () => {
+    const { router } = await mountView(1, { kw: 'HT9', warehouse: '2', page: '3' })
+
+    expect(apiMocks.searchItems).toHaveBeenCalledWith(
+      expect.objectContaining({ kw: 'HT9', warehouse: 2, page: 3, size: 20 }),
+    )
+    expect(router.currentRoute.value.query).toEqual({ kw: 'HT9', warehouse: '2', page: '3' })
+  })
+
+  it('treats out-of-domain or malformed query values as unset', async () => {
+    await mountView(1, {
+      warehouse: '9',
+      stockStatus: 'abc',
+      saleStatus: '-1',
+      venueId: '0',
+      warnLevel: '3',
+      buyDateFrom: '2026/09/01',
+      page: '0',
+    })
+
+    expect(apiMocks.searchItems).toHaveBeenCalledWith(
+      expect.objectContaining({
+        warehouse: undefined,
+        stockStatus: undefined,
+        saleStatus: undefined,
+        venueId: undefined,
+        warnLevel: undefined,
+        buyDateFrom: undefined,
+        page: 1,
+      }),
+    )
+  })
+
+  it('keeps the bare path while the list is at its default state', async () => {
+    // E2E 断言 /\/items$/（削除済み商品の遷移先）——默认态不得凭空多出 query
+    const { wrapper, router } = await mountView()
+    expect(router.currentRoute.value.fullPath).toBe('/items')
+
+    // 未按「検索」的输入不算列表态：URL 只投影已发出的检索参数
+    await wrapper.find('.items-search input').setValue('HT9-A1X')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/items')
+  })
+
+  it('projects the applied keyword and page into the query', async () => {
+    const { wrapper, router } = await mountView()
+
+    await wrapper.find('.items-search input').setValue('  HT9-A1X ')
+    await wrapper.findAll('button').find((b) => b.text() === '検索')!.trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.query.kw).toBe('HT9-A1X')
+
+    wrapper.findComponent({ name: 'ElPagination' }).vm.$emit('current-change', 2)
+    await flushPromises()
+    expect(apiMocks.searchItems).toHaveBeenLastCalledWith(
+      expect.objectContaining({ kw: 'HT9-A1X', page: 2 }),
+    )
+    expect(router.currentRoute.value.query).toEqual({ kw: 'HT9-A1X', page: '2' })
+
+    // 条件クリア → 回到默认态即抹掉 query
+    await wrapper.findAll('button').find((b) => b.text() === '条件をクリア')!.trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/items')
+  })
+
+  it('writes filter changes with replace so the back key leaves the list in one step', async () => {
+    const { wrapper, router } = await mountView()
+
+    await wrapper.find('.items-search input').setValue('HT9-A1X')
+    await wrapper.findAll('button').find((b) => b.text() === '検索')!.trigger('click')
+    await flushPromises()
+
+    // 若筛选变更走了 push，此处后退会退回「上一个筛选态」（仍是 items）；
+    // replace 则一步退出列表，回到进入列表前的上一站
+    await router.back()
+    await flushPromises()
+    expect(router.currentRoute.value.name).toBe('home')
   })
 })

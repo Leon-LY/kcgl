@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { enableAutoUnmount, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import { createMemoryHistory, createRouter, createWebHistory, type Router } from 'vue-router'
 
 const apiMocks = vi.hoisted(() => ({
   fetchItem: vi.fn(),
@@ -432,5 +432,52 @@ describe('item detail view (M5-1)', () => {
     expect(wrapper.find('.kcgl-info-box').text()).toBe('取り消し済みの商品です（理由：誤登録）。')
     expect(wrapper.find('.itemd-title .itemd-tag.is-danger').text()).toBe('取り消し済み')
     expect(wrapper.find('.itemd-actions').exists()).toBe(false)
+  })
+})
+
+/** 等真实历史（popstate 派发为宏任务）落到目标路由，避免用固定 tick 数赌时序。 */
+async function settleOn(router: Router, name: string): Promise<void> {
+  for (let i = 0; i < 50; i += 1) {
+    if (router.currentRoute.value.name === name) return
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  }
+  throw new Error(`route did not settle on ${name}`)
+}
+
+/**
+ * 戻る键（C1）：列表把筛选/页码投影进 URL（ItemsView#projectQuery），详情原路返回即带回来。
+ * 用真实浏览器历史（createWebHistory）跑「退回带筛选」这一支——内存历史不维护
+ * state.back（state 恒为 {}），走不到该分支会退化成"只测得到兜底"。
+ */
+describe('detail back navigation (C1)', () => {
+  it('returns to the list with its filters and page when a back entry exists', async () => {
+    useAuthStore().me = meEditor
+    const router = createRouter({
+      history: createWebHistory(),
+      routes: [
+        { path: '/items', name: 'items', component: { template: '<div />' } },
+        { path: '/items/:id', name: 'item-detail', component: { template: '<div />' } },
+      ],
+    })
+    await router.push({ name: 'items', query: { kw: 'HT9', page: '3' } })
+    await router.push({ name: 'item-detail', params: { id: '1' } })
+    apiMocks.fetchItem.mockResolvedValue(item())
+    const wrapper = mount(ItemDetailView, { global: { plugins: [i18n, router] } })
+    await flushPromises()
+
+    await wrapper.find('.itemd-back').trigger('click')
+    await settleOn(router, 'items')
+
+    expect(router.currentRoute.value.query).toEqual({ kw: 'HT9', page: '3' })
+  })
+
+  it('falls back to a bare list push when there is no back entry (deep link)', async () => {
+    const { wrapper, router } = await mountView(2)
+
+    await wrapper.find('.itemd-back').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('items')
+    expect(router.currentRoute.value.query).toEqual({})
   })
 })

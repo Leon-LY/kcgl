@@ -82,7 +82,16 @@ async function loadItem(): Promise<void> {
   }
 }
 
+/**
+ * 戻る（C1）：有来路即原路返回——列表把筛选/页码投影进 URL（ItemsView#projectQuery），
+ * 退回时自然带回来；从台帳等他页下钻则回他页。深链/直开无来路时退回商品一覧。
+ * 浏览器后退键不受此影响（它走会话历史，本来就能回来）。
+ */
 function goBack(): void {
+  if (router.options.history.state.back != null) {
+    router.back()
+    return
+  }
   void router.push({ name: 'items' })
 }
 
