@@ -38,7 +38,11 @@ import java.util.stream.Collectors;
  * 账实不变量：在库未作废件记 ∓1/+1；在途/已出库/已作废记 0
  * （已作废在库件 VOID 已记过 −1，再记即双重扣减破坏 Σledger≡COUNT）。
  * 恢复保序回软删前 stock_status，作废标志不动（作废轴独立于删除轴）。
- * version 不递增（回收站动作不参与编辑乐观锁链，避免管理员操作踢掉编辑中用户）。
+ * version 不递增（回收站动作不参与编辑乐观锁链，避免管理员操作踢掉编辑中用户），
+ * 但条件更新**读入 version 作陈旧快照守卫**：REPEATABLE READ 下事务内读到的是快照，
+ * 若期间他事务（售出/编辑/作废）已提交改了 stock_status/voided，本事务条件更新因 version 不符返回
+ * 0 行——换新事务重读重试，保证 buildLedger 记账所依的态与库中现态一致（否则并发售出会据旧态记出幻影 −1，
+ * 破 Σledger≡COUNT；见 docs/04 D-109）。守卫只读 version，不回写，故不影响编辑方。
  */
 @Service
 public class RecycleService {
@@ -73,35 +77,7 @@ public class RecycleService {
         if (replayed != null) {
             return replayed;
         }
-        ItemEntity updated = txTemplate.execute(status -> {
-            ItemEntity item = itemMapper.selectById(itemId);
-            if (item == null) {
-                throw new BizException(ErrorCode.NOT_FOUND);
-            }
-            if (item.getDeleted() != null && item.getDeleted() == 1) {
-                throw new BizException(ErrorCode.ITEM_ALREADY_DELETED);
-            }
-            LocalDateTime now = LocalDateTime.now(clock);
-            int rows = itemMapper.update(null, new LambdaUpdateWrapper<ItemEntity>()
-                    .eq(ItemEntity::getId, itemId)
-                    .eq(ItemEntity::getDeleted, 0)
-                    .set(ItemEntity::getDeleted, 1)
-                    .set(ItemEntity::getDeletedBy, operatorId)
-                    .set(ItemEntity::getDeletedAt, now)
-                    .set(ItemEntity::getUpdatedBy, operatorId)
-                    .set(ItemEntity::getUpdatedAt, now));
-            if (rows == 0) {
-                throw new BizException(ErrorCode.ITEM_ALREADY_DELETED);
-            }
-            ledgerMapper.insert(buildLedger(item, TxnType.RECYCLE_DELETE,
-                    req.clientReqId(), req.reason(), operatorId, operatorName, now));
-            Map<String, Object> detail = new HashMap<>();
-            detail.put("itemCode", item.getItemCode());
-            detail.put("reason", req.reason());
-            detail.put("stockStatus", item.getStockStatus());
-            auditRecorder.record("RECYCLE_DELETE", "item", itemId, detail);
-            return itemMapper.selectById(itemId);
-        });
+        ItemEntity updated = reconcile(req, itemId, TxnType.RECYCLE_DELETE, true, operatorId, operatorName);
         sseHub.broadcast(SyncEvent.TYPE_ITEM, updated.getItemCode(), operatorId);
         return updated;
     }
@@ -112,36 +88,68 @@ public class RecycleService {
         if (replayed != null) {
             return replayed;
         }
-        ItemEntity updated = txTemplate.execute(status -> {
-            ItemEntity item = itemMapper.selectById(itemId);
-            if (item == null) {
-                throw new BizException(ErrorCode.NOT_FOUND);
-            }
-            if (item.getDeleted() == null || item.getDeleted() != 1) {
-                throw new BizException(ErrorCode.ITEM_NOT_DELETED);
-            }
-            LocalDateTime now = LocalDateTime.now(clock);
-            int rows = itemMapper.update(null, new LambdaUpdateWrapper<ItemEntity>()
-                    .eq(ItemEntity::getId, itemId)
-                    .eq(ItemEntity::getDeleted, 1)
-                    .set(ItemEntity::getDeleted, 0)
-                    .set(ItemEntity::getDeletedBy, null)
-                    .set(ItemEntity::getDeletedAt, null)
-                    .set(ItemEntity::getUpdatedBy, operatorId)
-                    .set(ItemEntity::getUpdatedAt, now));
-            if (rows == 0) {
-                throw new BizException(ErrorCode.ITEM_NOT_DELETED);
-            }
-            ledgerMapper.insert(buildLedger(item, TxnType.RECYCLE_RESTORE,
-                    req.clientReqId(), null, operatorId, operatorName, now));
-            Map<String, Object> detail = new HashMap<>();
-            detail.put("itemCode", item.getItemCode());
-            detail.put("stockStatus", item.getStockStatus());
-            auditRecorder.record("RECYCLE_RESTORE", "item", itemId, detail);
-            return itemMapper.selectById(itemId);
-        });
+        ItemEntity updated = reconcile(req, itemId, TxnType.RECYCLE_RESTORE, false, operatorId, operatorName);
         sseHub.broadcast(SyncEvent.TYPE_ITEM, updated.getItemCode(), operatorId);
         return updated;
+    }
+
+    /**
+     * 在事务边界之外重试：事务内版返回 null（version 守卫不符=读到陈旧快照）即空提交，
+     * 换新事务重读——REPEATABLE READ 下只有新事务才看得见他事务已提交的现态
+     * （与 InventoryActionService/ArrivalService 同纪律，docs/01 7.1 C1）。
+     */
+    private ItemEntity reconcile(RecycleActionRequest req, long itemId, TxnType type,
+            boolean deleting, long operatorId, String operatorName) {
+        for (int attempt = 0; attempt < 2; attempt++) {
+            ItemEntity updated = txTemplate.execute(
+                    status -> recycleOnce(req, itemId, type, deleting, operatorId, operatorName));
+            if (updated != null) {
+                return updated;
+            }
+        }
+        throw new BizException(ErrorCode.CONFLICT);
+    }
+
+    /**
+     * 单轮（事务内）：读件 → 态校验 → 版本守卫条件更新 → 流水 + 审计。
+     * 更新因 version/态不符影响 0 行 → 返回 null（本事务尚无写入，空提交，外层重试）。
+     */
+    private ItemEntity recycleOnce(RecycleActionRequest req, long itemId, TxnType type,
+            boolean deleting, long operatorId, String operatorName) {
+        ItemEntity item = itemMapper.selectById(itemId);
+        if (item == null) {
+            throw new BizException(ErrorCode.NOT_FOUND);
+        }
+        boolean alreadyDeleted = item.getDeleted() != null && item.getDeleted() == 1;
+        if (deleting && alreadyDeleted) {
+            throw new BizException(ErrorCode.ITEM_ALREADY_DELETED);
+        }
+        if (!deleting && !alreadyDeleted) {
+            throw new BizException(ErrorCode.ITEM_NOT_DELETED);
+        }
+        LocalDateTime now = LocalDateTime.now(clock);
+        int rows = itemMapper.update(null, new LambdaUpdateWrapper<ItemEntity>()
+                .eq(ItemEntity::getId, itemId)
+                .eq(ItemEntity::getDeleted, deleting ? 0 : 1)
+                .eq(ItemEntity::getVersion, item.getVersion())
+                .set(ItemEntity::getDeleted, deleting ? 1 : 0)
+                .set(ItemEntity::getDeletedBy, deleting ? operatorId : null)
+                .set(ItemEntity::getDeletedAt, deleting ? now : null)
+                .set(ItemEntity::getUpdatedBy, operatorId)
+                .set(ItemEntity::getUpdatedAt, now));
+        if (rows == 0) {
+            return null; // 陈旧快照（他事务已提交）或态已变 → 换新事务重读重试
+        }
+        ledgerMapper.insert(buildLedger(item, type, req.clientReqId(),
+                deleting ? req.reason() : null, operatorId, operatorName, now));
+        Map<String, Object> detail = new HashMap<>();
+        detail.put("itemCode", item.getItemCode());
+        if (deleting) {
+            detail.put("reason", req.reason());
+        }
+        detail.put("stockStatus", item.getStockStatus());
+        auditRecorder.record(deleting ? "RECYCLE_DELETE" : "RECYCLE_RESTORE", "item", itemId, detail);
+        return itemMapper.selectById(itemId);
     }
 
     public RecycleBinResponse bin(int page, int size) {
