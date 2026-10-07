@@ -3,7 +3,7 @@ import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toDisplayMessage } from '@/utils/errors'
 import { adjustItem } from '@/utils/api'
-import type { AdjustItemPayload, ItemResponse } from '@/utils/api'
+import type { AdjustItemPayload } from '@/utils/api'
 import { newClientId } from '@/utils/id'
 
 /**
@@ -19,7 +19,14 @@ const UNCHANGED = -1
 const STOCK_OPTIONS = [0, 1, 2] as const
 const SALE_OPTIONS = [0, 1, 2, 3] as const
 
-const props = defineProps<{ item: ItemResponse }>()
+/**
+ * 只用到 id 与两轴现态，故收**最小形状**而非 ItemResponse：商品一覧的
+ * ItemSearchRow 没有 ItemResponse 的其余字段，收整型就等于逼列表页先补一次取件。
+ * ItemResponse 结构性满足它，详情页原样传即可。
+ */
+const props = defineProps<{
+  item: { id: number; stockStatus: number; saleStatus: number }
+}>()
 const emit = defineEmits<{ adjusted: [] }>()
 const visible = defineModel<boolean>({ required: true })
 

@@ -851,7 +851,8 @@
       "loadFailed": "受注履歴の読み込みに失敗しました。"
     },
     "bulkEntry": "一括入出力",
-    "rowDelete": "削除"
+    "rowDelete": "削除",
+    "rowAction": "操作"
   },
   "dashboard": {
     "title": "ダッシュボード",

@@ -8,6 +8,8 @@ const apiMocks = vi.hoisted(() => ({
   fetchVenues: vi.fn(),
   fetchRecycleBin: vi.fn(),
   restoreItem: vi.fn(),
+  sellItem: vi.fn(),
+  scrapItem: vi.fn(),
 }))
 
 // ApiError 保持真实实现（错误文案分支依赖 instanceof/code）；仅替换网络端点
@@ -19,6 +21,8 @@ vi.mock('@/utils/api', async (importOriginal) => {
     fetchVenues: apiMocks.fetchVenues,
     fetchRecycleBin: apiMocks.fetchRecycleBin,
     restoreItem: apiMocks.restoreItem,
+    sellItem: apiMocks.sellItem,
+    scrapItem: apiMocks.scrapItem,
   }
 })
 
@@ -38,6 +42,15 @@ const meAdmin: MeResponse = {
   username: 'boss',
   displayName: '管理者',
   role: 1,
+  locale: 'ja-JP',
+  mustChangePwd: false,
+}
+
+const meEditor: MeResponse = {
+  id: 2,
+  username: 'shigoto',
+  displayName: '編集者',
+  role: 2,
   locale: 'ja-JP',
   mustChangePwd: false,
 }
@@ -95,11 +108,11 @@ function recycleRow(overrides: Partial<RecycleBinRow> = {}): RecycleBinRow {
 }
 
 async function mountView(
-  role: 1 | 3 = 1,
+  role: 1 | 2 | 3 = 1,
   query: Record<string, string> = {},
 ): Promise<{ wrapper: VueWrapper; router: Router }> {
   const auth = useAuthStore()
-  auth.me = role === 1 ? meAdmin : meViewer
+  auth.me = role === 1 ? meAdmin : role === 2 ? meEditor : meViewer
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
@@ -453,8 +466,9 @@ describe('items view column layout (D-126)', () => {
     expect(cols.map((c) => c.label)).toEqual(
       expect.arrayContaining(['落札日', '棚番号', '滞留', '会場', '倉庫', '状態', '操作']),
     )
-    // 列宽合计仍是实测的自然宽之和：宽度与"收不收列"无关，只与内容放不放得下有关
-    expect(sumOf(cols)).toBe(1406)
+    // 列宽合计仍是实测的自然宽之和（「操作」列 D-129 由 64 改 96，装得下动作菜单的
+    // 触发器）：宽度与"收不收列"无关，只与内容放不放得下有关
+    expect(sumOf(cols)).toBe(1438)
   })
 
   it('主列表左钉「勾选 + 商品」、右钉「状態 + 操作」', async () => {
@@ -480,5 +494,133 @@ describe('items view column layout (D-126)', () => {
     ])
     expect(cols.filter((c) => c.fixed === 'right')).toHaveLength(1)
     expect(cols.find((c) => c.label === '状態')?.fixed).toBeUndefined()
+  })
+})
+
+/**
+ * 行内状态动作（D-129）：列表页直接改状态，合法动作由 availableActions 按现行两轴
+ * 派生（与扫码页同一张边表），管理员多出「状態修正」（任意态覆盖）与「削除」。
+ * 菜单项以 command 为契约断言——文案由 i18n 键给，点下去做什么由 command 决定。
+ */
+describe('items row status actions (D-129)', () => {
+  /** 行内菜单项文案：菜单渲染在 body 的浮层里，不在 wrapper 树内。 */
+  function menuItems(): string[] {
+    return [...document.body.querySelectorAll('.el-dropdown-menu__item')].map(
+      (el) => el.textContent?.trim() ?? '',
+    )
+  }
+
+  /** 工具栏也有一个 ElDropdown，故按行取而不是按序号取。 */
+  function rowDropdown(wrapper: VueWrapper, itemCode: string) {
+    const target = wrapper
+      .findAll('#pane-list .el-table__row')
+      .find((r) => r.text().includes(itemCode))
+    return target?.findComponent({ name: 'ElDropdown' })
+  }
+
+  /**
+   * 取行内动作弹层的按钮。**不能**用 `wrapper.findComponent({name:'ElDialog'})`：
+   * 页面上还有一括削除的弹层（未打开时 el-dialog 什么都不渲染），按组件类型取第一个
+   * 拿到的是它。以本弹层独有的 `.itemact-form` 定位到 el-dialog 元素再取页脚按钮。
+   */
+  function actionDialogButton(wrapper: VueWrapper, label: string): HTMLButtonElement {
+    const dialog = wrapper.find('.itemact-form').element.closest('.el-dialog')
+    expect(dialog).not.toBeNull()
+    const button = [...dialog!.querySelectorAll<HTMLButtonElement>('.el-dialog__footer button')]
+      .find((b) => b.textContent?.trim() === label)
+    expect(button).toBeDefined()
+    return button!
+  }
+
+  function clickActionDialog(wrapper: VueWrapper, label: string): Promise<void> {
+    actionDialogButton(wrapper, label).click()
+    return flushPromises()
+  }
+
+  beforeEach(() => {
+    // 1 件在庫・未上架：合法动作＝出品中として記録／廃棄／移動 等
+    apiMocks.searchItems.mockResolvedValue(
+      result({ total: 1, rows: [row({ stockStatus: 1, saleStatus: 0 })] }),
+    )
+  })
+
+  it('管理员菜单＝合法动作 + 状態修正 + 削除', async () => {
+    const { wrapper } = await mountView(1)
+    expect(rowDropdown(wrapper, 'HT9-A1X')?.exists()).toBe(true)
+
+    // 在庫・未上架 的合法动作按现场频率：売却/移動/廃棄/出品済みにする/会場へ返す
+    expect(menuItems()).toEqual([
+      'インポート',
+      'エクスポート',
+      '売却',
+      '移動',
+      '廃棄',
+      '出品済みにする',
+      '会場へ返す',
+      '在庫状態・販売状態の修正',
+      '削除',
+    ])
+  })
+
+  it('编辑者只拿到合法动作，没有削除与状態修正（两者都是 A-only）', async () => {
+    const { wrapper } = await mountView(2)
+    expect(rowDropdown(wrapper, 'HT9-A1X')?.exists()).toBe(true)
+
+    const items = menuItems()
+    expect(items).toContain('廃棄')
+    expect(items).not.toContain('削除')
+    expect(items).not.toContain('在庫状態・販売状態の修正')
+  })
+
+  it('浏览者没有操作列，也不该看到操作入口', async () => {
+    const { wrapper } = await mountView(3)
+    expect(rowDropdown(wrapper, 'HT9-A1X')?.exists()).toBe(false)
+    expect(wrapper.findAll('#pane-list .items-actions')).toHaveLength(0)
+  })
+
+  it('菜单里选一个动作即打开弹层，确认后按幂等键提交并刷新列表', async () => {
+    apiMocks.sellItem.mockResolvedValue({
+      itemId: 1,
+      itemCode: 'HT9-A1X',
+      stockStatus: 2,
+      saleStatus: 2,
+      warehouse: 1,
+    })
+    const { wrapper } = await mountView(1)
+    const listCalls = apiMocks.searchItems.mock.calls.length
+
+    rowDropdown(wrapper, 'HT9-A1X')!.vm.$emit('command', 'sell')
+    await flushPromises()
+
+    // 落札価格は任意項目：空のままでも落札として記録できる
+    await clickActionDialog(wrapper, '売却する')
+
+    expect(apiMocks.sellItem).toHaveBeenCalledTimes(1)
+    const [itemId, clientReqId, soldPrice] = apiMocks.sellItem.mock.calls[0]!
+    expect(itemId).toBe(1)
+    // 幂等键必须由前端生成（http 部署下 crypto.randomUUID 不存在，见 D-125）
+    expect(typeof clientReqId).toBe('string')
+    expect(clientReqId.length).toBeGreaterThan(0)
+    expect(soldPrice).toBeUndefined()
+    // 列表重取 + 回执（这一行可能因筛选不再命中而整行消失，回执是唯一落点）
+    expect(apiMocks.searchItems.mock.calls.length).toBeGreaterThan(listCalls)
+    const notice = wrapper.find('#pane-list .items-batch-result')
+    expect(notice.text()).toContain('HT9-A1X')
+    expect(notice.text()).toContain('売却を記録しました')
+  })
+
+  it('报废未填理由时不发请求，错误留在弹层里（弹层不关）', async () => {
+    const { wrapper } = await mountView(1)
+
+    rowDropdown(wrapper, 'HT9-A1X')!.vm.$emit('command', 'scrap')
+    await flushPromises()
+    await clickActionDialog(wrapper, '廃棄する')
+
+    expect(apiMocks.scrapItem).not.toHaveBeenCalled()
+    // 弹层保持打开：直接重试同键即可安全重放（docs/01 7.0）
+    expect(wrapper.find('.itemact-form').exists()).toBe(true)
+    expect(wrapper.find('.itemact-form .kcgl-error-box').text()).toContain(
+      '廃棄理由を入力してください',
+    )
   })
 })

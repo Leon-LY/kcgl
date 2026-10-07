@@ -6,22 +6,14 @@ import { QrcodeStream } from 'vue-qrcode-reader'
 import type { BarcodeFormat, DetectedBarcode } from 'vue-qrcode-reader'
 import { useAuthStore } from '@/stores/auth'
 import { beep, createScanGate, vibrate } from '@/composables/useScan'
+import { useItemActions } from '@/composables/useItemActions'
 import { availableActions } from '@/utils/inventoryActions'
 import type { ScanAction } from '@/utils/inventoryActions'
 import { formatJstDate } from '@/utils/format'
 import { toDisplayMessage } from '@/utils/errors'
-import { newClientId } from '@/utils/id'
-import { normalizeItemCode, parseAmount } from '@/utils/normalize'
-import {
-  fetchItemByCode,
-  markCanceledItem,
-  markListedItem,
-  returnItem,
-  scrapItem,
-  sellItem,
-  transferItem,
-} from '@/utils/api'
-import type { ActionResult, ItemByCode } from '@/utils/api'
+import { normalizeItemCode } from '@/utils/normalize'
+import { fetchItemByCode } from '@/utils/api'
+import type { ItemByCode } from '@/utils/api'
 import { ApiError } from '@/utils/api'
 
 /**
@@ -37,7 +29,6 @@ import { ApiError } from '@/utils/api'
 const DONE_BANNER_MS = 4000
 const CAMERA_CONSTRAINTS = { facingMode: 'environment' }
 const FORMATS: BarcodeFormat[] = ['qr_code']
-const MAX_UNIT_PRICE = 99_999_999
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -150,131 +141,39 @@ function actionLabel(action: ScanAction): string {
   return t(`scan.action.${action}`)
 }
 
-const activeAction = ref<ScanAction | null>(null)
-const actionBusy = ref(false)
-/** 弹层打开时暂停取流：对话框操作中不换目标件。 */
-const cameraPaused = computed(() => activeAction.value != null)
-const actionError = ref('')
-const soldPriceInput = ref('')
-const scrapReason = ref('')
-const transferTo = ref(0)
-const returnNote = ref('')
-
 /**
- * 弹层文案块名：多动作共用块在此归并（return 双向→return、markListed→listed、
- * markCanceled→canceled）；sell/scrap/transfer 动作名与块名一致直用。
- * （回归：直拼 `scan.${action}.title` 曾让 markListed 弹层渲染原始键名——
- * i18n 块名是 listed 而非 markListed，E2E 只断言过按钮从未开过弹层。）
+ * 七动作的载荷/校验/幂等全部由 useItemActions 承担（与商品一覧行内动作同一份，
+ * D-129）；本页只管「谁可作为目标」（扫码定位到的卡）与成功后的横幅+卡片重读。
  */
-const dialogKey = computed(() => {
-  switch (activeAction.value) {
-    case 'returnCustomer':
-    case 'returnVenue':
-      return 'return'
-    case 'markListed':
-      return 'listed'
-    case 'markCanceled':
-      return 'canceled'
-    default:
-      return activeAction.value ?? ''
-  }
+const {
+  activeAction,
+  busy: actionBusy,
+  error: actionError,
+  soldPriceInput,
+  scrapReason,
+  transferTo,
+  returnNote,
+  titleKey: dialogTitleKey,
+  confirmKey: dialogConfirmKey,
+  open: openDialog,
+  close: closeAction,
+  confirm: onActionConfirm,
+} = useItemActions({
+  onDone: async (action, result) => {
+    showDone(action)
+    await refreshCard(result.itemCode)
+  },
 })
 
-const dialogTitleKey = computed(() => `scan.${dialogKey.value}.title`)
-
-const dialogConfirmKey = computed(() => `scan.${dialogKey.value}.confirm`)
+/** 弹层打开时暂停取流：对话框操作中不换目标件。 */
+const cameraPaused = computed(() => activeAction.value != null)
 
 function openAction(action: ScanAction): void {
   const current = item.value
   if (current == null) {
     return
   }
-  actionError.value = ''
-  soldPriceInput.value = ''
-  scrapReason.value = ''
-  returnNote.value = ''
-  if (action === 'transfer') {
-    transferTo.value = current.item.warehouse === 1 ? 2 : 1
-  }
-  activeAction.value = action
-}
-
-function closeAction(): void {
-  if (actionBusy.value) {
-    return
-  }
-  activeAction.value = null
-}
-
-/** 动作×商品幂等键：生成后保留到成功为止（失败重试复用同键，7.0）。 */
-const idempotencyKeys = new Map<string, string>()
-
-function clientKeyFor(action: ScanAction, itemId: number): string {
-  const mapKey = `${action}:${itemId}`
-  const existing = idempotencyKeys.get(mapKey)
-  if (existing != null) {
-    return existing
-  }
-  const key = newClientId()
-  idempotencyKeys.set(mapKey, key)
-  return key
-}
-
-async function onActionConfirm(): Promise<void> {
-  const action = activeAction.value
-  const current = item.value
-  if (action == null || current == null || actionBusy.value) {
-    return
-  }
-  const itemId = current.item.id
-  const clientReqId = clientKeyFor(action, itemId)
-
-  if (action === 'scrap' && scrapReason.value.trim() === '') {
-    actionError.value = t('scan.scrap.reasonRequired')
-    return
-  }
-  let soldPrice: number | undefined
-  if (action === 'sell' && soldPriceInput.value.trim() !== '') {
-    const parsed = parseAmount(soldPriceInput.value)
-    if (parsed == null || parsed < 1 || parsed > MAX_UNIT_PRICE) {
-      actionError.value = t('scan.sell.priceInvalid')
-      return
-    }
-    soldPrice = parsed
-  }
-
-  actionBusy.value = true
-  actionError.value = ''
-  try {
-    let result: ActionResult
-    if (action === 'sell') {
-      result = await sellItem(itemId, clientReqId, soldPrice)
-    } else if (action === 'scrap') {
-      result = await scrapItem(itemId, clientReqId, scrapReason.value.trim())
-    } else if (action === 'transfer') {
-      result = await transferItem(itemId, clientReqId, transferTo.value)
-    } else if (action === 'markListed') {
-      result = await markListedItem(itemId, clientReqId)
-    } else if (action === 'markCanceled') {
-      result = await markCanceledItem(itemId, clientReqId)
-    } else {
-      const direction = action === 'returnCustomer' ? 1 : 2
-      const note = returnNote.value.trim()
-      result =
-        note === ''
-          ? await returnItem(itemId, clientReqId, direction)
-          : await returnItem(itemId, clientReqId, direction, note)
-    }
-    idempotencyKeys.delete(`${action}:${itemId}`)
-    activeAction.value = null
-    showDone(action)
-    await refreshCard(result.itemCode)
-  } catch (error) {
-    // 弹层保持打开：直接重试同键即可安全重放（7.0），不需要重新开始
-    actionError.value = toDisplayMessage(error, t)
-  } finally {
-    actionBusy.value = false
-  }
+  openDialog(action, current.item)
 }
 
 /** 动作成功后重读定位卡（现态+动作菜单随之刷新）；重读失败保留旧卡不打断操作流。 */

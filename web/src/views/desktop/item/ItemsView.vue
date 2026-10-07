@@ -17,6 +17,7 @@ import {
   searchItems,
 } from '@/utils/api'
 import type {
+  ActionResult,
   ItemSearchParams,
   ItemSearchRow,
   RecycleBatchEntry,
@@ -24,6 +25,10 @@ import type {
   Venue,
 } from '@/utils/api'
 import { newClientId } from '@/utils/id'
+import { availableActions } from '@/utils/inventoryActions'
+import type { ScanAction } from '@/utils/inventoryActions'
+import ItemActionDialog from './ItemActionDialog.vue'
+import ItemAdjustDialog from './ItemAdjustDialog.vue'
 import ItemBatchDeleteDialog from './ItemBatchDeleteDialog.vue'
 
 /**
@@ -48,9 +53,14 @@ const isAdmin = computed(() => auth.me != null && auth.me.role === 1)
  * 单列宽度都不是估的——用真实 Chromium 量每种单元格「一行放下」的自然宽（含 12px×2
  * 单元格内边距）后取上界，如「状態」最宽组合=出庫済み+キャンセル 需 159、「仕入単価」
  * 8 位数 ￥99,999,999 需 108、「商品」11 位管理号（正则上限 AA12-AAA99Z）需 168。
+ * 唯一的例外是「操作」列（96）：格子里只有两个字宽的触发器按钮，宽度与内容无关，
+ * 按标签「操作」两字 + 单元格内边距取值；行内增删列宽度改一次，这条与列宽合计的
+ * 用例（ItemsView.spec.ts）都要跟着改，别只改一处。
  *
  * D-120 的做法是**按视口收列**（窄屏藏起落札日/棚番号/滞留/会場/倉庫），阈值与合计
- * 都靠实测钉死。D-126 加了勾选列（44）与「操作」列（64）后，那套分档被整体换掉：
+ * 都靠实测钉死。D-126 加了勾选列（44）与「操作」列后，那套分档被整体换掉
+ * （「操作」列 D-129 从只有「削除」一个链接按钮的 64 宽改成动作菜单的 96 宽：
+ * 触发器是两个字，菜单项≥6 个并含管理员的「状態修正/削除」，64 会把「操作」折行）：
  * 收列等于**把信息藏起来**，而列宽预算里最先被收掉的那几列（会場/倉庫/落札日/滞留）
  * 恰好都有对应筛选器——用户在表上看见的与筛选器能问的不一致，是"看不全"而不是"放不下"。
  *
@@ -317,6 +327,94 @@ async function onRestore(row: RecycleBinRow): Promise<void> {
   } finally {
     restoringIds.value = restoringIds.value.filter((x) => x !== row.id)
   }
+}
+
+// ------------------------------------------------------------- 行内状态动作（D-129）
+
+/**
+ * 列表页直接改状态：合法动作由 availableActions 按现行两轴派生（与扫码页同一张
+ * 边表，前端镜像后端 InventoryStateMachine，故这里不新增任何端点）。管理员另有
+ * 「状態修正」= 任意态覆盖（POST /api/items/{id}/adjust，D4，须理由）与「削除」，
+ * 两者都是 A-only，故与合法动作同列但分开分组——前者受状态机约束、后者不受，
+ * 混在一组会让「为什么刚才那个动作不见了」变成状态机在背锅。
+ *
+ * 服务端只排除作废/软删件（死件走回收站端点），故列表结果里不必再判 voided/deleted。
+ */
+const canAct = computed(() => auth.me != null && auth.me.role <= 2)
+
+const actionRow = ref<ItemSearchRow | null>(null)
+const actionName = ref<ScanAction | null>(null)
+const adjustRow = ref<ItemSearchRow | null>(null)
+const adjustVisible = ref(false)
+
+/**
+ * 单行动作回执只存**数据**不存文案（同 batchResult 的 D-029 理由：切语言是运行时
+ * 行为，此刻渲染成字符串存下，切到中文后这条提示会留在日文）。
+ */
+const statusNotice = ref<{ itemCode: string; action: ScanAction } | null>(null)
+
+function rowActions(row: ItemSearchRow): ScanAction[] {
+  return availableActions(row.stockStatus, row.saleStatus)
+}
+
+/** 一个菜单项：命令 + 文案键（+ 分组分隔，管理员的第一个动作前断开）。 */
+interface RowCommand {
+  command: string
+  labelKey: string
+  divided?: boolean
+}
+
+/**
+ * 菜单构造放在这里而不是模板里 v-for/v-if 两趟：菜单内容是本功能的可见契约
+ * （哪些态能做什么、管理员多出什么），单一函数才好整体断言，也免得「有分组线但
+ * 只有一项」这类只有渲染出来才看得见的错。
+ */
+function rowCommands(row: ItemSearchRow): RowCommand[] {
+  const legal = rowActions(row).map((action) => ({
+    command: action as string,
+    labelKey: `scan.action.${action}`,
+  }))
+  if (!isAdmin.value) {
+    return legal
+  }
+  return [
+    ...legal,
+    { command: 'adjust', labelKey: 'items.detail.adjustTitle', divided: legal.length > 0 },
+    { command: 'delete', labelKey: 'items.rowDelete' },
+  ]
+}
+
+function onRowCommand(row: ItemSearchRow, command: string): void {
+  if (command === 'delete') {
+    openRowDelete(row)
+    return
+  }
+  if (command === 'adjust') {
+    adjustRow.value = row
+    adjustVisible.value = true
+    return
+  }
+  actionRow.value = row
+  actionName.value = command as ScanAction
+}
+
+/** 弹层关闭：两个 prop 一起清，否则再次点同一行的同一动作时 prop 不变、弹层打不开。 */
+function onActionClosed(): void {
+  actionRow.value = null
+  actionName.value = null
+}
+
+async function onActionDone(result: ActionResult, action: ScanAction): Promise<void> {
+  onActionClosed()
+  statusNotice.value = { itemCode: result.itemCode, action }
+  // 状态变了，当前筛选下这一行可能已不属于本页（如「在庫」筛选里的売却），重取是唯一
+  // 可靠的答案；本地改行会在筛选命不中时留下一个不该在这儿的幽灵行
+  await loadList()
+}
+
+async function onAdjusted(): Promise<void> {
+  adjustRow.value = null
+  await loadList()
 }
 
 // ------------------------------------------------------------- 選択と一括操作（D-126）
@@ -758,6 +856,25 @@ onMounted(() => {
                 {{ t('common.close') }}
               </el-button>
             </div>
+            <!-- 单行动作回执：动作后这一行可能因不满足当前筛选而整行消失（「在庫」
+                 筛选里做売却），没有这条回执就等于点了按钮什么都没发生 -->
+            <div
+              v-if="statusNotice"
+              class="items-batch-result is-ok"
+              role="status"
+            >
+              <p class="items-batch-result-line">
+                <span class="items-batch-result-code">{{ statusNotice.itemCode }}</span>
+                {{ t(`scan.done.${statusNotice.action}`) }}
+              </p>
+              <el-button
+                link
+                type="primary"
+                @click="statusNotice = null"
+              >
+                {{ t('common.close') }}
+              </el-button>
+            </div>
             <el-table
               v-loading="listLoading"
               :data="rows"
@@ -897,27 +1014,52 @@ onMounted(() => {
                   >{{ slowBadge((row as ItemSearchRow).slowMoveLevel) }}</span>
                 </template>
               </el-table-column>
-              <!-- 行内动作（A-only）：删 1 件与勾选批删共用同一套确认与提交，
-                   见 openRowDelete。@click.stop 是必需的——不拦则冒泡到 row-click，
-                   点「削除」会先跳详情页。
+              <!-- 行内动作：合法状态动作（A/E）+ 管理员的状態修正・削除（A-only）。
                    右钉「操作」紧邻「状態」：横滑时状态与它对状态的可用动作必须同屏，
-                   只钉其中一个等于把「现在是什么态」和「能改成什么态」拆开看 -->
+                   只钉其中一个等于把「现在是什么态」和「能改成什么态」拆开看。
+                   @click.stop 在触发器上是必需的——不拦则冒泡到 row-click，点「操作」
+                   会先跳详情页；菜单本身渲染在 body 的浮层里，不经过行，无需再拦。
+                   行内削除与勾选批删共用同一套确认与提交，见 openRowDelete -->
               <el-table-column
-                v-if="isAdmin"
+                v-if="canAct"
                 :label="t('items.column.action')"
-                width="64"
+                width="96"
                 fixed="right"
               >
                 <template #default="{ row }">
-                  <span class="items-actions">
-                    <el-button
-                      link
-                      type="danger"
-                      @click.stop="openRowDelete(row as ItemSearchRow)"
+                  <!-- 无可做的事（如已达终态的件对编辑者）不摆一个点开是空的菜单：
+                       空菜单比没有入口更让人怀疑是不是坏了。占位符放在 .items-actions
+                       之外——onRowClick 见它就拦下，一个「—」不该比半个表格更难点进详情 -->
+                  <span
+                    v-if="rowCommands(row as ItemSearchRow).length > 0"
+                    class="items-actions"
+                  >
+                    <el-dropdown
+                      trigger="click"
+                      @command="(command: string) => onRowCommand(row as ItemSearchRow, command)"
                     >
-                      {{ t('items.rowDelete') }}
-                    </el-button>
+                      <el-button
+                        link
+                        type="primary"
+                        @click.stop
+                      >
+                        {{ t('items.rowAction') }}
+                      </el-button>
+                      <template #dropdown>
+                        <el-dropdown-menu>
+                          <el-dropdown-item
+                            v-for="entry in rowCommands(row as ItemSearchRow)"
+                            :key="entry.command"
+                            :command="entry.command"
+                            :divided="entry.divided === true"
+                          >
+                            {{ t(entry.labelKey) }}
+                          </el-dropdown-item>
+                        </el-dropdown-menu>
+                      </template>
+                    </el-dropdown>
                   </span>
+                  <span v-else>—</span>
                 </template>
               </el-table-column>
               <template #empty>
@@ -1149,6 +1291,20 @@ onMounted(() => {
       :busy="batchBusy"
       @confirm="onBatchDeleteSubmit"
     />
+
+    <ItemActionDialog
+      :item="actionRow"
+      :action="actionName"
+      @close="onActionClosed"
+      @done="onActionDone"
+    />
+
+    <ItemAdjustDialog
+      v-if="adjustRow"
+      v-model="adjustVisible"
+      :item="adjustRow"
+      @adjusted="onAdjusted"
+    />
   </section>
 </template>
 
@@ -1310,6 +1466,13 @@ onMounted(() => {
 
 .items-batch-result-line {
   margin: 0;
+}
+
+/* 回执里的管理号：单行回执是「哪一件 + 做了什么」两句，不把管理号拎出来，
+   多行回执并排时读者得自己从长句里找号 */
+.items-batch-result-code {
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 /* 失败清单整条占一行：管理番号与理由是逐件读的，挤在回执句后面会连成一片 */

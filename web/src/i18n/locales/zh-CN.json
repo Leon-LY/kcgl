@@ -851,7 +851,8 @@
       "loadFailed": "受注记录加载失败。"
     },
     "bulkEntry": "批量导入导出",
-    "rowDelete": "删除"
+    "rowDelete": "删除",
+    "rowAction": "操作"
   },
   "dashboard": {
     "title": "仪表盘",

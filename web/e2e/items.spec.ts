@@ -1,4 +1,4 @@
-import { expect, test, type APIResponse, type Page } from '@playwright/test'
+import { expect, test, type APIResponse, type Locator, type Page } from '@playwright/test'
 
 /**
  * M5-① 商品一覧/商品詳細 E2E（docs/03 G5-①）：kw 搜索（管理号精确链）+
@@ -7,8 +7,8 @@ import { expect, test, type APIResponse, type Page } from '@playwright/test'
  * 作废→?reEntry= 深链转录入重录横幅+作废件从搜索消失；
  * 管理员回收站削除→理由留痕→復元→列表回归；viewer 只读（无回收站标签/无操作按钮）；
  * 管理员在列表页行内削除单行 + 勾选多行一括削除/一括復元（D-126：入口从详情页扩到列表页）。
- * 共库隔离：本 spec 造的件（editor 两件其一作废留库、admin 一件恢复留库、D-126 三件复原留库），
- * 后续 spec 均为相对断言（print 按当日区间、today 按个人会话口径），无污染。
+ * 共库隔离：本 spec 造的件（editor 两件其一作废留库、admin 一件恢复留库、D-126 三件复原留库、
+ * D-129 一件已出品留库），后续 spec 均为相对断言（print 按当日区间、today 按个人会话口径），无污染。
  */
 const E2E_PASSWORD = 'e2e-pass-123456'
 const FIXTURE_BUY_DATE = '2026-01-15'
@@ -29,6 +29,15 @@ async function login(page: Page, username: string): Promise<void> {
   await page.fill('#login-password', E2E_PASSWORD)
   await page.getByRole('button', { name: 'ログイン' }).click()
   await expect(page.locator('.home-welcome, .dashboard-view')).toBeVisible()
+}
+
+/**
+ * 行内「操作」下拉（D-129）：每行的菜单浮层都是**常驻渲染**的（只说显隐），故不能按
+ * 角色/文案全局取——三行就三份「削除」。先点本行的触发器，再只在那份**可见**的菜单里点。
+ */
+async function openRowMenu(page: Page, row: Locator, label: string): Promise<void> {
+  await row.getByRole('button', { name: '操作' }).click()
+  await page.locator('.el-dropdown-menu:visible .el-dropdown-menu__item', { hasText: label }).click()
 }
 
 async function unwrap<T>(response: APIResponse): Promise<T> {
@@ -208,10 +217,11 @@ test.describe('item list and detail (desktop-chromium)', () => {
 
     await page.goto('/items')
 
-    // ---- 行内削除：列表页直接删单行（D-126 之前只有详情页能删）
+    // ---- 行内削除：列表页直接删单行（D-126 之前只有详情页能删；D-129 起入口收进
+    // 「操作」下拉，与状态动作共用一个菜单）
     const rowOf = (code: string) => page.locator('#pane-list .el-table__row', { hasText: code })
     await expect(rowOf(rowItem.itemCode)).toHaveCount(1)
-    await rowOf(rowItem.itemCode).getByRole('button', { name: '削除' }).click()
+    await openRowMenu(page, rowOf(rowItem.itemCode), '削除')
     const rowDialog = page.locator('.el-dialog:visible')
     await expect(rowDialog).toContainText('1 件')
     await rowDialog.locator('textarea').fill('E2E行削除')
@@ -255,6 +265,37 @@ test.describe('item list and detail (desktop-chromium)', () => {
     await page.getByPlaceholder('管理番号・商品名・会場・棚番号などで検索').fill(bulkB.itemCode)
     await page.getByRole('button', { name: '検索' }).click()
     await expect(rowOf(bulkB.itemCode)).toHaveCount(1)
+  })
+
+  test('admin changes an item status from the list row menu without leaving the list', async ({ page }) => {
+    await login(page, 'admin')
+    const item = await createItem(page, 1500, 1)
+    // 在途→在庫：状态动作的起点是「在庫」，而入库的唯一入口是到货核对页（arrival.spec
+    // 覆盖 UI 通路），此处直调同一端点把件摆到位，免去跨页跳转
+    await unwrap(
+      await page.request.post('/api/inventory/arrivals', {
+        data: {
+          items: [{ itemId: item.id, clientReqId: crypto.randomUUID() }],
+          warehouseInDate: FIXTURE_BUY_DATE,
+        },
+      }),
+    )
+
+    await page.goto('/items')
+    const rowOf = page.locator('#pane-list .el-table__row', { hasText: item.itemCode })
+    await expect(rowOf).toContainText('在庫')
+    await expect(rowOf).toContainText('未出品')
+
+    // 出品済みにする＝在庫未出品→出品中（扫描页同款动作，此处从列表页发起）
+    await openRowMenu(page, rowOf, '出品済みにする')
+    const dialog = page.locator('.el-dialog:visible')
+    await expect(dialog).toContainText(item.itemCode)
+    await dialog.getByRole('button', { name: '出品中として記録する' }).click()
+
+    // 全程不离开列表页：回执留在列表上，该行标记当场变化
+    await expect(page.locator('#pane-list .items-batch-result')).toContainText(item.itemCode)
+    await expect(rowOf).toContainText('出品中')
+    await expect(page).toHaveURL(/\/items$/)
   })
 
   test('viewer gets a read-only list and detail without action buttons', async ({ page }) => {

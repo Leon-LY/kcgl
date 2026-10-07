@@ -851,7 +851,8 @@
       "loadFailed": "Failed to load order history."
     },
     "bulkEntry": "Bulk import / export",
-    "rowDelete": "Delete"
+    "rowDelete": "Delete",
+    "rowAction": "Actions"
   },
   "dashboard": {
     "title": "Dashboard",
