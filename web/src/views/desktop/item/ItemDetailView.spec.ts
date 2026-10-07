@@ -12,6 +12,8 @@ const apiMocks = vi.hoisted(() => ({
   updateItem: vi.fn(),
   voidItem: vi.fn(),
   deleteItem: vi.fn(),
+  deleteItemImage: vi.fn(),
+  reorderItemImages: vi.fn(),
 }))
 
 // ApiError 保持真实实现（404001/409000 分支依赖 instanceof+code）；仅替换网络端点
@@ -27,6 +29,8 @@ vi.mock('@/utils/api', async (importOriginal) => {
     updateItem: apiMocks.updateItem,
     voidItem: apiMocks.voidItem,
     deleteItem: apiMocks.deleteItem,
+    deleteItemImage: apiMocks.deleteItemImage,
+    reorderItemImages: apiMocks.reorderItemImages,
   }
 })
 
@@ -432,6 +436,89 @@ describe('item detail view (M5-1)', () => {
     expect(wrapper.find('.kcgl-info-box').text()).toBe('取り消し済みの商品です（理由：誤登録）。')
     expect(wrapper.find('.itemd-title .itemd-tag.is-danger').text()).toBe('取り消し済み')
     expect(wrapper.find('.itemd-actions').exists()).toBe(false)
+  })
+})
+
+describe('photo unbind and reorder (D5)', () => {
+  function photo(id: number, name: string) {
+    return {
+      id,
+      clientUuid: `u${id}`,
+      itemId: 1,
+      url: `/img/${name}.jpg`,
+      thumbUrl: `/thumb/${name}.jpg`,
+      imageType: 1,
+      sortOrder: id,
+    }
+  }
+
+  /** 照片条当前顺序（缩略图 src 的文件名序列）——重排的可见结果。 */
+  function stripOrder(wrapper: VueWrapper): string[] {
+    return wrapper.findAll('.itemd-photos img').map((n) => n.attributes('src')!.replace('/thumb/', ''))
+  }
+
+  function toolButtons(wrapper: VueWrapper, itemIndex: number) {
+    return wrapper.findAll('.itemd-photo-item')[itemIndex].findAll('.itemd-photo-tool')
+  }
+
+  beforeEach(() => {
+    apiMocks.fetchItemImages.mockResolvedValue([photo(50, 'a'), photo(51, 'b'), photo(52, 'c')])
+    apiMocks.reorderItemImages.mockResolvedValue(undefined)
+    apiMocks.deleteItemImage.mockResolvedValue(undefined)
+  })
+
+  it('editor moves a photo earlier: local order updates and the full order is persisted', async () => {
+    const { wrapper } = await mountView(2)
+    expect(stripOrder(wrapper)).toEqual(['a.jpg', 'b.jpg', 'c.jpg'])
+
+    // 第 2 张的左箭头 = 前移一位
+    await toolButtons(wrapper, 1)[0].trigger('click')
+    await flushPromises()
+
+    expect(stripOrder(wrapper)).toEqual(['b.jpg', 'a.jpg', 'c.jpg'])
+    // 服务端要全量一致集合：提交的是完整顺序，不是被移动的那一张
+    expect(apiMocks.reorderItemImages).toHaveBeenCalledWith(1, [51, 50, 52])
+  })
+
+  it('rolls the local order back and reports when the reorder request fails', async () => {
+    apiMocks.reorderItemImages.mockRejectedValue(new ApiError(409000, 'conflict'))
+    const { wrapper } = await mountView(2)
+
+    await toolButtons(wrapper, 1)[0].trigger('click')
+    await flushPromises()
+
+    expect(stripOrder(wrapper)).toEqual(['a.jpg', 'b.jpg', 'c.jpg'])
+    expect(wrapper.find('.itemd-photo-error').text()).toBe(i18n.global.t('errors.409000'))
+  })
+
+  it('disables the end arrows: the first cannot move earlier, the last cannot move later', async () => {
+    const { wrapper } = await mountView(2)
+
+    expect(toolButtons(wrapper, 0)[0].attributes('disabled')).toBeDefined()
+    expect(toolButtons(wrapper, 0)[1].attributes('disabled')).toBeUndefined()
+    expect(toolButtons(wrapper, 2)[1].attributes('disabled')).toBeDefined()
+    expect(toolButtons(wrapper, 2)[0].attributes('disabled')).toBeUndefined()
+  })
+
+  it('editor unbinds a photo through the confirm dialog', async () => {
+    const { wrapper } = await mountView(2)
+
+    await toolButtons(wrapper, 1)[2].trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.el-dialog').text()).toContain('元の画像ファイルはサーバーに残ります')
+    await wrapper.findAll('.el-dialog button').find((b) => b.text() === '外す')!.trigger('click')
+    await flushPromises()
+
+    expect(apiMocks.deleteItemImage).toHaveBeenCalledWith(51)
+    expect(stripOrder(wrapper)).toEqual(['a.jpg', 'c.jpg'])
+    expect(wrapper.text()).toContain('写真 2 枚')
+  })
+
+  it('viewer gets no photo tools at all', async () => {
+    const { wrapper } = await mountView(3)
+
+    expect(wrapper.findAll('.itemd-photo-item')).toHaveLength(3)
+    expect(wrapper.findAll('.itemd-photo-tool')).toHaveLength(0)
   })
 })
 

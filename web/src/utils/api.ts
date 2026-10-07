@@ -579,6 +579,19 @@ export function fetchItemImages(itemId: number): Promise<ImageUploadResult[]> {
   return request(`/api/items/${itemId}/images`, { method: 'GET' })
 }
 
+/** 解绑一张照片（D5）：删库行不删文件，不可撤销（docs/01 7.5）。 */
+export function deleteItemImage(imageId: number): Promise<void> {
+  return request(`/api/images/${imageId}`, { method: 'DELETE' })
+}
+
+/**
+ * 重排照片（D5）：ids 必须与该商品**全部**图片一一对应（缺失/多余/重复服务端 400）。
+ * 故调用方须传当前完整顺序，不能只传被移动的那一张。
+ */
+export function reorderItemImages(itemId: number, ids: number[]): Promise<void> {
+  return request(`/api/items/${itemId}/images/order`, jsonInit('PUT', { ids }))
+}
+
 // ------------------------------------------------------------------ 到货核对（M2-8a）
 
 /** 在途清单行：卡片=缩略图+管理号+落札日+预计仓库。 */
@@ -606,10 +619,15 @@ export function fetchPendingArrivals(warehouse: number | null, page: number, siz
   return request(`/api/inventory/arrivals/pending?${query}`, { method: 'GET' })
 }
 
-/** 确认入库行：clientReqId=行级幂等键（重试复用同键，服务端读回原结果）。 */
+/**
+ * 确认入库行：clientReqId=行级幂等键（重试复用同键，服务端读回原结果）。
+ * warehouse/shelfNo=到仓改仓与上架货架（A7）：不填则该行沿用录入时的预计仓库/棚番号。
+ */
 export interface ConfirmArrivalLine {
   itemId: number
   clientReqId: string
+  warehouse?: number
+  shelfNo?: string
 }
 
 export interface ConfirmArrivalResult {

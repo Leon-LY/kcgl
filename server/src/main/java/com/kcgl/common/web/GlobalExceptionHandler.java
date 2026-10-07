@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -77,13 +78,16 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 缺参/参数类型不符是客户端错误（400），原样落入 onUnhandled 会变 500 并以 ERROR 级
-     * 污染日志与环形缓冲。WARN 留排查线索，响应用日文通文案（不透出 Spring 英文消息）。
+     * 客户端输入无法绑定：缺参 / 参数类型不符 / 请求体不可解析（JSON 语法错误、字段类型
+     * 对不上、数组当对象收等）。三者同属「请求形态不对」，原样落入 onUnhandled 会变
+     * 500+errorId 并以 ERROR 级污染日志与告警口径——前端把自家拼错的请求体当系统故障报障，
+     * 真故障反被淹没。WARN 留排查线索，响应用日文通文案（不透出 Spring 英文消息与原始 JSON）。
      */
     @ExceptionHandler({MissingServletRequestParameterException.class,
-            MethodArgumentTypeMismatchException.class})
+            MethodArgumentTypeMismatchException.class,
+            HttpMessageNotReadableException.class})
     public ResponseEntity<ApiResponse<Void>> onClientInput(Exception ex) {
-        log.warn("请求参数错误: {}", ex.getMessage());
+        log.warn("请求入力错误: {}", ex.getMessage());
         return ResponseEntity.badRequest().body(ApiResponse.error(ErrorCode.VALIDATION));
     }
 

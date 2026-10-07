@@ -7,7 +7,7 @@ import { dayjs, formatJstDate, JST_TZ } from '@/utils/format'
 import { toDisplayMessage } from '@/utils/errors'
 import { newClientId } from '@/utils/id'
 import { confirmArrivals, fetchPendingArrivals } from '@/utils/api'
-import type { PendingArrival } from '@/utils/api'
+import type { ConfirmArrivalLine, PendingArrival } from '@/utils/api'
 
 /**
  * 到货核对页（/arrival，M2-8a）：按预计仓库筛选在途件，卡片点选 → 底部
@@ -121,10 +121,43 @@ const confirmError = ref('')
 /** 入库日上限=今天 JST（未来日服务端 400 拒绝，前端先行钳制）。 */
 const todayInput = dayjs().tz(JST_TZ).format('YYYY-MM-DD')
 
+/**
+ * 到仓改仓/上架货架（A7）：按 itemId 记行级覆盖，**只加不隐**——没记的行沿用
+ * 录入时的预计仓库（服务端 warehouse 缺省即原值、shelfNo 缺省即不改）。
+ * 货直送仓库、标签还在办公室的路径靠这里一次落对仓，省掉入库后再调拨一趟。
+ */
+const warehouseOverrides = ref<Record<number, number>>({})
+const shelfOverrides = ref<Record<number, string>>({})
+
+/** 已选商品行（弹层逐行给改仓/货架输入；选中顺序即清单顺序）。 */
+const selectedRows = computed(() =>
+  selectedIds.value
+    .map((id) => items.value.find((row) => row.id === id))
+    .filter((row): row is PendingArrival => row != null),
+)
+
+function setWarehouse(itemId: number, warehouse: number | null): void {
+  const next = { ...warehouseOverrides.value }
+  if (warehouse == null) {
+    // 点回「予定どおり」= 删键而非写回原值：只有「没记过的行」才不上报仓库，
+    // 写回原值会让服务端分不清「用户确认过」与「用户没看」（见 D-116）
+    delete next[itemId]
+  } else {
+    next[itemId] = warehouse
+  }
+  warehouseOverrides.value = next
+}
+
+function setShelf(itemId: number, shelfNo: string): void {
+  shelfOverrides.value = { ...shelfOverrides.value, [itemId]: shelfNo }
+}
+
 function openDialog(): void {
   if (selectedCount.value === 0) return
   inDate.value = ''
   confirmError.value = ''
+  warehouseOverrides.value = {}
+  shelfOverrides.value = {}
   dialogOpen.value = true
 }
 
@@ -143,10 +176,18 @@ async function onConfirm(): Promise<void> {
   if (confirming.value) return
   confirming.value = true
   confirmError.value = ''
-  const lines = selectedIds.value.map((itemId) => ({
-    itemId,
-    clientReqId: clientKeyFor(itemId),
-  }))
+  const lines = selectedIds.value.map((itemId) => {
+    const line: ConfirmArrivalLine = { itemId, clientReqId: clientKeyFor(itemId) }
+    const warehouse = warehouseOverrides.value[itemId]
+    if (warehouse != null) {
+      line.warehouse = warehouse
+    }
+    const shelfNo = shelfOverrides.value[itemId]?.trim()
+    if (shelfNo != null && shelfNo !== '') {
+      line.shelfNo = shelfNo
+    }
+    return line
+  })
   try {
     const result = await confirmArrivals(
       lines,
@@ -355,6 +396,62 @@ onBeforeUnmount(() => {
             >
             <p class="arrival-dialog-hint">
               {{ t('arrival.warehouseInDateHint') }}
+            </p>
+          </div>
+
+          <div class="kcgl-field">
+            <p class="kcgl-label">
+              {{ t('arrival.overrideTitle') }}
+            </p>
+            <ul class="arrival-override-list">
+              <li
+                v-for="row in selectedRows"
+                :key="row.id"
+                class="arrival-override-row"
+              >
+                <span class="arrival-override-code">{{ row.itemCode }}</span>
+                <div
+                  class="arrival-override-wh"
+                  role="group"
+                  :aria-label="t('arrival.changeWarehouse')"
+                >
+                  <button
+                    type="button"
+                    class="arrival-override-wh-option"
+                    :class="{ 'is-active': warehouseOverrides[row.id] == null }"
+                    :aria-pressed="warehouseOverrides[row.id] == null"
+                    :disabled="confirming"
+                    @click="setWarehouse(row.id, null)"
+                  >
+                    {{ t('arrival.keepPlanned', { wh: t(`common.warehouse.${row.warehouse}`) }) }}
+                  </button>
+                  <button
+                    v-for="wh in [1, 2]"
+                    :key="wh"
+                    type="button"
+                    class="arrival-override-wh-option"
+                    :class="{ 'is-active': warehouseOverrides[row.id] === wh }"
+                    :aria-pressed="warehouseOverrides[row.id] === wh"
+                    :disabled="confirming"
+                    @click="setWarehouse(row.id, wh)"
+                  >
+                    {{ t(`common.warehouse.${wh}`) }}
+                  </button>
+                </div>
+                <input
+                  class="kcgl-input arrival-override-shelf"
+                  type="text"
+                  maxlength="20"
+                  :value="shelfOverrides[row.id] ?? ''"
+                  :placeholder="t('arrival.shelfNo')"
+                  :aria-label="t('arrival.shelfNo')"
+                  :disabled="confirming"
+                  @input="setShelf(row.id, ($event.target as HTMLInputElement).value)"
+                >
+              </li>
+            </ul>
+            <p class="arrival-dialog-hint">
+              {{ t('arrival.overrideHint') }}
             </p>
           </div>
           <p
@@ -624,6 +721,66 @@ onBeforeUnmount(() => {
   margin: 0;
   font-size: 0.8rem;
   color: var(--kcgl-color-text-faint);
+}
+
+/* 到仓改仓（A7）：批量选中可能几十行，列表自身滚动，弹层不顶破视口 */
+.arrival-override-list {
+  max-height: 40vh;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.arrival-override-row {
+  display: grid;
+  gap: 6px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--kcgl-color-border);
+}
+
+.arrival-override-row:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.arrival-override-code {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.arrival-override-wh {
+  display: flex;
+  gap: 6px;
+}
+
+.arrival-override-wh-option {
+  flex: 1;
+  min-height: 34px;
+  padding: 4px 6px;
+  border: 1px solid var(--kcgl-color-border);
+  border-radius: var(--kcgl-radius-s);
+  background: var(--kcgl-color-card);
+  color: var(--kcgl-color-text-sub);
+  font: inherit;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.arrival-override-wh-option.is-active {
+  border-color: var(--kcgl-color-primary);
+  background: var(--kcgl-color-primary-bg);
+  color: var(--kcgl-color-primary);
+  font-weight: 600;
+}
+
+.arrival-override-shelf {
+  min-height: 36px;
+  font-size: 0.85rem;
 }
 
 .arrival-dialog-error {

@@ -2,11 +2,16 @@ package com.kcgl.module.image;
 
 import com.kcgl.common.web.ApiResponse;
 import com.kcgl.module.image.dto.ImageResponse;
+import com.kcgl.module.image.dto.ReorderImagesRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -41,5 +46,22 @@ public class ImageController {
     @GetMapping("/items/{id}/images")
     public ApiResponse<List<ImageResponse>> listByItem(@PathVariable("id") long itemId) {
         return ApiResponse.ok(imageService.listByItem(itemId));
+    }
+
+    /** 解绑图片（D5）：删行不删文件；E+ 与上传同权。 */
+    @DeleteMapping("/images/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','EDITOR')")
+    public ApiResponse<Void> delete(@PathVariable("id") long imageId) {
+        imageService.delete(imageId);
+        return ApiResponse.ok();
+    }
+
+    /** 重排图片（D5）：按提交顺序重写 sort_order；E+ 与上传同权。 */
+    @PutMapping("/items/{id}/images/order")
+    @PreAuthorize("hasAnyRole('ADMIN','EDITOR')")
+    public ApiResponse<Void> reorder(@PathVariable("id") long itemId,
+            @Valid @RequestBody ReorderImagesRequest req) {
+        imageService.reorder(itemId, req.ids());
+        return ApiResponse.ok();
     }
 }

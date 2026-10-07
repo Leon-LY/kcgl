@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.mock.web.MockMultipartFile;
@@ -31,9 +32,11 @@ import java.nio.file.Path;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -337,6 +340,127 @@ class ImageUploadIntegrationTest {
                         .isGreaterThan(100));
     }
 
+    // ------------------------------------------------------------------ 删除/重排（D5）
+
+    @Test
+    void deleteImage_byEditor_unbindsRowAndKeepsFile() throws Exception {
+        MockHttpSession editor = loginAs("eichi");
+        String clientUuid = UUID.randomUUID().toString();
+        mockMvc.perform(multipart("/api/images").file(part(jpeg(64, 48)))
+                        .param("clientUuid", clientUuid).param("itemId", String.valueOf(itemId))
+                        .session(editor))
+                .andExpect(status().isOk());
+        long imageId = jdbcTemplate.queryForObject(
+                "SELECT id FROM item_image WHERE client_uuid = ?", Long.class, clientUuid);
+        String storedPath = jdbcTemplate.queryForObject(
+                "SELECT stored_path FROM item_image WHERE client_uuid = ?", String.class, clientUuid);
+
+        mockMvc.perform(delete("/api/images/{id}", imageId).session(editor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM item_image WHERE id = ?", Long.class, imageId)).isZero();
+        // 解绑不删文件（docs/01 7.5）：原图+缩略图仍在盘上
+        assertThat(Files.exists(imageDir.resolve("orig").resolve(storedPath))).isTrue();
+        assertThat(Files.exists(imageDir.resolve("thumb").resolve(storedPath))).isTrue();
+        mockMvc.perform(get("/api/items/{id}/images", itemId).session(editor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(0));
+    }
+
+    @Test
+    void deleteImage_byViewer_403() throws Exception {
+        MockHttpSession editor = loginAs("eichi");
+        long imageId = uploadReturningId(editor, UUID.randomUUID().toString());
+
+        mockMvc.perform(delete("/api/images/{id}", imageId).session(loginAs("miru")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deleteImage_missing_404() throws Exception {
+        mockMvc.perform(delete("/api/images/{id}", 999999).session(loginAs("eichi")))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(404001));
+    }
+
+    @Test
+    void reorderImages_byEditor_persistsNewOrder() throws Exception {
+        MockHttpSession editor = loginAs("eichi");
+        long a = uploadReturningId(editor, UUID.randomUUID().toString());
+        long b = uploadReturningId(editor, UUID.randomUUID().toString());
+        long c = uploadReturningId(editor, UUID.randomUUID().toString());
+
+        mockMvc.perform(put("/api/items/{id}/images/order", itemId)
+                        .session(editor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(orderBody(c, a, b)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+
+        mockMvc.perform(get("/api/items/{id}/images", itemId).session(editor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].id").value(c))
+                .andExpect(jsonPath("$.data[1].id").value(a))
+                .andExpect(jsonPath("$.data[2].id").value(b));
+    }
+
+    @Test
+    void reorderImages_mismatchedSet_400() throws Exception {
+        MockHttpSession editor = loginAs("eichi");
+        long a = uploadReturningId(editor, UUID.randomUUID().toString());
+        long b = uploadReturningId(editor, UUID.randomUUID().toString());
+
+        // 缺一张（漏 b）→ 集合不等 → 400
+        mockMvc.perform(put("/api/items/{id}/images/order", itemId)
+                        .session(editor).contentType(MediaType.APPLICATION_JSON)
+                        .content(orderBody(a)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400001));
+        // 多一张（a,b + 不存在）→ 400
+        mockMvc.perform(put("/api/items/{id}/images/order", itemId)
+                        .session(editor).contentType(MediaType.APPLICATION_JSON)
+                        .content(orderBody(a, b, 999999)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400001));
+        // 重复 → 400
+        mockMvc.perform(put("/api/items/{id}/images/order", itemId)
+                        .session(editor).contentType(MediaType.APPLICATION_JSON)
+                        .content(orderBody(a, a)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400001));
+    }
+
+    @Test
+    void reorderImages_byViewer_403() throws Exception {
+        MockHttpSession editor = loginAs("eichi");
+        long a = uploadReturningId(editor, UUID.randomUUID().toString());
+
+        mockMvc.perform(put("/api/items/{id}/images/order", itemId)
+                        .session(loginAs("miru")).contentType(MediaType.APPLICATION_JSON)
+                        .content(orderBody(a)))
+                .andExpect(status().isForbidden());
+    }
+
+    /**
+     * 请求体形态错误（裸数组当对象收）必须 400 而非 500：本用例是「客户端输入不可绑定」
+     * 契约的回归守卫——修复前后者落入 onUnhandled 变 500000+errorId，前端会把它当系统故障
+     * 报障（GlobalExceptionHandler 已把 HttpMessageNotReadableException 并入 400 分支）。
+     */
+    @Test
+    void reorderImages_bodyShapeMismatch_400_notSystemError() throws Exception {
+        MockHttpSession editor = loginAs("eichi");
+        long a = uploadReturningId(editor, UUID.randomUUID().toString());
+
+        mockMvc.perform(put("/api/items/{id}/images/order", itemId)
+                        .session(editor).contentType(MediaType.APPLICATION_JSON)
+                        .content("[" + a + "]"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400001))
+                .andExpect(jsonPath("$.errorId").doesNotExist());
+    }
+
     // ------------------------------------------------------------------ 工具
 
     /** 期望落盘路径（yyyy/MM 取上传时刻 JST——测试跨月边界由 CI 时区钉死项覆盖）。 */
@@ -344,6 +468,24 @@ class ImageUploadIntegrationTest {
         return java.time.LocalDate.now(java.time.ZoneId.of("Asia/Tokyo"))
                 .format(java.time.format.DateTimeFormatter.ofPattern("yyyy/MM"))
                 + "/" + clientUuid + ".jpg";
+    }
+
+    /** 重排请求体（D5）：{"ids":[…]}. 传裸数组会被拒（4xx）——形态本身由 400 守卫覆盖。 */
+    private static String orderBody(long... ids) {
+        StringBuilder sb = new StringBuilder("{\"ids\":[");
+        for (int i = 0; i < ids.length; i++) {
+            sb.append(i > 0 ? "," : "").append(ids[i]);
+        }
+        return sb.append("]}").toString();
+    }
+
+    /** 上传一张 JPEG 并读回其 id（D5 删除/重排夹具共用）。 */
+    private long uploadReturningId(MockHttpSession session, String clientUuid) throws Exception {
+        MvcResult result = mockMvc.perform(multipart("/api/images").file(part(jpeg(32, 32)))
+                        .param("clientUuid", clientUuid).param("itemId", String.valueOf(itemId))
+                        .session(session))
+                .andExpect(status().isOk()).andReturn();
+        return readId(result);
     }
 
     private static long readId(MvcResult result) throws IOException {

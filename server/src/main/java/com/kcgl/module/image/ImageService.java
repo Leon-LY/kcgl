@@ -1,6 +1,7 @@
 package com.kcgl.module.image;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.kcgl.common.audit.AuditRecorder;
 import com.kcgl.common.sse.SseHub;
 import com.kcgl.common.sse.SyncEvent;
@@ -30,7 +31,9 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -126,6 +129,55 @@ public class ImageService {
                         .eq(ImageEntity::getItemId, itemId)
                         .orderByAsc(ImageEntity::getSortOrder))
                 .stream().map(ImageResponse::from).toList();
+    }
+
+    /**
+     * 解绑（D5）：删行不删文件（docs/01 7.5 契约——孤儿文件按 {yyyy}/{MM} 目录留待批量回收）。
+     * 与上传同冻结纪律：作废/回收站商品禁一切变动，故照走 requireUpdatableItem。
+     */
+    public void delete(long imageId) {
+        ImageEntity image = imageMapper.selectById(imageId);
+        if (image == null) {
+            throw new BizException(ErrorCode.NOT_FOUND);
+        }
+        requireUpdatableItem(image.getItemId());
+        imageMapper.deleteById(imageId);
+        auditRecorder.record("IMAGE_DELETE", "item", image.getItemId(), java.util.Map.of(
+                "imageId", imageId,
+                "clientUuid", image.getClientUuid(),
+                "storedPath", image.getStoredPath()));
+        sseHub.broadcast(SyncEvent.TYPE_IMAGE, String.valueOf(image.getItemId()), currentUserId());
+    }
+
+    /**
+     * 重排（D5）：按提交顺序重写 sort_order（0..n-1）。集合须与现有一一对应
+     * （无缺失/多余/重复）——半序落库会留下「所见与库不一致」的脏序，故整单 400。
+     * 幂等：同一顺序重复提交结果不变，无需幂等键。
+     */
+    public void reorder(long itemId, List<Long> orderedIds) {
+        requireUpdatableItem(itemId);
+        if (orderedIds == null || orderedIds.isEmpty()) {
+            throw new BizException(ErrorCode.VALIDATION, "並べ替える画像が指定されていません");
+        }
+        Set<Long> existingIds = new HashSet<>(imageMapper.selectList(
+                        new LambdaQueryWrapper<ImageEntity>().eq(ImageEntity::getItemId, itemId))
+                .stream().map(ImageEntity::getId).toList());
+        Set<Long> requestedIds = new HashSet<>(orderedIds);
+        if (requestedIds.size() != orderedIds.size() || !requestedIds.equals(existingIds)) {
+            throw new BizException(ErrorCode.VALIDATION,
+                    "画像の一覧が最新ではありません。再読み込みしてください");
+        }
+        txTemplate.executeWithoutResult(status -> {
+            for (int i = 0; i < orderedIds.size(); i++) {
+                imageMapper.update(null, new LambdaUpdateWrapper<ImageEntity>()
+                        .eq(ImageEntity::getId, orderedIds.get(i))
+                        .eq(ImageEntity::getItemId, itemId)
+                        .set(ImageEntity::getSortOrder, i));
+            }
+            auditRecorder.record("IMAGE_REORDER", "item", itemId, java.util.Map.of(
+                    "order", orderedIds));
+        });
+        sseHub.broadcast(SyncEvent.TYPE_IMAGE, String.valueOf(itemId), currentUserId());
     }
 
     // ------------------------------------------------------------------ 校验链

@@ -28,7 +28,10 @@ import type { MeResponse, PendingArrival, PendingArrivalList } from '@/utils/api
  * （幂等键复用契约 docs/01 7.0——失败重试同键重放）/viewer 只读。
  */
 
-type ConfirmCall = [{ itemId: number; clientReqId: string }[], string | undefined]
+type ConfirmCall = [
+  { itemId: number; clientReqId: string; warehouse?: number; shelfNo?: string }[],
+  string | undefined,
+]
 
 const meEditor: MeResponse = {
   id: 2,
@@ -255,6 +258,64 @@ describe('arrival check (M2-8a)', () => {
     await cards(wrapper)[0]!.trigger('click')
     expect(cards(wrapper)[0]!.classes()).not.toContain('is-selected')
     expect(apiMocks.confirmArrivals).not.toHaveBeenCalled()
+  })
+
+  // ------------------------------------------------------------- 到仓改仓/货架（A7，D7）
+
+  it('sends the warehouse override and shelf only for the rows the user touched', async () => {
+    apiMocks.fetchPendingArrivals.mockResolvedValue(
+      page([row(101, 'HT9-A1X', 1), row(102, 'HT9-A2X', 2)]),
+    )
+    const wrapper = await mountView()
+    await waitFor(() => cards(wrapper).length === 2)
+    await cards(wrapper)[0]!.trigger('click')
+    await cards(wrapper)[1]!.trigger('click')
+    await wrapper.find('.arrival-actionbar button').trigger('click')
+
+    const overrideRows = wrapper.findAll('.arrival-override-row')
+    expect(overrideRows).toHaveLength(2)
+    // 默认停在该行登记时的预计仓库（101 预计名古屋、102 预计福岡）
+    expect(overrideRows[0]!.findAll('.arrival-override-wh-option')[0]!.text()).toBe('予定どおり（名古屋倉庫）')
+    expect(overrideRows[0]!.findAll('.arrival-override-wh-option')[0]!.attributes('aria-pressed')).toBe('true')
+
+    // 只有 101 改仓到福岡并上架；102 全程不动
+    await overrideRows[0]!.findAll('.arrival-override-wh-option')[2]!.trigger('click')
+    await overrideRows[0]!.find('.arrival-override-shelf').setValue('A-01')
+
+    apiMocks.confirmArrivals.mockResolvedValue({ arrivedCount: 2, items: [] })
+    await wrapper.find('.arrival-dialog-ok').trigger('click')
+    await flushPromises()
+
+    const [lines] = apiMocks.confirmArrivals.mock.calls[0] as unknown as ConfirmCall
+    expect(lines[0]).toMatchObject({ itemId: 101, warehouse: 2, shelfNo: 'A-01' })
+    // 未触碰的行不带这两键——服务端据此沿用原值/不改货架（缺省≠显式清空）
+    expect(lines[1]).not.toHaveProperty('warehouse')
+    expect(lines[1]).not.toHaveProperty('shelfNo')
+  })
+
+  it('the planned-warehouse option clears the override and a blank shelf is not sent', async () => {
+    apiMocks.fetchPendingArrivals.mockResolvedValue(page([row(101, 'HT9-A1X', 1)]))
+    const wrapper = await mountView()
+    await waitFor(() => cards(wrapper).length === 1)
+    await cards(wrapper)[0]!.trigger('click')
+    await wrapper.find('.arrival-actionbar button').trigger('click')
+
+    const options = wrapper.findAll('.arrival-override-wh-option')
+    await options[2]!.trigger('click')
+    expect(options[2]!.attributes('aria-pressed')).toBe('true')
+    // 改主意：点回「予定どおり」→ 覆盖被清除，不再上报仓库
+    await options[0]!.trigger('click')
+    expect(options[0]!.attributes('aria-pressed')).toBe('true')
+    expect(options[2]!.attributes('aria-pressed')).toBe('false')
+    await wrapper.find('.arrival-override-shelf').setValue('   ')
+
+    apiMocks.confirmArrivals.mockResolvedValue({ arrivedCount: 1, items: [] })
+    await wrapper.find('.arrival-dialog-ok').trigger('click')
+    await flushPromises()
+
+    const [lines] = apiMocks.confirmArrivals.mock.calls[0] as unknown as ConfirmCall
+    expect(lines[0]).not.toHaveProperty('warehouse')
+    expect(lines[0]).not.toHaveProperty('shelfNo')
   })
 
   it('shows the empty state when nothing awaits arrival', async () => {
