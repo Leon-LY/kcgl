@@ -5,8 +5,9 @@ import { expect, test, type APIResponse, type Page } from '@playwright/test'
  * 仓库筛选与条件クリア；行点击进详情四段式展示+取引履歴/ヤフー受注两标签页；
  * 编辑弹层全量 PUT（商品名/備考/棚番号改后刷新；号内字段不动=无分歧徽标）；
  * 作废→?reEntry= 深链转录入重录横幅+作废件从搜索消失；
- * 管理员回收站削除→理由留痕→復元→列表回归；viewer 只读（无回收站标签/无操作按钮）。
- * 共库隔离：本 spec 造的件（editor 两件其一作废留库、admin 一件恢复留库），
+ * 管理员回收站削除→理由留痕→復元→列表回归；viewer 只读（无回收站标签/无操作按钮）；
+ * 管理员在列表页行内削除单行 + 勾选多行一括削除/一括復元（D-126：入口从详情页扩到列表页）。
+ * 共库隔离：本 spec 造的件（editor 两件其一作废留库、admin 一件恢复留库、D-126 三件复原留库），
  * 后续 spec 均为相对断言（print 按当日区间、today 按个人会话口径），无污染。
  */
 const E2E_PASSWORD = 'e2e-pass-123456'
@@ -197,6 +198,63 @@ test.describe('item list and detail (desktop-chromium)', () => {
     await page.getByPlaceholder('管理番号・商品名・会場・棚番号などで検索').fill(itemC.itemCode)
     await page.getByRole('button', { name: '検索' }).click()
     await expect(page.locator('#pane-list .el-table__row', { hasText: itemC.itemCode })).toHaveCount(1)
+  })
+
+  test('admin deletes a row and a multi-row selection from the list, then restores in bulk', async ({ page }) => {
+    await login(page, 'admin')
+    const rowItem = await createItem(page, 1500, 1)
+    const bulkA = await createItem(page, 1500, 1)
+    const bulkB = await createItem(page, 1500, 1)
+
+    await page.goto('/items')
+
+    // ---- 行内削除：列表页直接删单行（D-126 之前只有详情页能删）
+    const rowOf = (code: string) => page.locator('#pane-list .el-table__row', { hasText: code })
+    await expect(rowOf(rowItem.itemCode)).toHaveCount(1)
+    await rowOf(rowItem.itemCode).getByRole('button', { name: '削除' }).click()
+    const rowDialog = page.locator('.el-dialog:visible')
+    await expect(rowDialog).toContainText('1 件')
+    await rowDialog.locator('textarea').fill('E2E行削除')
+    await rowDialog.getByRole('button', { name: '削除する' }).click()
+    // 结果留在列表上（弹层关掉不带走回执），且该行当场消失
+    await expect(page.locator('#pane-list .items-batch-result')).toContainText('1 件を削除しました。')
+    await expect(rowOf(rowItem.itemCode)).toHaveCount(0)
+
+    // ---- 一括削除：勾选两行 → 一次提交（逐件语义，成功数在回执里）
+    for (const item of [bulkA, bulkB]) {
+      await rowOf(item.itemCode).locator('.el-checkbox').click()
+    }
+    await expect(page.locator('.items-count.is-selected')).toContainText('2 件')
+    await page.getByRole('button', { name: '選択した商品を削除' }).click()
+    const bulkDialog = page.locator('.el-dialog:visible')
+    await expect(bulkDialog).toContainText('2 件')
+    await bulkDialog.locator('textarea').fill('E2E一括削除')
+    await bulkDialog.getByRole('button', { name: '削除する' }).click()
+    await expect(page.locator('#pane-list .items-batch-result')).toContainText('2 件を削除しました。')
+    await expect(rowOf(bulkA.itemCode)).toHaveCount(0)
+    await expect(rowOf(bulkB.itemCode)).toHaveCount(0)
+
+    // ---- 三件都进了回收站，理由留痕
+    await page.locator('.el-tabs__item', { hasText: '削除済み商品' }).click()
+    const recycleRow = (code: string) => page.locator('#pane-recycle .el-table__row', { hasText: code })
+    for (const item of [rowItem, bulkA, bulkB]) {
+      await expect(recycleRow(item.itemCode)).toHaveCount(1)
+    }
+    await expect(recycleRow(bulkA.itemCode)).toContainText('E2E一括削除')
+
+    // ---- 一括復元
+    for (const item of [rowItem, bulkA, bulkB]) {
+      await recycleRow(item.itemCode).locator('.el-checkbox').click()
+    }
+    await page.getByRole('button', { name: '選択した商品を復元' }).click()
+    await expect(page.locator('#pane-recycle .items-batch-result')).toContainText('3 件を復元しました。')
+    await expect(page.locator('#pane-recycle .el-table__row')).toHaveCount(0)
+
+    // ---- 回到列表：三件都在（搜索定位其中一件）
+    await page.locator('.el-tabs__item', { hasText: '商品一覧' }).click()
+    await page.getByPlaceholder('管理番号・商品名・会場・棚番号などで検索').fill(bulkB.itemCode)
+    await page.getByRole('button', { name: '検索' }).click()
+    await expect(rowOf(bulkB.itemCode)).toHaveCount(1)
   })
 
   test('viewer gets a read-only list and detail without action buttons', async ({ page }) => {

@@ -4,14 +4,27 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter, type LocationQuery } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useSyncInvalidation } from '@/composables/useSyncInvalidation'
-import { useMediaQuery } from '@/composables/useMediaQuery'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppPageHeader from '@/components/AppPageHeader.vue'
 import { formatJstDate, formatJstDateTime, formatYen } from '@/utils/format'
 import { toDisplayMessage } from '@/utils/errors'
-import { fetchRecycleBin, fetchVenues, restoreItem, searchItems } from '@/utils/api'
-import type { ItemSearchParams, ItemSearchRow, RecycleBinRow, Venue } from '@/utils/api'
+import {
+  deleteItemsBatch,
+  fetchRecycleBin,
+  fetchVenues,
+  restoreItem,
+  restoreItemsBatch,
+  searchItems,
+} from '@/utils/api'
+import type {
+  ItemSearchParams,
+  ItemSearchRow,
+  RecycleBatchEntry,
+  RecycleBinRow,
+  Venue,
+} from '@/utils/api'
 import { newClientId } from '@/utils/id'
+import ItemBatchDeleteDialog from './ItemBatchDeleteDialog.vue'
 
 /**
  * 商品一覧（M5-①，D-061）：kw 搜索（管理号＞日期＞模糊 LIKE 优先级链）+
@@ -22,7 +35,7 @@ import { newClientId } from '@/utils/id'
 
 const PAGE_SIZE = 20
 
-const { t } = useI18n()
+const { t, te } = useI18n()
 const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
@@ -30,27 +43,32 @@ const route = useRoute()
 const isAdmin = computed(() => auth.me != null && auth.me.role === 1)
 
 /**
- * 列宽分档（D-120）：列表 11 列合计 1298px，而可用宽度 = 视口 − 216(侧栏) − 128
- * (shell 内容区 32×2 + 卡片 32×2 内边距) − 约 15(竖滚动条)。列宽不是估的：用
- * Chromium 实测每种单元格「一行放下」的自然宽（含 12px×2 单元格内边距）后取的
- * 上界，如「状態」最宽组合=出庫済み+キャンセル 需 159、「仕入単価」8 位数 ￥99,999,999
- * 需 108、「商品」11 位管理号（正则上限 AA12-AAA99Z）需 168。
- * 三档（阈值各留约 40px 余量，日文字形宽随字体栈有出入）：
- *   ≥1680   11 列全显示（容器 ≥1336）
- *   1400-1679  收「落札日/棚番号/滞留」→ 1014
- *   <1400   再收「会場」→ 898
- * 分档边界与下限用真实 Chromium 跑真应用实测过（1920/1680/1679/1440/1400/1399/1366/
- * 1280/1240/1200）：各档表格内部横向滚动量恒为 0，档位恰在 1680 与 1400 翻转。
- * 页面级横向滚动只在窄于 1212px 的视口出现——窄档列宽 898 + 卡片内边距 64 + 边框 2
- * = 964 是卡片的最小内容宽（无法再压），加 216 侧栏即 1212。1280/1366 笔记本宽裕。
+ * 列宽与「钉列横滑」（D-126，取代 D-120 的视口分档）。
  *
- * 分档只作用于**主列表**。回收站的「削除理由」列曾一并挂在 isMidTable 上，实测是
- * 过度收列：回收站恒定列 822px + 理由 140 = 962，1280 视口下卡片内容宽约 966，
- * 放得下（Chromium 实测 1280/1366 含理由仍横滑 0、页面横滑 0），且删除理由**全站
- * 只在这里显示**——软删后详情页已不可达，没有第二条路看到它。故该列改为恒显。
+ * 单列宽度都不是估的——用真实 Chromium 量每种单元格「一行放下」的自然宽（含 12px×2
+ * 单元格内边距）后取上界，如「状態」最宽组合=出庫済み+キャンセル 需 159、「仕入単価」
+ * 8 位数 ￥99,999,999 需 108、「商品」11 位管理号（正则上限 AA12-AAA99Z）需 168。
+ *
+ * D-120 的做法是**按视口收列**（窄屏藏起落札日/棚番号/滞留/会場/倉庫），阈值与合计
+ * 都靠实测钉死。D-126 加了勾选列（44）与「操作」列（64）后，那套分档被整体换掉：
+ * 收列等于**把信息藏起来**，而列宽预算里最先被收掉的那几列（会場/倉庫/落札日/滞留）
+ * 恰好都有对应筛选器——用户在表上看见的与筛选器能问的不一致，是"看不全"而不是"放不下"。
+ *
+ * 改为：**全列常显 + 左右钉列 + 中间横滑**。el-table 的 fixed 列用 sticky 实现，
+ * 宽屏列放得下时本就不出滚动条，所以这不是"窄屏降级"，而是一套自适应布局：
+ *   左钉 勾选列 + 商品（管理番号是全表唯一的身份，横滑时必须一直看得见）
+ *   右钉 状態 + 操作（主列表）/ 操作（回收站）
+ * 中间列自行横滑，任何视口下都不丢列。
+ *
+ * 实测（真实 Chromium，视口 1000-1920，高度 700 保证出竖滚动条）：页面级横滑**全为 0**，
+ * 表格内部横滑随视口收窄单调增大（1200/1280/1400/1600 → 552/472/352/152，1920 放得下
+ * 则 0），左钉与右钉列在把中间列滑到底后位移 0px。**能这样成立的前提是下面
+ * `.items-view` 的 `minmax(0, 1fr)`**——不加它，卡片会被列的 min-content 撑开，
+ * el-table 内部永远不出横滑条，钉列就是摆设（详见该处注释）。
+ *
+ * 回收站的「状態」不钉：它与「操作」列之间还隔着削除日時与削除理由，钉在中间会被
+ * 截断成孤立的一条。主列表的「状態」紧邻「操作」，两列一起钉才成立。
  */
-const isWideTable = useMediaQuery('(min-width: 1680px)')
-const isMidTable = useMediaQuery('(min-width: 1400px)')
 
 const activeTab = ref('list')
 
@@ -292,11 +310,164 @@ async function onRestore(row: RecycleBinRow): Promise<void> {
   try {
     // 同 ItemDeleteDialog：crypto.randomUUID 仅安全上下文可用，http 部署下必抛 TypeError
     await restoreItem(row.id, newClientId())
-    await loadRecycle()
+    // 与批删同理：復元把件送回列表那一侧，列表不刷就会一直显示"这件已经不在了"
+    await Promise.all([loadRecycle(), loadList()])
   } catch (error) {
     recycleError.value = toDisplayMessage(error, t)
   } finally {
     restoringIds.value = restoringIds.value.filter((x) => x !== row.id)
+  }
+}
+
+// ------------------------------------------------------------- 選択と一括操作（D-126）
+
+const selectedRows = ref<ItemSearchRow[]>([])
+const recycleSelectedRows = ref<RecycleBinRow[]>([])
+const batchBusy = ref(false)
+const batchDeleteVisible = ref(false)
+
+type BatchKind = 'delete' | 'restore'
+
+/**
+ * 批量结果只存**数据**不存文案：全站切语言是运行时行为（D-029），此刻把
+ * 「N 件を削除しました」渲染成字符串存下，切到中文后这条提示会留在日文。
+ */
+const batchResult = ref<{
+  kind: BatchKind
+  ok: number
+  failures: { itemId: number; code: number }[]
+} | null>(null)
+
+/** 结果归属标签页：削除的结果只在主列表显示、復元的只在回收站显示，跨页张冠李戴最误导。 */
+const deleteResult = computed(() =>
+  batchResult.value?.kind === 'delete' ? batchResult.value : null,
+)
+const restoreResult = computed(() =>
+  batchResult.value?.kind === 'restore' ? batchResult.value : null,
+)
+
+const batchMessage = computed(() => {
+  const result = batchResult.value
+  if (result == null) {
+    return ''
+  }
+  return result.failures.length === 0
+    ? t(`items.batch.${result.kind}Done`, { n: result.ok })
+    : t(`items.batch.${result.kind}Partial`, { ok: result.ok, ng: result.failures.length })
+})
+
+const batchFailLines = computed(() =>
+  (batchResult.value?.failures ?? []).map((failure) =>
+    t('items.batch.failLine', {
+      code: itemCodeOf(failure.itemId) ?? `#${failure.itemId}`,
+      message: errorText(failure.code),
+    }),
+  ),
+)
+
+/** 失败行要报管理番号而非内部 id——管理番号才是现场认得出的东西。两个标签页都可能是来源。 */
+function itemCodeOf(id: number): string | undefined {
+  return (
+    rows.value.find((row) => row.id === id)?.itemCode ??
+    recycleRows.value.find((row) => row.id === id)?.itemCode
+  )
+}
+
+/** 服务端逐件回的是错误码；先探键再取，避免 missing-key 告警刷屏（D-056）。 */
+function errorText(code: number): string {
+  const key = `errors.${code}`
+  return te(key) ? t(key) : String(code)
+}
+
+function onSelectionChange(selection: ItemSearchRow[]): void {
+  selectedRows.value = selection
+}
+
+function onRecycleSelectionChange(selection: RecycleBinRow[]): void {
+  recycleSelectedRows.value = selection
+}
+
+/**
+ * 行点击进详情，但**勾选列与操作列的点击各有其职**，不能被行点击抢走：Element 的
+ * row-click 对任意单元格都派发，不拦就会出现「想勾一行，页面却跳走了」。
+ * 两处分别按列类型（selection）与单元格内元素（.items-actions）判定——后者不依赖
+ * 列顺序或列 prop，按钮日后挪位置也不会失效。
+ */
+function onRowClick(row: ItemSearchRow, column: unknown, event?: Event): void {
+  const type = (column as { type?: string } | null)?.type
+  const target = event?.target as HTMLElement | null
+  if (type === 'selection' || target?.closest('.items-actions') != null) {
+    return
+  }
+  goDetail(row)
+}
+
+/**
+ * 逐件各自成键：`stock_ledger.client_req_id` 是 CHAR(36) 且带唯一索引，批次级单键
+ * 无法派生出各件子键（UUID 已占满 36 位），故由前端按件生成（D-126）。
+ * 必须走 newClientId——crypto.randomUUID 仅安全上下文存在，http 部署下必抛 TypeError。
+ */
+function entriesOf(targets: readonly { id: number }[]): RecycleBatchEntry[] {
+  return targets.map((target) => ({ id: target.id, clientReqId: newClientId() }))
+}
+
+/**
+ * 行内削除与勾选批删**共用一套确认与提交**（删 1 件就是删 1 件的批）：多一条独立
+ * 路径就多一处幂等键与结果提示要维护，而单件路径没有任何批量路径不具备的语义。
+ */
+const deleteTargets = ref<ItemSearchRow[]>([])
+
+function openRowDelete(row: ItemSearchRow): void {
+  deleteTargets.value = [row]
+  batchResult.value = null
+  batchDeleteVisible.value = true
+}
+
+function openBatchDelete(): void {
+  if (selectedRows.value.length === 0) {
+    return
+  }
+  deleteTargets.value = selectedRows.value
+  batchResult.value = null
+  batchDeleteVisible.value = true
+}
+
+async function onBatchDeleteSubmit(reason: string): Promise<void> {
+  if (batchBusy.value || deleteTargets.value.length === 0) {
+    return
+  }
+  batchBusy.value = true
+  try {
+    const result = await deleteItemsBatch(
+      entriesOf(deleteTargets.value),
+      reason === '' ? undefined : reason,
+    )
+    batchDeleteVisible.value = false
+    batchResult.value = { kind: 'delete', ok: result.succeeded, failures: result.failures }
+    // 两个页签都刷：删掉的件进了回收站那一侧，只刷列表会让"切过去看刚删的件"落空
+    // （E2E 实测踩到：回收站仍停在进页时的旧数据，新删的件根本不出现）
+    await Promise.all([loadList(), loadRecycle()])
+  } catch (error) {
+    batchDeleteVisible.value = false
+    listError.value = toDisplayMessage(error, t)
+  } finally {
+    batchBusy.value = false
+  }
+}
+
+async function onBatchRestore(): Promise<void> {
+  if (batchBusy.value || recycleSelectedRows.value.length === 0) {
+    return
+  }
+  batchBusy.value = true
+  try {
+    const result = await restoreItemsBatch(entriesOf(recycleSelectedRows.value))
+    batchResult.value = { kind: 'restore', ok: result.succeeded, failures: result.failures }
+    await Promise.all([loadRecycle(), loadList()])
+  } catch (error) {
+    recycleError.value = toDisplayMessage(error, t)
+  } finally {
+    batchBusy.value = false
   }
 }
 
@@ -491,29 +662,44 @@ onMounted(() => {
             <p class="items-hint">
               {{ t('items.searchHint') }}
             </p>
-            <!--
-              一括入出力（D-106）：批量导入/导出本该在「商品」这里被找到，但它们的
-              交互是异步批处理（上传→判重→批次→报告），不适合塞进列表页，因此只放
-              入口、落到 /excel 对应标签页；批次历史与报告仍留原页。
-            -->
-            <el-dropdown
-              class="items-bulk"
-              @command="onBulkCommand"
-            >
-              <el-button class="items-bulk-trigger">
-                {{ t('items.bulkEntry') }}
+            <div class="items-toolbar-aside">
+              <!--
+                一括削除（D-126）：常驻而非选中才出现——入口本身要能被看见（原先
+                列表页连删除都没有，用户是找不到才来问的）。未选中时置灰，旁边的
+                件数徽标写明选了几件。
+              -->
+              <el-button
+                v-if="isAdmin"
+                class="items-batch-delete"
+                :disabled="selectedRows.length === 0"
+                @click="openBatchDelete"
+              >
+                {{ t('items.batch.delete') }}
               </el-button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item command="import">
-                    {{ t('excel.import.title') }}
-                  </el-dropdown-item>
-                  <el-dropdown-item command="export">
-                    {{ t('excel.export.title') }}
-                  </el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
+              <!--
+                一括入出力（D-106）：批量导入/导出本该在「商品」这里被找到，但它们的
+                交互是异步批处理（上传→判重→批次→报告），不适合塞进列表页，因此只放
+                入口、落到 /excel 对应标签页；批次历史与报告仍留原页。
+              -->
+              <el-dropdown
+                class="items-bulk"
+                @command="onBulkCommand"
+              >
+                <el-button class="items-bulk-trigger">
+                  {{ t('items.bulkEntry') }}
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="import">
+                      {{ t('excel.import.title') }}
+                    </el-dropdown-item>
+                    <el-dropdown-item command="export">
+                      {{ t('excel.export.title') }}
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
           </div>
 
           <p
@@ -531,19 +717,68 @@ onMounted(() => {
             </el-button>
           </p>
           <template v-else>
-            <p class="items-count">
-              {{ t('items.totalCount', { n: total }) }}
-            </p>
+            <div class="items-count-row">
+              <p class="items-count">
+                {{ t('items.totalCount', { n: total }) }}
+              </p>
+              <p
+                v-if="selectedRows.length > 0"
+                class="items-count is-selected"
+              >
+                {{ t('items.batch.selected', { n: selectedRows.length }) }}
+              </p>
+            </div>
+            <!-- 批量结果就地留在列表上：逐件语义意味着「成功 N 件、失败 M 件」，
+                 失败的那几件还等着用户重试，这条信息不能跟着弹层一起消失 -->
+            <div
+              v-if="deleteResult"
+              class="items-batch-result"
+              :class="deleteResult.failures.length === 0 ? 'is-ok' : 'is-warn'"
+              role="status"
+            >
+              <p class="items-batch-result-line">
+                {{ batchMessage }}
+              </p>
+              <ul
+                v-if="batchFailLines.length > 0"
+                class="items-batch-result-list"
+              >
+                <li
+                  v-for="line in batchFailLines"
+                  :key="line"
+                >
+                  {{ line }}
+                </li>
+              </ul>
+              <el-button
+                link
+                type="primary"
+                @click="batchResult = null"
+              >
+                {{ t('common.close') }}
+              </el-button>
+            </div>
             <el-table
               v-loading="listLoading"
               :data="rows"
               row-key="id"
               class="items-table"
-              @row-click="(row: ItemSearchRow) => goDetail(row)"
+              @row-click="onRowClick"
+              @selection-change="onSelectionChange"
             >
+              <!-- 勾选列只在管理员出现：削除/復元都是 A-only，编辑者与浏览者拿到勾选框
+                   也没有可做的事，白占列宽 -->
+              <el-table-column
+                v-if="isAdmin"
+                type="selection"
+                width="44"
+                fixed="left"
+              />
+              <!-- 左钉「商品」：入札番号是全表唯一的身份，中间横滑时必须一直看得见 -->
               <el-table-column
                 :label="t('items.column.item')"
                 min-width="168"
+                fixed="left"
               >
                 <template #default="{ row }">
                   <div class="items-item">
@@ -569,7 +804,6 @@ onMounted(() => {
                 </template>
               </el-table-column>
               <el-table-column
-                v-if="isMidTable"
                 :label="t('items.column.venue')"
                 min-width="116"
                 show-overflow-tooltip
@@ -580,7 +814,6 @@ onMounted(() => {
               </el-table-column>
               <!-- 以下三列只在宽屏（≥1680）出现，中窄屏收起以保证不出横向滚动条（D-120） -->
               <el-table-column
-                v-if="isWideTable"
                 :label="t('items.column.buyDate')"
                 width="100"
               >
@@ -624,7 +857,6 @@ onMounted(() => {
                 </template>
               </el-table-column>
               <el-table-column
-                v-if="isWideTable"
                 :label="t('items.column.shelfNo')"
                 width="88"
               >
@@ -635,6 +867,7 @@ onMounted(() => {
               <el-table-column
                 :label="t('items.column.status')"
                 width="164"
+                fixed="right"
               >
                 <template #default="{ row }">
                   <div class="items-tags">
@@ -650,7 +883,6 @@ onMounted(() => {
                 </template>
               </el-table-column>
               <el-table-column
-                v-if="isWideTable"
                 :label="t('items.column.slowMove')"
                 width="96"
               >
@@ -663,6 +895,29 @@ onMounted(() => {
                     v-else-if="(row as ItemSearchRow).slowMoveLevel === 1"
                     class="items-tag is-warning"
                   >{{ slowBadge((row as ItemSearchRow).slowMoveLevel) }}</span>
+                </template>
+              </el-table-column>
+              <!-- 行内动作（A-only）：删 1 件与勾选批删共用同一套确认与提交，
+                   见 openRowDelete。@click.stop 是必需的——不拦则冒泡到 row-click，
+                   点「削除」会先跳详情页。
+                   右钉「操作」紧邻「状態」：横滑时状态与它对状态的可用动作必须同屏，
+                   只钉其中一个等于把「现在是什么态」和「能改成什么态」拆开看 -->
+              <el-table-column
+                v-if="isAdmin"
+                :label="t('items.column.action')"
+                width="64"
+                fixed="right"
+              >
+                <template #default="{ row }">
+                  <span class="items-actions">
+                    <el-button
+                      link
+                      type="danger"
+                      @click.stop="openRowDelete(row as ItemSearchRow)"
+                    >
+                      {{ t('items.rowDelete') }}
+                    </el-button>
+                  </span>
                 </template>
               </el-table-column>
               <template #empty>
@@ -707,18 +962,73 @@ onMounted(() => {
             </el-button>
           </p>
           <template v-else>
-            <p class="items-count">
-              {{ t('items.totalCount', { n: recycleTotal }) }}
-            </p>
+            <div
+              v-if="recycleRows.length > 0"
+              class="items-recycle-actions"
+            >
+              <el-button
+                :disabled="recycleSelectedRows.length === 0"
+                :loading="batchBusy"
+                @click="onBatchRestore"
+              >
+                {{ t('items.batch.restore') }}
+              </el-button>
+            </div>
+            <div class="items-count-row">
+              <p class="items-count">
+                {{ t('items.totalCount', { n: recycleTotal }) }}
+              </p>
+              <p
+                v-if="recycleSelectedRows.length > 0"
+                class="items-count is-selected"
+              >
+                {{ t('items.batch.selected', { n: recycleSelectedRows.length }) }}
+              </p>
+            </div>
+            <div
+              v-if="restoreResult"
+              class="items-batch-result"
+              :class="restoreResult.failures.length === 0 ? 'is-ok' : 'is-warn'"
+              role="status"
+            >
+              <p class="items-batch-result-line">
+                {{ batchMessage }}
+              </p>
+              <ul
+                v-if="batchFailLines.length > 0"
+                class="items-batch-result-list"
+              >
+                <li
+                  v-for="line in batchFailLines"
+                  :key="line"
+                >
+                  {{ line }}
+                </li>
+              </ul>
+              <el-button
+                link
+                type="primary"
+                @click="batchResult = null"
+              >
+                {{ t('common.close') }}
+              </el-button>
+            </div>
             <el-table
               v-loading="recycleLoading"
               :data="recycleRows"
               row-key="id"
               class="items-table"
+              @selection-change="onRecycleSelectionChange"
             >
+              <el-table-column
+                type="selection"
+                width="44"
+                fixed="left"
+              />
               <el-table-column
                 :label="t('items.recycle.column.item')"
                 min-width="168"
+                fixed="left"
               >
                 <template #default="{ row }">
                   <div class="items-item">
@@ -744,7 +1054,6 @@ onMounted(() => {
                 </template>
               </el-table-column>
               <el-table-column
-                v-if="isWideTable"
                 :label="t('items.recycle.column.venue')"
                 min-width="116"
                 show-overflow-tooltip
@@ -795,9 +1104,12 @@ onMounted(() => {
                   {{ (row as RecycleBinRow).reason ?? '—' }}
                 </template>
               </el-table-column>
+              <!-- 右钉「操作」；回收站的「状態」不钉——它与本列之间还隔着削除日時与
+                   削除理由，钉在中间会被截成孤立的一条（详见文件头列宽注释） -->
               <el-table-column
                 :label="t('admin.actions')"
                 width="110"
+                fixed="right"
               >
                 <template #default="{ row }">
                   <el-button
@@ -830,12 +1142,28 @@ onMounted(() => {
         </el-tab-pane>
       </el-tabs>
     </div>
+
+    <ItemBatchDeleteDialog
+      v-model="batchDeleteVisible"
+      :count="deleteTargets.length"
+      :busy="batchBusy"
+      @confirm="onBatchDeleteSubmit"
+    />
   </section>
 </template>
 
 <style scoped>
 .items-view {
   display: grid;
+  /* D-126：这一行是「中间列横滑」能不能成立的总开关。grid 隐式列是 auto，其下限是
+     min-content——表内 13 列各有固定列宽时，min-content 就是列宽之和（1406），于是
+     卡片被撑到 1472 宽、越过 .shell-main 溢出到页面，而 el-table 的容器宽等于它自己
+     的表格宽（scrollWidth == clientWidth），**表格内部永远不出横滑条**，钉列是 sticky
+     实现、没有内部滚动就粘不住，等于白钉。minmax(0, 1fr) 把列的下限压到 0，卡片才
+     回到"视口给多宽就多宽"，横向溢出归 el-table 自己管内（探针实测：改前 1280 视口
+     页面横滑 440px、表内横滑 0px；改后页面 0、表内 ~400px，左钉商品列与右钉操作列
+     在滑到底后位移 0px）。 */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--kcgl-space-4);
 }
 
@@ -904,12 +1232,17 @@ onMounted(() => {
   color: var(--kcgl-color-text-faint);
 }
 
-/* 一括入出力入口：钉在右列、跨筛选区两行（它是"去别处"，不是筛选条件，
-   挤进筛选行就等于暗示它会影响当前查询结果）。 */
-.items-bulk {
+/* 右侧动作列：钉在第 2 列、跨筛选区两行（它们是"对结果做事"或"去别处"，都不是筛选
+   条件——挤进筛选行就等于暗示它们会影响当前查询结果）。列内再竖排：一括削除在
+   一括入出力上方，两者都是整块动作，拉等宽以免出现长短不齐的按钮叠罗汉。 */
+.items-toolbar-aside {
   grid-column: 2;
   grid-row: 1 / span 2;
   align-self: start;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--kcgl-space-2);
 }
 
 .items-note {
@@ -919,11 +1252,20 @@ onMounted(() => {
 }
 
 /* 件数是筛选结果的回执：做成标签而非一行灰字——灰字落在表格上方，与"加载失败"
-   的留白长得一样（实测里用户正是把空结果读成"内容没加载出来"） */
+   的留白长得一样（实测里用户正是把空结果读成"内容没加载出来"）。
+   两个徽标（总件数 / 选中件数）同行排；下边距挪到行容器上，免得双份留白 */
+.items-count-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kcgl-space-2);
+  margin-bottom: var(--kcgl-space-3);
+}
+
 .items-count {
   display: inline-flex;
   align-items: center;
-  margin: 0 0 var(--kcgl-space-3);
+  margin: 0;
   padding: 0 var(--kcgl-space-3);
   border: 1px solid var(--kcgl-color-border);
   border-radius: 999px;
@@ -931,6 +1273,57 @@ onMounted(() => {
   color: var(--kcgl-color-text-sub);
   font-size: 0.85rem;
   line-height: 22px;
+}
+
+/* 选中件数换主色：它是"接下来那一击会打到谁"的凭据，不能与总件数同灰 */
+.items-count.is-selected {
+  border-color: var(--kcgl-color-info-border);
+  background: var(--kcgl-color-info-bg);
+  color: var(--kcgl-color-info-text);
+}
+
+/* 批量结果条：成功=绿、部分失败=琥珀。用底色而不是左侧色条——左侧粗边在本项目
+   是"这里出错了"的通用语汇，成功回执也用会误读 */
+.items-batch-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kcgl-space-2);
+  margin-bottom: var(--kcgl-space-3);
+  padding: var(--kcgl-space-2) var(--kcgl-space-3);
+  border: 1px solid;
+  border-radius: var(--kcgl-radius-m);
+  font-size: 0.85rem;
+}
+
+.items-batch-result.is-ok {
+  border-color: var(--kcgl-color-success-border);
+  background: var(--kcgl-color-success-bg);
+  color: var(--kcgl-color-success);
+}
+
+.items-batch-result.is-warn {
+  border-color: var(--kcgl-color-warning-border);
+  background: var(--kcgl-color-warning-bg);
+  color: var(--kcgl-color-warning);
+}
+
+.items-batch-result-line {
+  margin: 0;
+}
+
+/* 失败清单整条占一行：管理番号与理由是逐件读的，挤在回执句后面会连成一片 */
+.items-batch-result-list {
+  flex-basis: 100%;
+  margin: 0;
+  padding-left: 1.2em;
+}
+
+/* 回收站的一括復元：与主列表的一括削除同位（表格上方右对齐前的动作区） */
+.items-recycle-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--kcgl-space-2);
 }
 
 .items-table {

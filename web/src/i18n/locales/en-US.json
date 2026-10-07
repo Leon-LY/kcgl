@@ -17,7 +17,8 @@
       "1": "Nagoya warehouse",
       "2": "Fukuoka warehouse"
     },
-    "saving": "Processing…"
+    "saving": "Processing…",
+    "close": "Close"
   },
   "auth": {
     "username": "Username",
@@ -641,7 +642,8 @@
       "warehouse": "Warehouse",
       "shelfNo": "Shelf no.",
       "status": "Status",
-      "slowMove": "Slow-moving"
+      "slowMove": "Slow-moving",
+      "action": "Actions"
     },
     "slowYellowBadge": "Slow",
     "slowRedBadge": "Long-term slow",
@@ -661,6 +663,20 @@
         "reason": "Reason"
       },
       "restore": "Restore"
+    },
+    "batch": {
+      "selected": "{n} selected",
+      "delete": "Delete selected",
+      "deleteTitle": "Delete items",
+      "deleteNote": "Move {n} item(s) to Deleted. You can restore them later from the Deleted tab.",
+      "reasonLabel": "Reason (optional)",
+      "confirm": "Delete",
+      "deleteDone": "Deleted {n} items.",
+      "deletePartial": "Deleted {ok} items. The remaining {ng} could not be deleted, for the reasons below.",
+      "restore": "Restore selected",
+      "restoreDone": "Restored {n} items.",
+      "restorePartial": "Restored {ok} items. The remaining {ng} could not be restored, for the reasons below.",
+      "failLine": "{code}: {message}"
     },
     "detail": {
       "title": "Item Details",
@@ -790,7 +806,8 @@
       "empty": "No order history",
       "loadFailed": "Failed to load order history."
     },
-    "bulkEntry": "Bulk import / export"
+    "bulkEntry": "Bulk import / export",
+    "rowDelete": "Delete"
   },
   "dashboard": {
     "title": "Dashboard",

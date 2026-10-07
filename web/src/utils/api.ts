@@ -461,6 +461,44 @@ export function restoreItem(id: number, clientReqId: string): Promise<ItemRespon
   return request(`/api/items/${id}/restore`, jsonInit('POST', { clientReqId }))
 }
 
+/**
+ * 批量软删/恢复的单件载荷：**逐件自带幂等键**。
+ * 不能由批次键拼接派生——stock_ledger.client_req_id 是 CHAR(36) 且带唯一约束，
+ * UUID 已占满 36 字符；逐件带键反而让每件仍各自幂等读回（见后端 RecycleBatchRequest）。
+ */
+export interface RecycleBatchEntry {
+  id: number
+  clientReqId: string
+}
+
+/** 批量结果：逐件成败。failures 的 code 按 errors.<code> 三语渲染。 */
+export interface RecycleBatchResult {
+  succeeded: number
+  failures: { itemId: number; code: number }[]
+}
+
+/** 批量软删（A-only，D-126）：批内某件失败（已被他人删/不存在）不影响其余件。 */
+export function deleteItemsBatch(
+  entries: RecycleBatchEntry[],
+  reason?: string,
+): Promise<RecycleBatchResult> {
+  return request(
+    '/api/items/recycle-delete',
+    jsonInit('POST', { items: entries, reason: reason ?? null }),
+  )
+}
+
+/** 批量恢复（A-only，D-126）。 */
+export function restoreItemsBatch(
+  entries: RecycleBatchEntry[],
+  reason?: string,
+): Promise<RecycleBatchResult> {
+  return request(
+    '/api/items/recycle-restore',
+    jsonInit('POST', { items: entries, reason: reason ?? null }),
+  )
+}
+
 export interface RecycleBinRow {
   id: number
   itemCode: string

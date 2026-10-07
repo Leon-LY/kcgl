@@ -17,7 +17,8 @@
       "1": "名古屋倉庫",
       "2": "福岡倉庫"
     },
-    "saving": "処理中…"
+    "saving": "処理中…",
+    "close": "閉じる"
   },
   "auth": {
     "username": "ユーザー名",
@@ -641,7 +642,8 @@
       "warehouse": "倉庫",
       "shelfNo": "棚番号",
       "status": "状態",
-      "slowMove": "滞留"
+      "slowMove": "滞留",
+      "action": "操作"
     },
     "slowYellowBadge": "滞留",
     "slowRedBadge": "長期滞留",
@@ -661,6 +663,20 @@
         "reason": "理由"
       },
       "restore": "復元する"
+    },
+    "batch": {
+      "selected": "{n} 件を選択中",
+      "delete": "選択した商品を削除",
+      "deleteTitle": "商品を削除",
+      "deleteNote": "{n} 件を「削除済み」に移動します。あとで「削除済み」タブから元に戻せます。",
+      "reasonLabel": "理由（任意）",
+      "confirm": "削除する",
+      "deleteDone": "{n} 件を削除しました。",
+      "deletePartial": "{ok} 件を削除しました。残り {ng} 件は下記の理由で削除できませんでした。",
+      "restore": "選択した商品を復元",
+      "restoreDone": "{n} 件を復元しました。",
+      "restorePartial": "{ok} 件を復元しました。残り {ng} 件は下記の理由で復元できませんでした。",
+      "failLine": "{code}：{message}"
     },
     "detail": {
       "title": "商品詳細",
@@ -790,7 +806,8 @@
       "empty": "受注履歴はありません",
       "loadFailed": "受注履歴の読み込みに失敗しました。"
     },
-    "bulkEntry": "一括入出力"
+    "bulkEntry": "一括入出力",
+    "rowDelete": "削除"
   },
   "dashboard": {
     "title": "ダッシュボード",

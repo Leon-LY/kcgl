@@ -409,68 +409,76 @@ describe('items list state in the URL (C1)', () => {
 })
 
 /**
- * 列分档（D-120）：11 列合计 1298px 放不进窄内容区——要么横滑，要么按视口收列。
- * 这里锁的是「不会横滑」这个不变量：每档最小视口下，可见列宽合计 ≤ 可用容器宽。
- * 判据的依据：el-table 是 table-layout:fixed，列宽由声明值决定，合计超过容器才出
- * 横向滚动条（合计小于容器时富余宽度分给 min-width 列，仍不滚动）。
+ * 列布局（D-126，取代 D-120 的视口分档）：**全列常显 + 左右钉列 + 中间横滑**。
+ *
+ * D-120 按视口收列（窄屏藏起落札日/棚番号/滞留/会場/倉庫），D-126 去掉整套分档：
+ * 收列等于把信息藏起来，而先被收掉的几列恰好都有对应筛选器，用户在表上看见的与
+ * 筛选器能问的不一致。改为全列常显，由 el-table 的 fixed 列（sticky 实现）钉住
+ * 身份列与动作列，中间列自行横滑；宽屏放得下时本就不出滚动条，故非"窄屏降级"。
+ *
+ * 这里锁两条：① 任何视口都渲染全部列（列不会因视口而消失）；② 钉的是哪几列。
  */
-describe('items view column tiers (D-120)', () => {
-  /** 列表标签页当前可见列：表头文案 + 声明列宽（width / min-width）合计。
-   *  width 为空串时（EP 的 prop 默认值）落到 min-width；用 || 而非 ?? 正是为此。 */
-  function listColumns(wrapper: VueWrapper): { labels: string[]; sum: number } {
-    const pane = wrapper.find('#pane-list')
-    const sum = pane
+describe('items view column layout (D-126)', () => {
+  interface Col {
+    label: string | undefined
+    type: string | undefined
+    width: number
+    fixed: string | undefined
+  }
+
+  /** 指定标签页的声明列：文案 / 类型 / 声明列宽（width 缺省时落 min-width）/ 钉向。
+   *  width 为空串时（EP 的 prop 默认值）落到 min-width；用 || 而非 ?? 正是为此。
+   *  fixed 同理：EP 的默认值是 false，未声明钉向的列读到的是 false 而非 undefined，
+   *  这里归一成 undefined，让「钉向」只有 left/right/未钉三种取值。 */
+  function paneColumns(wrapper: VueWrapper, pane: string): Col[] {
+    return wrapper
+      .find(pane)
       .findAllComponents({ name: 'ElTableColumn' })
-      .reduce(
-        (n, col) => n + (Number(col.props('width')) || Number(col.props('minWidth')) || 0),
-        0,
-      )
-    return {
-      labels: pane.findAll('.el-table__header-wrapper th .cell').map((cell) => cell.text()),
-      sum,
-    }
+      .map((col) => ({
+        label: col.props('label') as string | undefined,
+        type: col.props('type') as string | undefined,
+        width: Number(col.props('width')) || Number(col.props('minWidth')) || 0,
+        fixed: (col.props('fixed') as string | boolean | undefined) || undefined,
+      }))
   }
 
-  /** 该视口下的可用容器宽（= DesktopShell：视口 − 216 侧栏 − 32×2 shell 内边距
-   *  − 32×2 卡片内边距）。各档取本档的最小视口，即最不利情形。 */
-  function container(viewport: number): number {
-    return viewport - 216 - 32 * 2 - 32 * 2
-  }
+  const sumOf = (cols: Col[]): number => cols.reduce((n, col) => n + col.width, 0)
 
-  it('宽屏 1920：11 列全在，合计不超容器', async () => {
-    stubViewport(1920)
+  it('窄屏 1240 下主列表仍是全 13 列——不再按视口收列', async () => {
+    stubViewport(1240)
     const { wrapper } = await mountView()
 
-    const { labels, sum } = listColumns(wrapper)
-    expect(labels).toHaveLength(11)
-    expect(labels).toEqual(expect.arrayContaining(['落札日', '棚番号', '滞留', '会場', '状態']))
-    expect(sum).toBe(1298)
-    expect(sum).toBeLessThanOrEqual(container(1680))
+    const cols = paneColumns(wrapper, '#pane-list')
+    expect(cols).toHaveLength(13)
+    expect(cols.map((c) => c.label)).toEqual(
+      expect.arrayContaining(['落札日', '棚番号', '滞留', '会場', '倉庫', '状態', '操作']),
+    )
+    // 列宽合计仍是实测的自然宽之和：宽度与"收不收列"无关，只与内容放不放得下有关
+    expect(sumOf(cols)).toBe(1406)
   })
 
-  it('中屏 1440：收「落札日/棚番号/滞留」，会場保留', async () => {
-    stubViewport(1440)
+  it('主列表左钉「勾选 + 商品」、右钉「状態 + 操作」', async () => {
+    stubViewport(1240)
     const { wrapper } = await mountView()
 
-    const { labels, sum } = listColumns(wrapper)
-    expect(labels).toHaveLength(8)
-    expect(labels).toContain('会場')
-    expect(labels).not.toContain('落札日')
-    expect(labels).not.toContain('棚番号')
-    expect(labels).not.toContain('滞留')
-    expect(sum).toBe(1014)
-    expect(sum).toBeLessThanOrEqual(container(1400))
+    const cols = paneColumns(wrapper, '#pane-list')
+    expect(cols.filter((c) => c.fixed === 'left')).toEqual([
+      expect.objectContaining({ type: 'selection' }),
+      expect.objectContaining({ label: '商品' }),
+    ])
+    expect(cols.filter((c) => c.fixed === 'right').map((c) => c.label)).toEqual(['状態', '操作'])
   })
 
-  it('窄屏 1280：再收「会場」（筛选下拉与详情页仍有会场名）', async () => {
-    stubViewport(1280)
+  it('回收站左钉「勾选 + 商品」、右钉「操作」；「状態」不钉（它不紧邻右缘）', async () => {
+    stubViewport(1240)
     const { wrapper } = await mountView()
 
-    const { labels, sum } = listColumns(wrapper)
-    expect(labels).toHaveLength(7)
-    expect(labels).not.toContain('会場')
-    expect(labels).toEqual(expect.arrayContaining(['商品', '商品名', '倉庫', '状態']))
-    expect(sum).toBe(898)
-    expect(sum).toBeLessThanOrEqual(container(1280))
+    const cols = paneColumns(wrapper, '#pane-recycle')
+    expect(cols.filter((c) => c.fixed === 'left')).toEqual([
+      expect.objectContaining({ type: 'selection' }),
+      expect.objectContaining({ label: '商品' }),
+    ])
+    expect(cols.filter((c) => c.fixed === 'right')).toHaveLength(1)
+    expect(cols.find((c) => c.label === '状態')?.fixed).toBeUndefined()
   })
 })

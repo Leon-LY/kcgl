@@ -9,6 +9,7 @@ import {
   createItem,
   createStocktake,
   deleteItem,
+  deleteItemsBatch,
   downloadDiagnosticsExport,
   downloadExcelExport,
   downloadExcelTemplate,
@@ -46,6 +47,7 @@ import {
   previewItemCode,
   resolveStocktakeDiff,
   restoreItem,
+  restoreItemsBatch,
   returnItem,
   runSelfCheck,
   scanStocktakeItem,
@@ -386,6 +388,57 @@ describe('item search, edit, recycle bin, and history endpoint contracts (M5-1)'
     expect(lastCall(fetchMock)[0]).toBe('/api/items/recycle-bin?page=1&size=20')
     await fetchRecycleBin(3, 50)
     expect(fetchMock.mock.calls[1]![0]).toBe('/api/items/recycle-bin?page=3&size=50')
+  })
+
+  it('deleteItemsBatch → POSTs per-item keys to /recycle-delete and returns per-item failures (D-126)', async () => {
+    const fetchMock = stubOk({ succeeded: 1, failures: [{ itemId: 8, code: 409014 }] })
+    const result = await deleteItemsBatch(
+      [
+        { id: 7, clientReqId: 'req-a' },
+        { id: 8, clientReqId: 'req-b' },
+      ],
+      '整理',
+    )
+    const [path, init] = lastCall(fetchMock)
+    expect(path).toBe('/api/items/recycle-delete')
+    expect(init.method).toBe('POST')
+    // 键是**逐件**带的：client_req_id 是 CHAR(36)+唯一索引，批次级单键无法派生出各件子键
+    expect(JSON.parse(init.body as string)).toEqual({
+      items: [
+        { id: 7, clientReqId: 'req-a' },
+        { id: 8, clientReqId: 'req-b' },
+      ],
+      reason: '整理',
+    })
+    expect(result.failures).toEqual([{ itemId: 8, code: 409014 }])
+  })
+
+  it('deleteItemsBatch sends reason: null when the operator gave none', async () => {
+    const fetchMock = stubOk({ succeeded: 1, failures: [] })
+    await deleteItemsBatch([{ id: 7, clientReqId: 'req-a' }])
+    expect(JSON.parse(lastCall(fetchMock)[1].body as string)).toEqual({
+      items: [{ id: 7, clientReqId: 'req-a' }],
+      reason: null,
+    })
+  })
+
+  it('restoreItemsBatch → POSTs to /recycle-restore with the same per-item shape', async () => {
+    const fetchMock = stubOk({ succeeded: 2, failures: [] })
+    const result = await restoreItemsBatch([
+      { id: 7, clientReqId: 'req-a' },
+      { id: 8, clientReqId: 'req-b' },
+    ])
+    const [path, init] = lastCall(fetchMock)
+    expect(path).toBe('/api/items/recycle-restore')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body as string)).toEqual({
+      items: [
+        { id: 7, clientReqId: 'req-a' },
+        { id: 8, clientReqId: 'req-b' },
+      ],
+      reason: null,
+    })
+    expect(result.succeeded).toBe(2)
   })
 
   it('fetchItemLedgers / fetchItemYahooListings → GET the per-item history endpoints', async () => {

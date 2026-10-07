@@ -17,7 +17,8 @@
       "1": "名古屋仓库",
       "2": "福冈仓库"
     },
-    "saving": "处理中…"
+    "saving": "处理中…",
+    "close": "关闭"
   },
   "auth": {
     "username": "用户名",
@@ -641,7 +642,8 @@
       "warehouse": "仓库",
       "shelfNo": "货架号",
       "status": "状态",
-      "slowMove": "滞留"
+      "slowMove": "滞留",
+      "action": "操作"
     },
     "slowYellowBadge": "滞留",
     "slowRedBadge": "长期滞留",
@@ -661,6 +663,20 @@
         "reason": "理由"
       },
       "restore": "恢复"
+    },
+    "batch": {
+      "selected": "已选中 {n} 件",
+      "delete": "删除选中商品",
+      "deleteTitle": "删除商品",
+      "deleteNote": "将 {n} 件商品移入「已删除」。之后可以在「已删除」标签页恢复。",
+      "reasonLabel": "理由（可选）",
+      "confirm": "删除",
+      "deleteDone": "已删除 {n} 件。",
+      "deletePartial": "已删除 {ok} 件。其余 {ng} 件未能删除，原因如下。",
+      "restore": "恢复选中商品",
+      "restoreDone": "已恢复 {n} 件。",
+      "restorePartial": "已恢复 {ok} 件。其余 {ng} 件未能恢复，原因如下。",
+      "failLine": "{code}：{message}"
     },
     "detail": {
       "title": "商品详情",
@@ -790,7 +806,8 @@
       "empty": "暂无受注记录",
       "loadFailed": "受注记录加载失败。"
     },
-    "bulkEntry": "批量导入导出"
+    "bulkEntry": "批量导入导出",
+    "rowDelete": "删除"
   },
   "dashboard": {
     "title": "仪表盘",

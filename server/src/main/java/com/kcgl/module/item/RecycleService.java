@@ -15,12 +15,15 @@ import com.kcgl.module.inventory.StockLedgerEntity;
 import com.kcgl.module.inventory.StockLedgerMapper;
 import com.kcgl.module.inventory.TxnType;
 import com.kcgl.module.item.dto.RecycleActionRequest;
+import com.kcgl.module.item.dto.RecycleBatchRequest;
+import com.kcgl.module.item.dto.RecycleBatchResponse;
 import com.kcgl.module.item.dto.RecycleBinResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -91,6 +94,45 @@ public class RecycleService {
         ItemEntity updated = reconcile(req, itemId, TxnType.RECYCLE_RESTORE, false, operatorId, operatorName);
         sseHub.broadcast(SyncEvent.TYPE_ITEM, updated.getItemCode(), operatorId);
         return updated;
+    }
+
+    public RecycleBatchResponse deleteBatch(RecycleBatchRequest req, long operatorId, String operatorName) {
+        return runBatch(req, true, operatorId, operatorName);
+    }
+
+    public RecycleBatchResponse restoreBatch(RecycleBatchRequest req, long operatorId, String operatorName) {
+        return runBatch(req, false, operatorId, operatorName);
+    }
+
+    /**
+     * 逐件走单件端点，各自成事务（{@link #reconcile} 每次 attempt 自开事务）。
+     *
+     * <p>只把 {@link BizException} 计为「该件失败」：已删（409014）/未删（409015）/不存在（404001）/
+     * 版本冲突（409000）/键被占用（400001）都是**要逐件报告的业务结果**，不是批量的失败。
+     * 其余异常（DB 故障、连接中断等）照常上抛——把它们混进 failures 会把「基础设施坏了」
+     * 伪装成「这几件本来就不该删」，用户按失败清单重试也永远失败。
+     *
+     * <p>每件成功后 {@link #delete}/{@link #restore} 内部已各自广播 SSE，此处不重复广播：
+     * 一件商品一条失效事件，与其他位点同粒度。
+     */
+    private RecycleBatchResponse runBatch(RecycleBatchRequest req, boolean deleting,
+            long operatorId, String operatorName) {
+        int succeeded = 0;
+        List<RecycleBatchResponse.Failure> failures = new ArrayList<>();
+        for (RecycleBatchRequest.Entry entry : req.items()) {
+            RecycleActionRequest one = new RecycleActionRequest(entry.clientReqId(), req.reason());
+            try {
+                if (deleting) {
+                    delete(entry.id(), one, operatorId, operatorName);
+                } else {
+                    restore(entry.id(), one, operatorId, operatorName);
+                }
+                succeeded++;
+            } catch (BizException e) {
+                failures.add(new RecycleBatchResponse.Failure(entry.id(), e.errorCode().code()));
+            }
+        }
+        return new RecycleBatchResponse(succeeded, failures);
     }
 
     /**

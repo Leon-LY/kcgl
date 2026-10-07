@@ -11,6 +11,8 @@ import com.kcgl.module.item.dto.ItemListResponse;
 import com.kcgl.module.item.dto.ItemResponse;
 import com.kcgl.module.item.dto.ItemSearchResponse;
 import com.kcgl.module.item.dto.RecycleActionRequest;
+import com.kcgl.module.item.dto.RecycleBatchRequest;
+import com.kcgl.module.item.dto.RecycleBatchResponse;
 import com.kcgl.module.item.dto.RecycleBinResponse;
 import com.kcgl.module.item.dto.TodaySessionResponse;
 import com.kcgl.module.item.dto.UpdateItemRequest;
@@ -211,6 +213,31 @@ public class ItemController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size) {
         return ApiResponse.ok(recycleService.bin(page, size));
+    }
+
+    /**
+     * 批量软删（D-126，A-only）：商品一覧勾选多行后一次提交。
+     * 路径是字面量而非 {@code /{id}/...}，与 {@code /recycle-bin} 同形；Spring 字面量优先于
+     * {@code /{id}} 模板，且本类没有「单段 POST 模板」映射，不会与之争抢。
+     * 逐件结果见 {@link RecycleBatchResponse}——批内某件失败不影响其余件。
+     */
+    @PostMapping("/recycle-delete")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<RecycleBatchResponse> recycleDelete(
+            @Valid @RequestBody RecycleBatchRequest req,
+            @AuthenticationPrincipal KcglUserDetails operator) {
+        return ApiResponse.ok(
+                recycleService.deleteBatch(req, operator.getUserId(), operator.getDisplayName()));
+    }
+
+    /** 批量恢复（D-126，A-only）：回收站勾选多行后一次复原。 */
+    @PostMapping("/recycle-restore")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<RecycleBatchResponse> recycleRestore(
+            @Valid @RequestBody RecycleBatchRequest req,
+            @AuthenticationPrincipal KcglUserDetails operator) {
+        return ApiResponse.ok(
+                recycleService.restoreBatch(req, operator.getUserId(), operator.getDisplayName()));
     }
 
     /** 单件流水（M5-①，D-061）：全员可读，id 倒序。 */

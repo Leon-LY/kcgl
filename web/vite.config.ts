@@ -82,6 +82,9 @@ export default defineConfig({
       'element-plus/es',
       'element-plus/es/components/base/style/css',
       'element-plus/es/components/button/style/css',
+      // D-126：表格勾选列（type="selection"）内部渲染 ElCheckbox，它不经模板标签出现，
+      // 解析器与上面的标签清单都看不见它——冷依赖缓存下首次进商品页才被发现
+      'element-plus/es/components/checkbox/style/css',
       'element-plus/es/components/config-provider/style/css',
       'element-plus/es/components/date-picker/style/css',
       'element-plus/es/components/descriptions/style/css',
