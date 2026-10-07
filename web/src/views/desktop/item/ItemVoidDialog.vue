@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { toDisplayMessage } from '@/utils/errors'
 import { voidItem } from '@/utils/api'
 import type { ItemResponse } from '@/utils/api'
+import { newClientId } from '@/utils/id'
 
 /**
  * 作废并重录弹层（E+）：作废成功后由父组件跳录入页（携 ?reEntry= 作重录源），
@@ -44,7 +45,8 @@ async function onSubmit(): Promise<void> {
   busy.value = true
   error.value = ''
   try {
-    await voidItem(props.item.id, crypto.randomUUID(), reason.value.trim())
+    // 同 ItemDeleteDialog：crypto.randomUUID 仅安全上下文可用，http 部署下必抛 TypeError
+    await voidItem(props.item.id, newClientId(), reason.value.trim())
     emit('voided')
   } catch (err) {
     error.value = toDisplayMessage(err, t)

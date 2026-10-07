@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { toDisplayMessage } from '@/utils/errors'
 import { deleteItem } from '@/utils/api'
 import type { ItemResponse } from '@/utils/api'
+import { newClientId } from '@/utils/id'
 
 /**
  * 软删弹层（仅管理员）：成功后由父组件跳回商品一覧（回收站标签里可复原），
@@ -41,7 +42,11 @@ async function onSubmit(): Promise<void> {
   error.value = ''
   try {
     const trimmed = reason.value.trim()
-    await deleteItem(props.item.id, crypto.randomUUID(), trimmed === '' ? undefined : trimmed)
+    // 幂等键必须走 newClientId()：crypto.randomUUID 只在**安全上下文**（HTTPS / localhost）
+    // 存在，而本系统按部署文档是 `http://<サーバ>:<ポート>` 访问，此处裸调会抛 TypeError，
+    // 被下面 catch 收成通用「エラーが発生しました」——用户看到的就是「删除不好用、提示错误」。
+    // E2E 拦不住是因为门禁跑在 http://127.0.0.1（属安全上下文），恰好绕开了这个前提。
+    await deleteItem(props.item.id, newClientId(), trimmed === '' ? undefined : trimmed)
     emit('deleted')
   } catch (err) {
     error.value = toDisplayMessage(err, t)

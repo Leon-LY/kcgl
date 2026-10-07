@@ -11,6 +11,7 @@ import { formatJstDate, formatJstDateTime, formatYen } from '@/utils/format'
 import { toDisplayMessage } from '@/utils/errors'
 import { fetchRecycleBin, fetchVenues, restoreItem, searchItems } from '@/utils/api'
 import type { ItemSearchParams, ItemSearchRow, RecycleBinRow, Venue } from '@/utils/api'
+import { newClientId } from '@/utils/id'
 
 /**
  * 商品一覧（M5-①，D-061）：kw 搜索（管理号＞日期＞模糊 LIKE 优先级链）+
@@ -289,7 +290,8 @@ async function onRestore(row: RecycleBinRow): Promise<void> {
   restoringIds.value = [...restoringIds.value, row.id]
   recycleError.value = ''
   try {
-    await restoreItem(row.id, crypto.randomUUID())
+    // 同 ItemDeleteDialog：crypto.randomUUID 仅安全上下文可用，http 部署下必抛 TypeError
+    await restoreItem(row.id, newClientId())
     await loadRecycle()
   } catch (error) {
     recycleError.value = toDisplayMessage(error, t)

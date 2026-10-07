@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { toDisplayMessage } from '@/utils/errors'
 import { adjustItem } from '@/utils/api'
 import type { AdjustItemPayload, ItemResponse } from '@/utils/api'
+import { newClientId } from '@/utils/id'
 
 /**
  * 手工修正弹层（D4，A-only）：直接改库存态/销售态两轴，绕开状态机。
@@ -70,7 +71,8 @@ async function onSubmit(): Promise<void> {
     return
   }
   // 只带被指定的轴：另一轴键不出现=保持不变（服务端以键缺失为「不变」语义）
-  const payload: AdjustItemPayload = { clientReqId: crypto.randomUUID(), reason: trimmedReason }
+  // 同 ItemDeleteDialog：crypto.randomUUID 仅安全上下文可用，http 部署下必抛 TypeError
+  const payload: AdjustItemPayload = { clientReqId: newClientId(), reason: trimmedReason }
   if (stockStatus.value !== UNCHANGED) {
     payload.stockStatus = stockStatus.value
   }
