@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "镜像 tag（留空=当前 commit 短 SHA）"
+        description: "镜像 tag（留空=当前 commit 的 7 位短 SHA）。勿复用已交付甲方的版本号（如 v1.0.0）——会覆盖 ghcr 上同名 tag"
         required: false
         default: ""
   push:
@@ -44,7 +44,17 @@ jobs:
 
       - id: meta
         name: 计算版本 tag
-        run: echo "version=${{ github.event_name == 'workflow_dispatch' && (inputs.version || github.sha) || github.ref_name }}" >> "$GITHUB_OUTPUT"
+        # 留空取 **7 位短 SHA**。早前这里直接塞 github.sha（40 位），与输入说明写的
+        # 「短 SHA」不符，也与服务器 .env、升级核对里手写的短 SHA 不同形（D-121）。
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            version="${{ inputs.version }}"
+            [ -n "$version" ] || version="${GITHUB_SHA:0:7}"
+          else
+            version="${{ github.ref_name }}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "本次版本 tag：$version"
 
       - name: 登录 ghcr.io
         uses: docker/login-action@v3
@@ -105,6 +115,27 @@ jobs:
           deploy/verify-grants.sh deploy/kcgl-doctor.sh deploy/security-selfcheck.sh
           deploy/db-cli.sh
           ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}:${{ env.DEPLOY_DIR }}/
+
+      - name: 回写 KCGL_VERSION 到服务器 .env（消除「.env 撒谎」漂移）
+        # 病灶：本流水线一直用「KCGL_VERSION=... docker compose up -d」的内联形式覆盖，
+        # 从不写回 .env，于是 .env 的版本永远停在首次部署那一刻。之后任何人手动
+        # `docker compose up -d`（不带内联变量）都会按那份陈旧值把 app/web 双双拉回旧镜像
+        # ——compose 里是 ${KCGL_VERSION:-latest}（deploy/docker-compose.yml:92/139）——
+        # 而 Flyway 迁移已前进，属于静默回滚。2026-10-07 实测 .env 停在 v1.0.0、实际
+        # 跑的是 fb70eec，即此病灶（D-121）。
+        # 放在 up 之前：.env 只会「指向前」而不会「指向后」，即使本轮部署失败，下一次
+        # 手动 up 也只会朝目标版本走，不会倒退；本步自带 grep 校验，写不进去就整轮中止，
+        # 不会带着一份没落地的 .env 去动容器。
+        run: >
+          ssh -F ~/.ssh/ssh_config ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}
+          "cd ${{ env.DEPLOY_DIR }} &&
+          cp -f .env .env.bak-\$(date +%Y%m%d%H%M%S) &&
+          if grep -q '^KCGL_VERSION=' .env; then
+          sed -i 's|^KCGL_VERSION=.*|KCGL_VERSION=${{ needs.build-push.outputs.version }}|' .env;
+          else printf 'KCGL_VERSION=${{ needs.build-push.outputs.version }}\n' >> .env; fi &&
+          grep -n '^KCGL_VERSION=' .env &&
+          grep -q '^KCGL_VERSION=${{ needs.build-push.outputs.version }}\$' .env &&
+          echo '✓ .env 已回写为本次版本'"
 
       - name: 拉取镜像并滚动更新
         # --force-recreate：确保应用本体被替换（推荐，非必需）。旧文称「不带则
