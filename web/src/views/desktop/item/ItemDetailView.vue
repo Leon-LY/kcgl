@@ -7,13 +7,10 @@ import { formatJstDate, formatJstDateTime, formatYen } from '@/utils/format'
 import { toDisplayMessage } from '@/utils/errors'
 import { ApiError } from '@/utils/api'
 import {
-  deleteItem,
   fetchItem,
   fetchItemLedgers,
   fetchItemYahooListings,
   fetchVenues,
-  updateItem,
-  voidItem,
 } from '@/utils/api'
 import type {
   ItemLedgerRow,
@@ -23,6 +20,9 @@ import type {
 } from '@/utils/api'
 import ItemPhotos from './ItemPhotos.vue'
 import ItemAdjustDialog from './ItemAdjustDialog.vue'
+import ItemEditDialog from './ItemEditDialog.vue'
+import ItemVoidDialog from './ItemVoidDialog.vue'
+import ItemDeleteDialog from './ItemDeleteDialog.vue'
 
 /**
  * 商品详情（M5-①）：全字段四段式详情 + 取引履歴/ヤフー出品两历史表。
@@ -234,200 +234,29 @@ function qtyText(qty: number | null | undefined): string {
   return qty > 0 ? `+${qty}` : String(qty)
 }
 
-// ------------------------------------------------------------- 编辑弹层（E+，全量 PUT）
+// ------------------------------------------------------------- 三个操作弹层（各自独立组件）
 
-interface EditForm {
-  venueId: number | null
-  buyDate: string | null
-  purchasePrice: number | undefined
-  warehouse: number | null
-  photoDate: string | null
-  fee: number | undefined
-  shippingFee: number | undefined
-  tax: number | undefined
-  shelfNo: string
-  warehouseInDate: string | null
-  groupNo: string
-  remark: string
-  itemName: string
-  category: string
-  authorKiln: string
-  sizeText: string
-  weightG: number | undefined
-  salesChannel: string
-}
-
+/**
+ * 弹层自持表单与提交（ItemEditDialog/ItemVoidDialog/ItemDeleteDialog，D-119 抽取）；
+ * 父组件只开合它们，并在成功后重载详情或跳转。样式走全局 .kcgl-* 基元：
+ * scoped 样式不跨组件边界，子组件里 .itemd-* 会静默失效。
+ */
 const editOpen = ref(false)
-const editBusy = ref(false)
-const editError = ref('')
-const editForm = ref<EditForm | null>(null)
+const voidOpen = ref(false)
+const deleteOpen = ref(false)
 
-/** 编辑下拉只给启用会场；现值若已停用则保留（快照可查不可新选）。 */
-const editVenues = computed(() =>
-  venues.value.filter((v) => v.enabled || v.id === item.value?.venueId))
-
-function openEdit(): void {
+/** 作废成功 → 跳录入页（携 ?reEntry= 作重录源）；页面卸载，无弹层状态要复位。 */
+function onVoided(): void {
   const current = item.value
   if (current == null) {
     return
   }
-  editForm.value = {
-    venueId: current.venueId,
-    buyDate: current.buyDate,
-    purchasePrice: current.purchasePrice,
-    warehouse: current.warehouse,
-    photoDate: current.photoDate,
-    fee: current.fee ?? undefined,
-    shippingFee: current.shippingFee ?? undefined,
-    tax: current.tax ?? undefined,
-    shelfNo: current.shelfNo ?? '',
-    warehouseInDate: current.warehouseInDate,
-    groupNo: current.groupNo ?? '',
-    remark: current.remark ?? '',
-    itemName: current.itemName ?? '',
-    category: current.category ?? '',
-    authorKiln: current.authorKiln ?? '',
-    sizeText: current.sizeText ?? '',
-    weightG: current.weightG ?? undefined,
-    salesChannel: current.salesChannel ?? '',
-  }
-  editError.value = ''
-  editOpen.value = true
+  void router.push({ name: 'entry', query: { reEntry: String(current.id) } })
 }
 
-function validateEdit(): string {
-  const form = editForm.value
-  if (form == null) {
-    return ''
-  }
-  if (form.venueId == null || form.buyDate == null || form.purchasePrice == null || form.warehouse == null) {
-    return t('items.edit.validationRequired')
-  }
-  const price = form.purchasePrice
-  if (!Number.isInteger(price) || price < 1 || price > 99_999_999) {
-    return t('items.edit.validationPrice')
-  }
-  return ''
-}
-
-function trimmed(value: string): string | null {
-  const result = value.trim()
-  return result === '' ? null : result
-}
-
-async function onEditSubmit(): Promise<void> {
-  const current = item.value
-  const form = editForm.value
-  if (current == null || form == null || editBusy.value) {
-    return
-  }
-  editError.value = validateEdit()
-  if (editError.value !== '') {
-    return
-  }
-  editBusy.value = true
-  try {
-    await updateItem(current.id, {
-      version: current.version,
-      venueId: form.venueId!,
-      buyDate: form.buyDate!,
-      purchasePrice: form.purchasePrice!,
-      warehouse: form.warehouse!,
-      photoDate: form.photoDate ?? null,
-      fee: form.fee ?? null,
-      shippingFee: form.shippingFee ?? null,
-      tax: form.tax ?? null,
-      shelfNo: trimmed(form.shelfNo),
-      warehouseInDate: form.warehouseInDate ?? null,
-      groupNo: trimmed(form.groupNo),
-      remark: trimmed(form.remark),
-      itemName: trimmed(form.itemName),
-      category: trimmed(form.category),
-      authorKiln: trimmed(form.authorKiln),
-      sizeText: trimmed(form.sizeText),
-      weightG: form.weightG ?? null,
-      salesChannel: trimmed(form.salesChannel),
-    })
-    editOpen.value = false
-    await loadItem()
-  } catch (error) {
-    if (error instanceof ApiError && error.code === 409000) {
-      // 乐观锁冲突：重读刷新 version（表单输入保留，改完可直接再提交）
-      editError.value = t('items.edit.versionConflict')
-      await loadItem()
-    } else {
-      editError.value = toDisplayMessage(error, t)
-    }
-  } finally {
-    editBusy.value = false
-  }
-}
-
-// ------------------------------------------------------------- 作废并重录弹层（E+）
-
-const voidOpen = ref(false)
-const voidBusy = ref(false)
-const voidError = ref('')
-const voidReason = ref('')
-
-function openVoid(): void {
-  voidReason.value = ''
-  voidError.value = ''
-  voidOpen.value = true
-}
-
-async function onVoidSubmit(): Promise<void> {
-  const current = item.value
-  if (current == null || voidBusy.value) {
-    return
-  }
-  if (voidReason.value.trim() === '') {
-    voidError.value = t('entry.voidReasonRequired')
-    return
-  }
-  voidBusy.value = true
-  voidError.value = ''
-  try {
-    await voidItem(current.id, crypto.randomUUID(), voidReason.value.trim())
-    // 成功即跳录入页（携带重录源）；页面卸载，无需复位弹层状态
-    void router.push({ name: 'entry', query: { reEntry: String(current.id) } })
-  } catch (error) {
-    voidError.value = toDisplayMessage(error, t)
-    voidBusy.value = false
-  }
-}
-
-// ------------------------------------------------------------- 删除弹层（仅管理员）
-
-const deleteOpen = ref(false)
-const deleteBusy = ref(false)
-const deleteError = ref('')
-const deleteReason = ref('')
-
-function openDelete(): void {
-  deleteReason.value = ''
-  deleteError.value = ''
-  deleteOpen.value = true
-}
-
-async function onDeleteSubmit(): Promise<void> {
-  const current = item.value
-  if (current == null || deleteBusy.value) {
-    return
-  }
-  deleteBusy.value = true
-  deleteError.value = ''
-  try {
-    await deleteItem(
-      current.id,
-      crypto.randomUUID(),
-      deleteReason.value.trim() === '' ? undefined : deleteReason.value.trim(),
-    )
-    void router.push({ name: 'items' }) // 回列表（回收站标签可见）
-  } catch (error) {
-    deleteError.value = toDisplayMessage(error, t)
-    deleteBusy.value = false
-  }
+/** 软删成功 → 回商品一覧（回收站标签里可复原）。 */
+function onDeleted(): void {
+  void router.push({ name: 'items' })
 }
 
 // ------------------------------------------------------------- 手工修正弹层（D4，仅管理员）
@@ -505,13 +334,13 @@ watch(() => route.params.id, (next, prev) => {
         <el-button
           v-if="canEdit"
           type="primary"
-          @click="openEdit"
+          @click="editOpen = true"
         >
           {{ t('items.detail.edit') }}
         </el-button>
         <el-button
           v-if="canEdit"
-          @click="openVoid"
+          @click="voidOpen = true"
         >
           {{ t('entry.voidButton') }}
         </el-button>
@@ -525,7 +354,7 @@ watch(() => route.params.id, (next, prev) => {
           v-if="isAdmin"
           type="danger"
           plain
-          @click="openDelete"
+          @click="deleteOpen = true"
         >
           {{ t('items.detail.delete') }}
         </el-button>
@@ -894,320 +723,28 @@ watch(() => route.params.id, (next, prev) => {
       </el-tabs>
     </div>
 
-    <el-dialog
+    <ItemEditDialog
+      v-if="item"
       v-model="editOpen"
-      :title="t('items.edit.title')"
-      width="640px"
-      :close-on-click-modal="!editBusy"
-    >
-      <div
-        v-if="editForm != null"
-        class="itemd-form"
-      >
-        <p class="itemd-dialog-note">
-          {{ t('items.edit.note') }}
-        </p>
-        <div class="itemd-edit-grid">
-          <label class="itemd-field">
-            <span class="itemd-field-label">{{ t('items.detail.field.venue') }}</span>
-            <el-select
-              v-model="editForm.venueId"
-              filterable
-              :disabled="editBusy"
-            >
-              <el-option
-                v-for="venue in editVenues"
-                :key="venue.id"
-                :label="venue.name"
-                :value="venue.id"
-              />
-            </el-select>
-          </label>
-          <label class="itemd-field">
-            <span class="itemd-field-label">{{ t('items.detail.field.buyDate') }}</span>
-            <el-date-picker
-              v-model="editForm.buyDate"
-              type="date"
-              value-format="YYYY-MM-DD"
-              :disabled="editBusy"
-            />
-          </label>
-          <label class="itemd-field">
-            <span class="itemd-field-label">{{ t('items.detail.field.purchasePrice') }}</span>
-            <el-input-number
-              v-model="editForm.purchasePrice"
-              :min="1"
-              :max="99999999"
-              :step="1"
-              :precision="0"
-              :controls="false"
-              :disabled="editBusy"
-            />
-          </label>
-          <label class="itemd-field">
-            <span class="itemd-field-label">{{ t('items.detail.field.warehouse') }}</span>
-            <el-select
-              v-model="editForm.warehouse"
-              :disabled="editBusy || item?.stockStatus !== 0"
-            >
-              <el-option
-                :label="t('common.warehouse.1')"
-                :value="1"
-              />
-              <el-option
-                :label="t('common.warehouse.2')"
-                :value="2"
-              />
-            </el-select>
-            <span class="itemd-field-hint">{{ t('items.edit.warehouseHint') }}</span>
-          </label>
-          <label class="itemd-field">
-            <span class="itemd-field-label">{{ t('items.detail.field.fee') }}</span>
-            <el-input-number
-              v-model="editForm.fee"
-              :min="0"
-              :max="99999999"
-              :precision="0"
-              :controls="false"
-              :disabled="editBusy"
-            />
-          </label>
-          <label class="itemd-field">
-            <span class="itemd-field-label">{{ t('items.detail.field.shippingFee') }}</span>
-            <el-input-number
-              v-model="editForm.shippingFee"
-              :min="0"
-              :max="99999999"
-              :precision="0"
-              :controls="false"
-              :disabled="editBusy"
-            />
-          </label>
-          <label class="itemd-field">
-            <span class="itemd-field-label">{{ t('items.detail.field.tax') }}</span>
-            <el-input-number
-              v-model="editForm.tax"
-              :min="0"
-              :max="99999999"
-              :precision="0"
-              :controls="false"
-              :disabled="editBusy"
-            />
-          </label>
-          <label class="itemd-field">
-            <span class="itemd-field-label">{{ t('items.detail.field.photoDate') }}</span>
-            <el-date-picker
-              v-model="editForm.photoDate"
-              type="date"
-              value-format="YYYY-MM-DD"
-              :disabled="editBusy"
-            />
-          </label>
-          <label class="itemd-field">
-            <span class="itemd-field-label">{{ t('items.detail.field.shelfNo') }}</span>
-            <el-input
-              v-model="editForm.shelfNo"
-              maxlength="32"
-              :disabled="editBusy"
-            />
-          </label>
-          <label class="itemd-field">
-            <span class="itemd-field-label">{{ t('items.detail.field.warehouseInDate') }}</span>
-            <el-date-picker
-              v-model="editForm.warehouseInDate"
-              type="date"
-              value-format="YYYY-MM-DD"
-              :disabled="editBusy"
-            />
-          </label>
-          <label class="itemd-field">
-            <span class="itemd-field-label">{{ t('items.detail.field.groupNo') }}</span>
-            <el-input
-              v-model="editForm.groupNo"
-              maxlength="32"
-              :disabled="editBusy"
-            />
-          </label>
-          <label class="itemd-field">
-            <span class="itemd-field-label">{{ t('items.detail.field.weightG') }}</span>
-            <el-input-number
-              v-model="editForm.weightG"
-              :min="1"
-              :max="2000000"
-              :precision="0"
-              :controls="false"
-              :disabled="editBusy"
-            />
-          </label>
-          <label class="itemd-field">
-            <span class="itemd-field-label">{{ t('items.detail.field.itemName') }}</span>
-            <el-input
-              v-model="editForm.itemName"
-              maxlength="200"
-              :disabled="editBusy"
-            />
-          </label>
-          <label class="itemd-field">
-            <span class="itemd-field-label">{{ t('items.detail.field.category') }}</span>
-            <el-input
-              v-model="editForm.category"
-              maxlength="64"
-              :disabled="editBusy"
-            />
-          </label>
-          <label class="itemd-field">
-            <span class="itemd-field-label">{{ t('items.detail.field.authorKiln') }}</span>
-            <el-input
-              v-model="editForm.authorKiln"
-              maxlength="128"
-              :disabled="editBusy"
-            />
-          </label>
-          <label class="itemd-field">
-            <span class="itemd-field-label">{{ t('items.detail.field.sizeText') }}</span>
-            <el-input
-              v-model="editForm.sizeText"
-              maxlength="64"
-              :disabled="editBusy"
-            />
-          </label>
-          <label class="itemd-field">
-            <span class="itemd-field-label">{{ t('items.detail.field.salesChannel') }}</span>
-            <el-input
-              v-model="editForm.salesChannel"
-              maxlength="32"
-              :disabled="editBusy"
-            />
-          </label>
-          <label class="itemd-field itemd-field-wide">
-            <span class="itemd-field-label">{{ t('items.detail.field.remark') }}</span>
-            <el-input
-              v-model="editForm.remark"
-              type="textarea"
-              :rows="3"
-              maxlength="500"
-              :disabled="editBusy"
-            />
-          </label>
-        </div>
-        <p
-          v-if="editError"
-          class="itemd-form-error"
-          role="alert"
-        >
-          {{ editError }}
-        </p>
-      </div>
-      <template #footer>
-        <el-button
-          :disabled="editBusy"
-          @click="editOpen = false"
-        >
-          {{ t('common.cancel') }}
-        </el-button>
-        <el-button
-          type="primary"
-          :loading="editBusy"
-          @click="onEditSubmit"
-        >
-          {{ t('items.edit.save') }}
-        </el-button>
-      </template>
-    </el-dialog>
+      :item="item"
+      :venues="venues"
+      @saved="reloadAll()"
+      @stale="loadItem()"
+    />
 
-    <el-dialog
+    <ItemVoidDialog
+      v-if="item"
       v-model="voidOpen"
-      :title="t('entry.voidTitle')"
-      width="440px"
-      :close-on-click-modal="!voidBusy"
-    >
-      <div class="itemd-form">
-        <p class="itemd-dialog-note">
-          {{ t('entry.voidNote') }}
-        </p>
-        <label class="itemd-field">
-          <span class="itemd-field-label">{{ t('entry.voidReasonLabel') }}</span>
-          <el-input
-            v-model="voidReason"
-            type="textarea"
-            :rows="2"
-            maxlength="255"
-            :placeholder="t('entry.voidReasonPlaceholder')"
-            :disabled="voidBusy"
-          />
-        </label>
-        <p class="itemd-warn">
-          {{ t('entry.voidLabelWarn') }}
-        </p>
-        <p
-          v-if="voidError"
-          class="itemd-form-error"
-          role="alert"
-        >
-          {{ voidError }}
-        </p>
-      </div>
-      <template #footer>
-        <el-button
-          :disabled="voidBusy"
-          @click="voidOpen = false"
-        >
-          {{ t('common.cancel') }}
-        </el-button>
-        <el-button
-          type="primary"
-          :loading="voidBusy"
-          @click="onVoidSubmit"
-        >
-          {{ t('entry.voidConfirm') }}
-        </el-button>
-      </template>
-    </el-dialog>
+      :item="item"
+      @voided="onVoided()"
+    />
 
-    <el-dialog
+    <ItemDeleteDialog
+      v-if="item"
       v-model="deleteOpen"
-      :title="t('items.detail.deleteTitle')"
-      width="440px"
-      :close-on-click-modal="!deleteBusy"
-    >
-      <div class="itemd-form">
-        <p class="itemd-dialog-note">
-          {{ t('items.detail.deleteNote') }}
-        </p>
-        <label class="itemd-field">
-          <span class="itemd-field-label">{{ t('items.detail.deleteReasonLabel') }}</span>
-          <el-input
-            v-model="deleteReason"
-            type="textarea"
-            :rows="2"
-            maxlength="255"
-            :disabled="deleteBusy"
-          />
-        </label>
-        <p
-          v-if="deleteError"
-          class="itemd-form-error"
-          role="alert"
-        >
-          {{ deleteError }}
-        </p>
-      </div>
-      <template #footer>
-        <el-button
-          :disabled="deleteBusy"
-          @click="deleteOpen = false"
-        >
-          {{ t('common.cancel') }}
-        </el-button>
-        <el-button
-          type="danger"
-          :loading="deleteBusy"
-          @click="onDeleteSubmit"
-        >
-          {{ t('items.detail.deleteConfirm') }}
-        </el-button>
-      </template>
-    </el-dialog>
+      :item="item"
+      @deleted="onDeleted()"
+    />
 
     <ItemAdjustDialog
       v-if="item"
@@ -1316,55 +853,4 @@ watch(() => route.params.id, (next, prev) => {
   color: var(--kcgl-color-text-faint);
 }
 
-.itemd-form {
-  display: grid;
-  gap: 12px;
-}
-
-.itemd-dialog-note {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--kcgl-color-text-sub);
-}
-
-.itemd-warn {
-  margin: 0;
-  font-size: 0.8rem;
-  color: var(--kcgl-color-warning);
-}
-
-.itemd-edit-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px 16px;
-}
-
-.itemd-field {
-  display: grid;
-  gap: 6px;
-}
-
-.itemd-field-wide {
-  grid-column: 1 / -1;
-}
-
-.itemd-field-label {
-  font-size: 0.85rem;
-  color: var(--kcgl-color-text-sub);
-}
-
-.itemd-field-hint {
-  font-size: 0.75rem;
-  color: var(--kcgl-color-text-faint);
-}
-
-.itemd-form-error {
-  margin: 0;
-  padding: 8px 12px;
-  border: 1px solid var(--kcgl-color-danger-border);
-  border-radius: var(--kcgl-radius-s);
-  background: var(--kcgl-color-danger-bg);
-  color: var(--kcgl-color-danger);
-  font-size: 0.85rem;
-}
 </style>

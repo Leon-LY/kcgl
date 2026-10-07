@@ -186,14 +186,14 @@ watch(() => props.itemId, () => {
       }
     "
   >
-    <div class="photos-dialog-form">
+    <div class="kcgl-form">
       <img
         v-if="photoDeleteTarget"
         :src="photoDeleteTarget.thumbUrl"
         alt=""
         class="itemd-photo-preview"
       >
-      <p class="photos-dialog-note">
+      <p class="kcgl-form-note">
         {{ t('items.detail.photoDeleteNote') }}
       </p>
     </div>
@@ -298,17 +298,5 @@ watch(() => props.itemId, () => {
   margin: 0;
   font-size: 0.85rem;
   color: var(--kcgl-color-text-faint);
-}
-
-/* 解绑弹层内部（scoped 按文件隔离，父组件的 .itemd-form/.itemd-dialog-note 不跨组件生效） */
-.photos-dialog-form {
-  display: grid;
-  gap: 12px;
-}
-
-.photos-dialog-note {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--kcgl-color-text-sub);
 }
 </style>

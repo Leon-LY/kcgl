@@ -365,6 +365,50 @@ body {
   color: var(--kcgl-color-text-sub);
 }
 
+/* 弹层内表单基元：scoped 样式不跨组件边界，弹层一旦拆成独立组件就必须放全局，
+   否则子组件里这些类会静默失效（D-119）。声明自 ItemDetailView 的 .itemd-* 原样搬来。 */
+.kcgl-form {
+  display: grid;
+  gap: 12px;
+}
+
+.kcgl-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
+}
+
+.kcgl-field-wide {
+  grid-column: 1 / -1;
+}
+
+.kcgl-field-hint {
+  font-size: 0.75rem;
+  color: var(--kcgl-color-text-faint);
+}
+
+.kcgl-form-note {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--kcgl-color-text-sub);
+}
+
+.kcgl-form-error {
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--kcgl-color-danger-border);
+  border-radius: var(--kcgl-radius-s);
+  background: var(--kcgl-color-danger-bg);
+  color: var(--kcgl-color-danger);
+  font-size: 0.85rem;
+}
+
+.kcgl-warn-note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--kcgl-color-warning);
+}
+
 .kcgl-input {
   width: 100%;
   height: 44px;

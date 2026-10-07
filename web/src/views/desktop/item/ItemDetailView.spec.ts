@@ -166,9 +166,12 @@ function button(wrapper: VueWrapper, text: string) {
   return target!
 }
 
-/** 弹层字段定位（label 文案在三个弹层间唯一——棚番号/備考/商品名仅编辑弹层使用）。 */
+/**
+ * 弹层字段定位（label 文案在三个弹层间唯一——棚番号/備考/商品名仅编辑弹层使用）。
+ * 弹层已成独立组件，字段类走全局 .kcgl-field（scoped 样式不跨组件边界，D-119）。
+ */
 function field(wrapper: VueWrapper, label: string) {
-  const target = wrapper.findAll('.itemd-field').find((f) => f.text().includes(label))
+  const target = wrapper.findAll('.kcgl-field').find((f) => f.text().includes(label))
   expect(target, `field ${label} should exist`).toBeTruthy()
   return target!
 }
@@ -368,7 +371,7 @@ describe('item detail view (M5-1)', () => {
     }))
     // 成功后原地重读（拿新 version+生成列）
     expect(apiMocks.fetchItem).toHaveBeenCalledTimes(2)
-    expect(wrapper.find('.itemd-form-error').exists()).toBe(false)
+    expect(wrapper.find('.kcgl-form-error').exists()).toBe(false)
   })
 
   it('keeps the form open and reloads on a 409000 version conflict', async () => {
@@ -382,7 +385,7 @@ describe('item detail view (M5-1)', () => {
     await button(wrapper, '保存する').trigger('click')
     await flushPromises()
 
-    expect(wrapper.find('.itemd-form-error').text())
+    expect(wrapper.find('.kcgl-form-error').text())
       .toBe('他の人がこの商品を更新しています。最新の内容を再読み込みしてください。')
     // 冲突即重读刷新 version（输入保留可直接再提交）
     expect(apiMocks.fetchItem).toHaveBeenCalledTimes(2)
@@ -396,7 +399,7 @@ describe('item detail view (M5-1)', () => {
     await flushPromises()
     await button(wrapper, '取り消して再入力へ').trigger('click')
     await flushPromises()
-    expect(wrapper.find('.itemd-form-error').text()).toBe('取り消し理由を入力してください')
+    expect(wrapper.find('.kcgl-form-error').text()).toBe('取り消し理由を入力してください')
 
     await wrapper.find('.el-dialog textarea').setValue('E2E価格入力ミス')
     apiMocks.voidItem.mockResolvedValue(item())
