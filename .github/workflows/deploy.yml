@@ -106,17 +106,24 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keygen -y -f ~/.ssh/id_ed25519 > /dev/null \
             || { echo "::error::TEST_SSH_PRIVATE_KEY 不是可解析的私钥（ssh-keygen -y 失败）"; exit 1; }
+          # 写 ssh 的**默认**配置路径 ~/.ssh/config，而不是自定义文件 + `-F` 指明。
+          # 病因：rsync 的 -e 参数**不经 shell**，`-F ~/.ssh/ssh_config` 里的 ~ 不会被
+          # 展开，ssh 拿它当字面路径去找，报 "Can't open user config file" 并退出 255
+          # （2026-10-07 第三轮实测：同一份 token 下 ssh 那步通过、紧跟的 rsync 255，
+          # 差别正在于 ssh 走 bash 会展开 ~、rsync 直接 exec 不会）。
+          # 走默认路径则由 ssh 自行解析，任何调用方都不必再手写路径。
+          # 追加而非覆盖：保留 runner 可能已有的配置。
           {
             echo "StrictHostKeyChecking=accept-new"
             echo "UserKnownHostsFile=~/.ssh/known_hosts"
-          } > ~/.ssh/ssh_config
-          ssh -F ~/.ssh/ssh_config -o BatchMode=yes -o ConnectTimeout=10 \
+          } >> ~/.ssh/config
+          ssh -o BatchMode=yes -o ConnectTimeout=10 \
             "${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}" true \
             || { echo "::error::SSH 连通失败：TEST_SSH_USER / TEST_SSH_HOST / 私钥 三者对不上"; exit 1; }
 
       - name: 同步迁移目录（与镜像同版本）
         run: >
-          rsync -az --delete -e "ssh -F ~/.ssh/ssh_config"
+          rsync -az --delete -e "ssh"
           server/src/main/resources/db/migration/
           ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}:${{ env.DEPLOY_DIR }}/migrations/
 
@@ -129,7 +136,7 @@ jobs:
         # 不同步：.env（服务器私密配置，只由首次部署生成）、db-init/（仅首启生效）、
         # nginx/（web 层，独立生命周期）。
         run: >
-          rsync -az -e "ssh -F ~/.ssh/ssh_config"
+          rsync -az -e "ssh"
           deploy/docker-compose.yml deploy/grants.sql deploy/backup.sh deploy/restore.sh
           deploy/verify-grants.sh deploy/kcgl-doctor.sh deploy/security-selfcheck.sh
           deploy/db-cli.sh
@@ -146,7 +153,7 @@ jobs:
         # 手动 up 也只会朝目标版本走，不会倒退；本步自带 grep 校验，写不进去就整轮中止，
         # 不会带着一份没落地的 .env 去动容器。
         run: >
-          ssh -F ~/.ssh/ssh_config ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}
+          ssh ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}
           "cd ${{ env.DEPLOY_DIR }} &&
           cp -f .env .env.bak-\$(date +%Y%m%d%H%M%S) &&
           if grep -q '^KCGL_VERSION=' .env; then
@@ -162,14 +169,14 @@ jobs:
         # 的一次性容器并应用新迁移（D-092，真实 V5 探针验到 schema 4→5）。
         # 故是否生效一律核对结果：migrate 退出码 0 且运行镜像 tag = 目标版本。
         run: >
-          ssh -F ~/.ssh/ssh_config ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}
+          ssh ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}
           "cd ${{ env.DEPLOY_DIR }} &&
           KCGL_VERSION=${{ needs.build-push.outputs.version }} docker compose pull &&
           KCGL_VERSION=${{ needs.build-push.outputs.version }} docker compose up -d --force-recreate --remove-orphans"
 
       - name: 健康验证（登录页 200 = web/app/mysql 整链路通）
         run: >
-          ssh -F ~/.ssh/ssh_config ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}
+          ssh ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}
           "for i in \$(seq 1 60); do
           curl -fsS -o /dev/null http://127.0.0.1:8082/ && break; sleep 5;
           done;
@@ -181,7 +188,7 @@ jobs:
         # --force-recreate。运行镜像 tag ≠ 目标版本即失败——这正是 D-093 的症状
         # （镜像换了、巡检全绿，但版本显示没变）在本流水线上的表现。
         run: >
-          ssh -F ~/.ssh/ssh_config ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}
+          ssh ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}
           "cd ${{ env.DEPLOY_DIR }} &&
           running=\$(docker compose ps -q app | xargs -r docker inspect -f '{{.Config.Image}}') &&
           echo \"app 运行镜像：\${running:-<空>}\" &&
@@ -192,5 +199,5 @@ jobs:
 
       - name: 部署后巡检
         run: >
-          ssh -F ~/.ssh/ssh_config ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}
+          ssh ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}
           "cd ${{ env.DEPLOY_DIR }} && ./kcgl-doctor.sh || true"
