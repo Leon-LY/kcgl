@@ -565,9 +565,9 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/* 内容列宽由移动壳统一持有（--kcgl-content-width），视图根不再自设限宽/居中：
+   否则窄壳与平板档各自算一套宽度，手机档被夹成"缩小版 PC"（docs/07 §1 设备三档）。 */
 .scan-view {
-  max-width: 560px;
-  margin: 0 auto;
   display: grid;
   gap: 12px;
 }
@@ -606,8 +606,22 @@ onBeforeUnmount(() => {
   background: rgba(31, 35, 41, 0.55);
   color: #fff;
   font: inherit;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   cursor: pointer;
+  transition: transform var(--kcgl-dur-fast) var(--kcgl-ease-out);
+}
+
+/* 触控目标 ≥44px，但视觉保持紧凑：按钮压在取景框上，放大视觉会遮住扫码区；
+   故不撑大本体的盒子，改用透明 ::after 外扩热区（36 + 4×2 = 44）。 */
+.scan-torch::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+}
+
+/* 触屏没有 hover，按压态是唯一反馈：1px 下沉（对齐 .kcgl-btn-primary:active）。 */
+.scan-torch:active {
+  transform: translateY(1px);
 }
 
 .scan-torch.is-on {
@@ -624,7 +638,7 @@ onBeforeUnmount(() => {
   padding: 6px 12px;
   text-align: center;
   color: #fff;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   text-shadow: 0 0 4px rgba(31, 35, 41, 0.7);
   pointer-events: none;
 }
@@ -652,7 +666,7 @@ onBeforeUnmount(() => {
   border-radius: var(--kcgl-radius-s);
   background: var(--kcgl-color-danger-bg);
   color: var(--kcgl-color-danger);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 .scan-done {
@@ -714,7 +728,7 @@ onBeforeUnmount(() => {
 
 .scan-meta {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-text-sub);
 }
 
@@ -733,7 +747,7 @@ onBeforeUnmount(() => {
   padding: 2px 8px;
   border: 1px solid var(--kcgl-color-border);
   border-radius: var(--kcgl-radius-s);
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--kcgl-color-text-sub);
   white-space: nowrap;
 }
@@ -745,14 +759,14 @@ onBeforeUnmount(() => {
 
 .scan-remark {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   line-height: 1.6;
   color: var(--kcgl-color-text-sub);
   word-break: break-all;
 }
 
 .scan-warn {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 .scan-actions {
@@ -773,11 +787,23 @@ onBeforeUnmount(() => {
   font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
+  transition:
+    border-color var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    color var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    transform var(--kcgl-dur-fast) var(--kcgl-ease-out);
 }
 
-.scan-action:hover {
-  border-color: var(--kcgl-color-primary);
-  color: var(--kcgl-color-primary);
+/* 悬停只在真有指针的设备上生效：触屏点一下后 :hover 会粘在最后点的按钮上。 */
+@media (hover: hover) {
+  .scan-action:hover {
+    border-color: var(--kcgl-color-primary);
+    color: var(--kcgl-color-primary);
+  }
+}
+
+/* 触屏按压态：无 hover 时这是唯一反馈，1px 下沉对齐 .kcgl-btn-primary:active。 */
+.scan-action:active {
+  transform: translateY(1px);
 }
 
 .scan-no-actions {
@@ -786,7 +812,7 @@ onBeforeUnmount(() => {
   border: 1px solid var(--kcgl-color-border);
   border-radius: var(--kcgl-radius-s);
   color: var(--kcgl-color-text-faint);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   text-align: center;
 }
 
@@ -828,7 +854,7 @@ onBeforeUnmount(() => {
 
 .scan-dialog-hint {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 1rem;
   line-height: 1.6;
   color: var(--kcgl-color-text-faint);
 }
@@ -840,7 +866,7 @@ onBeforeUnmount(() => {
   border-radius: var(--kcgl-radius-s);
   background: var(--kcgl-color-danger-bg);
   color: var(--kcgl-color-danger);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 .scan-wh-options {
@@ -859,9 +885,15 @@ onBeforeUnmount(() => {
   border: 1px solid var(--kcgl-color-border);
   border-radius: var(--kcgl-radius-s);
   background: var(--kcgl-color-card);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-text-sub);
   cursor: pointer;
+  transition: transform var(--kcgl-dur-fast) var(--kcgl-ease-out);
+}
+
+/* 触屏按压态（无 hover）：1px 下沉。 */
+.scan-wh-option:active {
+  transform: translateY(1px);
 }
 
 .scan-wh-option.is-active {
@@ -890,13 +922,19 @@ onBeforeUnmount(() => {
   font-weight: 500;
 }
 
+/* 非主色 .kcgl-btn 没有基元级按压态（brand.css 只给了 .kcgl-btn-primary），
+   这里补 1px 下沉，保证弹层里取消键与确认键手感一致。 */
+.scan-dialog-cancel:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
 .scan-dialog-ok {
   flex: 2;
 }
 
 .scan-fade-enter-active,
 .scan-fade-leave-active {
-  transition: opacity 0.15s ease;
+  transition: opacity var(--kcgl-dur-fast) var(--kcgl-ease-in-out);
 }
 
 .scan-fade-enter-from,

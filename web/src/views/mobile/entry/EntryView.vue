@@ -133,11 +133,7 @@ function onCancelReEntry(): void {
 </template>
 
 <style scoped>
-.entry-view {
-  max-width: 560px;
-  margin: 0 auto;
-}
-
+/* 内容列宽由移动壳统一持有（MobileShell 的 --kcgl-content-width），页面不再各自限宽居中 */
 .entry-dict-error {
   display: grid;
   gap: 12px;
@@ -147,9 +143,9 @@ function onCancelReEntry(): void {
   margin: 0;
 }
 
+/* 去掉 36px 覆盖：回到 .kcgl-btn 的 44px 触控下限，别再把它压回桌面尺寸 */
 .entry-dict-retry {
   justify-self: start;
-  font-size: 0.85rem;
-  height: 36px;
+  font-size: 0.9rem;
 }
 </style>

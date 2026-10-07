@@ -147,6 +147,12 @@ onMounted(() => {
   font: inherit;
   font-weight: 500;
   cursor: pointer;
+  transition: background-color var(--kcgl-dur-fast) var(--kcgl-ease-out);
+}
+
+/* 触屏无 hover，按压态是唯一反馈 */
+.pwa-bar-install:active {
+  background: var(--kcgl-color-primary-dark);
 }
 
 .pwa-bar-dismiss {
@@ -158,5 +164,25 @@ onMounted(() => {
   color: var(--kcgl-color-text-sub);
   font: inherit;
   cursor: pointer;
+  transition:
+    border-color var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    color var(--kcgl-dur-fast) var(--kcgl-ease-out);
+}
+
+/* 触屏无 hover，按压态是唯一反馈 */
+.pwa-bar-dismiss:active {
+  border-color: var(--kcgl-color-primary);
+  color: var(--kcgl-color-primary);
+}
+
+/* 移动壳内：正文提到 0.9rem（桌面警告条保持原密度，docs/07 §3）；引导条两个按钮
+   只在移动端渲染（桌面壳传 warningOnly，永不进 guide 模式），触控目标补到 44px。 */
+.shell-mobile .pwa-bar {
+  font-size: 0.9rem;
+}
+
+.shell-mobile .pwa-bar-install,
+.shell-mobile .pwa-bar-dismiss {
+  min-height: 44px;
 }
 </style>

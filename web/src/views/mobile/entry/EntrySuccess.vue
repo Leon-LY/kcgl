@@ -251,7 +251,7 @@ async function confirmVoid(): Promise<void> {
 
 .entry-success-label {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-text-sub);
 }
 
@@ -272,7 +272,7 @@ async function confirmVoid(): Promise<void> {
 
 .entry-success-upload {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 .entry-success-upload.is-active {
@@ -304,14 +304,28 @@ async function confirmVoid(): Promise<void> {
 
 /* 危险操作走次级文字按钮：不与主流程（继续录入）争夺视觉焦点 */
 .entry-success-void {
+  position: relative;
   border: none;
   background: none;
   padding: 4px 12px;
   font: inherit;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-danger);
   text-decoration: underline;
   cursor: pointer;
+  transition: transform var(--kcgl-dur-fast) var(--kcgl-ease-out);
+}
+
+/* 文字按钮视觉保持小号，仅用透明覆盖层把命中区撑到 ≥44px（不撑大视觉盒子） */
+.entry-success-void::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+
+/* 按压反馈：1px 下沉（触屏唯一反馈，禁动布局属性） */
+.entry-success-void:active {
+  transform: translateY(1px);
 }
 
 .entry-void {
@@ -337,7 +351,7 @@ async function confirmVoid(): Promise<void> {
 
 .entry-void-note {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-text-sub);
   line-height: 1.6;
 }
@@ -349,7 +363,7 @@ async function confirmVoid(): Promise<void> {
 .entry-void-warn {
   margin: 0;
   padding: 8px 12px;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   line-height: 1.6;
   color: var(--kcgl-color-danger);
   background: var(--kcgl-color-danger-bg);
@@ -359,7 +373,7 @@ async function confirmVoid(): Promise<void> {
 
 .entry-void-error {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-danger);
 }
 

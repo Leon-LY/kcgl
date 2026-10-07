@@ -169,9 +169,9 @@ onMounted(() => {
 </template>
 
 <style scoped>
+/* 内容列宽由移动壳统一持有（--kcgl-content-width），页面根不再自设 560px——
+   否则手机上等于又把版面缩回「PC 窄列」 */
 .shipment-view {
-  max-width: 560px;
-  margin: 0 auto;
   display: grid;
   gap: 12px;
 }
@@ -201,7 +201,12 @@ onMounted(() => {
   padding-bottom: 24px;
 }
 
+/* 错误句里的行内重试链接：视觉必须保持紧凑下划线（不能撑大去挤错误文案），
+   故不改视觉盒，用 ::after 外扩命中区到约 47px；父容器即自身，自身需
+   position: relative 才能承载这个绝对定位热区 */
 .shipment-retry {
+  position: relative;
+  display: inline-block;
   margin-left: 8px;
   padding: 0;
   border: none;
@@ -211,6 +216,18 @@ onMounted(() => {
   font-size: 0.9rem;
   text-decoration: underline;
   cursor: pointer;
+  transition: transform var(--kcgl-dur-fast) var(--kcgl-ease-out);
+}
+
+.shipment-retry::after {
+  content: '';
+  position: absolute;
+  inset: -12px -10px;
+}
+
+/* 触屏无 hover：按下 1px 下沉（与 .kcgl-btn-primary:active 同语汇） */
+.shipment-retry:active {
+  transform: translateY(1px);
 }
 
 .shipment-card {
@@ -269,13 +286,13 @@ onMounted(() => {
 
 .shipment-meta {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-text-sub);
 }
 
 .shipment-date {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-text-sub);
 }
 
@@ -293,13 +310,15 @@ onMounted(() => {
   white-space: nowrap;
 }
 
+/* 滞留角标：纯状态词（真微型标签，不是内容字），走微型标签下限 0.8rem
+   （docs/07 §3），与同壳 .status-tag 一致；不上内容字的 0.9rem。 */
 .shipment-delayed {
   padding: 2px 8px;
   border: 1px solid var(--kcgl-color-danger-border);
   border-radius: var(--kcgl-radius-s);
   background: var(--kcgl-color-danger-bg);
   color: var(--kcgl-color-danger);
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   white-space: nowrap;
 }
 

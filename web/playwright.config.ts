@@ -26,6 +26,14 @@ export default defineConfig({
     // 关键路径；其余 spec 仍只在 desktop-chromium 执行（各自 project 守卫）。
     // 真机全项见 docs/qa/device-matrix.md（G6）。
     { name: 'webkit-smoke', use: { ...devices['iPhone 13'] } },
+    // 平板档（docs/07 §1 三档表：768–1024）。UA 里带 iPad → detectShell 判为 mobile，
+    // 所以平板走的是移动壳，只是宽度到 768+：这一档原先零 @media、9 个页面各写一份
+    // 560px，平板下就是"居中一条窄柱 + 大片空白"（"PC 页面压小了"的观感来源）。
+    // 只跑 mobile-layout 的平板断言，其余 spec 仍由各自 project 守卫挡掉。
+    {
+      name: 'tablet-chromium',
+      use: { ...devices['iPad Mini'], viewport: { width: 834, height: 1112 } },
+    },
   ],
   webServer: [
     {

@@ -109,11 +109,13 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* 元素本身已带 .kcgl-card（整框描边 + 圆角 + 浅投影）。这里原先多压一条
+   3px 主色左竖条，属 docs/07 §1 硬禁用（侧边彩色竖条当强调）——本页其他卡都
+   是整框，这条竖条是异类，且与主色"只用于可点击/已选中/进行中"的用法冲突。 */
 .setup-card {
   display: grid;
   gap: 12px;
   padding: 20px;
-  border-left: 3px solid var(--kcgl-color-primary);
 }
 
 .setup-title {
@@ -128,6 +130,17 @@ onMounted(async () => {
   font-size: 0.85rem;
   line-height: 1.6;
   color: var(--kcgl-color-text-sub);
+}
+
+/* 移动端字号下限（docs/07 §3）：本卡同时挂在大盘（桌面）与移动首页上，
+   只有移动端需要抬——桌面 24 吋屏上 0.85rem/0.95rem 的密度是对的。
+   首页其余卡片的标题已统一到 1rem，这里跟上以免同页两种标题字号。 */
+.shell-mobile .setup-title {
+  font-size: 1rem;
+}
+
+.shell-mobile .setup-note {
+  font-size: 0.9rem;
 }
 
 .setup-steps {
@@ -178,9 +191,19 @@ onMounted(async () => {
   font-size: 0.92rem;
   text-align: left;
   cursor: pointer;
+  transition: color var(--kcgl-dur-fast) var(--kcgl-ease-out);
 }
 
-.setup-link:hover {
+/* 悬停高亮只在真有指针的设备生效（触屏 tap 会把 :hover 卡在最后点过的元素上） */
+@media (hover: hover) {
+  .setup-link:hover {
+    color: var(--kcgl-color-primary);
+    text-decoration: underline;
+  }
+}
+
+/* 触屏无 hover，按压态是唯一反馈 */
+.setup-link:active {
   color: var(--kcgl-color-primary);
   text-decoration: underline;
 }
@@ -196,10 +219,42 @@ onMounted(async () => {
   color: var(--kcgl-color-text-sub);
   font-size: 0.8rem;
   cursor: pointer;
+  transition:
+    border-color var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    color var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    transform var(--kcgl-dur-fast) var(--kcgl-ease-out);
 }
 
-.setup-done-btn:hover {
+/* 悬停高亮只在真有指针的设备生效（触屏 tap 会把 :hover 卡在最后点过的元素上） */
+@media (hover: hover) {
+  .setup-done-btn:hover {
+    border-color: var(--kcgl-color-primary);
+    color: var(--kcgl-color-primary);
+  }
+}
+
+/* 触屏无 hover，按压态是唯一反馈：边框变主色 + 1px 下沉 */
+.setup-done-btn:active {
   border-color: var(--kcgl-color-primary);
   color: var(--kcgl-color-primary);
+  transform: translateY(1px);
+}
+
+/* 移动壳内：本共享引导卡补足触控目标与字号下限（桌面壳保持原密度，docs/07 §1、§3）。
+   桌面靠鼠标、密度可以低；手机上一行文字按钮只有 ~20px 高，落在拇指热区外。 */
+.shell-mobile .setup-step {
+  min-height: 44px;
+}
+
+/* 文字按钮只放大命中区、视觉不变 */
+.shell-mobile .setup-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.shell-mobile .setup-done-btn {
+  height: 44px;
+  font-size: 0.9rem;
 }
 </style>

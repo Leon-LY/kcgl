@@ -150,8 +150,6 @@ function onSwitchShell(target: 'mobile' | 'desktop'): void {
 .home {
   display: grid;
   gap: 16px;
-  max-width: 520px;
-  margin: 0 auto;
 }
 
 .home-welcome {
@@ -168,7 +166,7 @@ function onSwitchShell(target: 'mobile' | 'desktop'): void {
 
 .home-card-title {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--kcgl-color-text-sub);
 }
@@ -179,15 +177,24 @@ function onSwitchShell(target: 'mobile' | 'desktop'): void {
   gap: 8px;
 }
 
+/* 手机档：账号字段改为「标签在上、值在下」的单列（原生移动版式）；
+   600px 起才恢复桌面两列定义表——移动端三档同源，见 docs/07 §1。 */
 .home-info-row {
   display: grid;
-  grid-template-columns: 9em 1fr;
-  gap: 8px;
+  grid-template-columns: 1fr;
+  gap: var(--kcgl-space-1);
   align-items: baseline;
 }
 
+@media (min-width: 600px) {
+  .home-info-row {
+    grid-template-columns: 9em 1fr;
+    gap: var(--kcgl-space-2);
+  }
+}
+
 .home-info-row dt {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-text-sub);
 }
 
@@ -202,13 +209,16 @@ function onSwitchShell(target: 'mobile' | 'desktop'): void {
 
 .home-shell-option {
   flex: 1;
-  height: 40px;
+  height: 44px;
   border: 1px solid var(--kcgl-color-border);
   border-radius: 4px;
   background: #fff;
   color: var(--kcgl-color-text);
   font-size: 0.9rem;
   cursor: pointer;
+  transition:
+    border-color var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    color var(--kcgl-dur-fast) var(--kcgl-ease-out);
 }
 
 .home-shell-option.is-active {
@@ -217,10 +227,15 @@ function onSwitchShell(target: 'mobile' | 'desktop'): void {
   font-weight: 600;
 }
 
+/* 触屏无 hover，按压态是唯一反馈 */
+.home-shell-option:active {
+  border-color: var(--kcgl-color-primary);
+  color: var(--kcgl-color-primary);
+}
+
 .home-entry-link {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   width: 100%;
   height: 48px;
   padding: 0 16px;
@@ -231,18 +246,37 @@ function onSwitchShell(target: 'mobile' | 'desktop'): void {
   font: inherit;
   font-size: 0.95rem;
   cursor: pointer;
+  transition:
+    border-color var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    color var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    transform var(--kcgl-dur-fast) var(--kcgl-ease-out);
 }
 
+/* 行尾尖括号 = 「点了会去另一个页面」的唯一提示。这排行只有文字和描边，
+   拿掉它整行看着就是个普通按钮，用户不下手点。
+   （原写法靠父容器 justify-content: space-between 把伪元素顶到右边——flex 里
+   裸文本会变成一个匿名盒，碰巧生效；改成 margin-left: auto 是同一效果但读得出意图。） */
 .home-entry-link::after {
   content: '›';
+  margin-left: auto;
   color: var(--kcgl-color-text-sub);
   font-size: 1.3rem;
   line-height: 1;
 }
 
-.home-entry-link:hover {
+/* 悬停高亮只在真有指针的设备生效（触屏 tap 会把 :hover 卡在最后点过的元素上） */
+@media (hover: hover) {
+  .home-entry-link:hover {
+    border-color: var(--kcgl-color-primary);
+    color: var(--kcgl-color-primary);
+  }
+}
+
+/* 触屏无 hover，按压态是唯一反馈：边框变主色 + 1px 下沉 */
+.home-entry-link:active {
   border-color: var(--kcgl-color-primary);
   color: var(--kcgl-color-primary);
+  transform: translateY(1px);
 }
 
 .home-preparing {

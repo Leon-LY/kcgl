@@ -378,9 +378,9 @@ useSyncInvalidation(['STOCKTAKE'], () => {
 </template>
 
 <style scoped>
+/* 内容列宽由移动壳统一持有（--kcgl-content-width），视图根不再自设限宽/居中：
+   否则窄壳与平板档各自算一套宽度，手机档被夹成"缩小版 PC"（docs/07 §1 设备三档）。 */
 .diff-view {
-  max-width: 560px;
-  margin: 0 auto;
   display: grid;
   gap: 12px;
 }
@@ -414,15 +414,23 @@ useSyncInvalidation(['STOCKTAKE'], () => {
 
 .diff-filter-option {
   flex: 1;
-  min-height: 40px;
+  min-height: 44px;
   padding: 4px 8px;
   border: 1px solid var(--kcgl-color-border);
   border-radius: var(--kcgl-radius-s);
   background: var(--kcgl-color-card);
   color: var(--kcgl-color-text-sub);
   font: inherit;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   cursor: pointer;
+  transition:
+    border-color var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    transform var(--kcgl-dur-fast) var(--kcgl-ease-out);
+}
+
+/* 触屏按压态（无 hover）：1px 下沉（视觉同步抬到 44px 与 .kcgl-btn 同一档）。 */
+.diff-filter-option:active {
+  transform: translateY(1px);
 }
 
 .diff-filter-option.is-active {
@@ -439,7 +447,7 @@ useSyncInvalidation(['STOCKTAKE'], () => {
   border-radius: var(--kcgl-radius-s);
   background: var(--kcgl-color-danger-bg);
   color: var(--kcgl-color-danger);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 .diff-empty {
@@ -463,8 +471,12 @@ useSyncInvalidation(['STOCKTAKE'], () => {
   margin-top: 8px;
 }
 
+/* 未確認の行。旧写法是 3px 警告色左竖条——docs/07 §1 硬禁用（侧边彩色竖条），
+   而且它把该行左边撑宽 2px，和上下行对不齐。改用整框描边 + 浅底：语义与
+   状态片同源，宽度不变、不串行。 */
 .diff-row.is-pending {
-  border-left: 3px solid var(--kcgl-color-warning);
+  border-color: var(--kcgl-color-warning-border);
+  background: var(--kcgl-color-warning-bg);
 }
 
 .diff-row-head {
@@ -520,7 +532,7 @@ useSyncInvalidation(['STOCKTAKE'], () => {
   padding: 2px 8px;
   border: 1px solid var(--kcgl-color-border);
   border-radius: var(--kcgl-radius-s);
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--kcgl-color-text-sub);
   white-space: nowrap;
 }
@@ -546,7 +558,7 @@ useSyncInvalidation(['STOCKTAKE'], () => {
 }
 
 .diff-confirm-status {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--kcgl-color-success);
 }
 
@@ -556,13 +568,13 @@ useSyncInvalidation(['STOCKTAKE'], () => {
 
 .diff-wh {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-text-sub);
 }
 
 .diff-hint {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   line-height: 1.6;
   color: var(--kcgl-color-text-sub);
 }
@@ -574,7 +586,7 @@ useSyncInvalidation(['STOCKTAKE'], () => {
   border-radius: var(--kcgl-radius-s);
   background: var(--kcgl-color-warning-bg);
   color: var(--kcgl-color-warning);
-  font-size: 0.78rem;
+  font-size: 0.9rem;
 }
 
 .diff-actions {
@@ -586,7 +598,7 @@ useSyncInvalidation(['STOCKTAKE'], () => {
 
 .diff-armed-label {
   margin-right: auto;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--kcgl-color-danger);
 }
@@ -603,5 +615,33 @@ useSyncInvalidation(['STOCKTAKE'], () => {
   background: var(--kcgl-color-card);
   color: var(--kcgl-color-text-sub);
   font-weight: 500;
+}
+
+/* 非主色 .kcgl-btn 没有基元级按压态（brand.css 只给了 .kcgl-btn-primary），
+   这里补 1px 下沉，与相邻主色按钮手感一致。 */
+.diff-no-btn:active:not(:disabled),
+.diff-ignore-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* 窄屏（手机档 <600px）：工具行原是把「確認する／無視する／はい／いいえ」塞进一行、
+   每个还带 88px 最小宽——日文长标签必然挤压/溢出，这是"PC 工具栏硬塞进手机"的典型。
+   改为整列满宽堆叠（docs/07 §1 手机档单列），并撤掉 88px 最小宽。 */
+@media (max-width: 599px) {
+  .diff-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .diff-armed-label {
+    margin-right: 0;
+  }
+
+  .diff-yes-btn,
+  .diff-no-btn,
+  .diff-ignore-btn {
+    width: 100%;
+    min-width: 0;
+  }
 }
 </style>

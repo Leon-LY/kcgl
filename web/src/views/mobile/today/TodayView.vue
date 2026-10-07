@@ -123,9 +123,8 @@ useSyncInvalidation(['ITEM', 'IMAGE'], () => void load())
 </template>
 
 <style scoped>
+/* 内容列宽由移动壳统一持有（MobileShell 的 --kcgl-content-width），页面不再各自限宽居中 */
 .today-view {
-  max-width: 560px;
-  margin: 0 auto;
   display: grid;
   gap: 12px;
 }
@@ -150,7 +149,7 @@ useSyncInvalidation(['ITEM', 'IMAGE'], () => void load())
 
 .today-date {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-text-sub);
 }
 
@@ -172,6 +171,12 @@ useSyncInvalidation(['ITEM', 'IMAGE'], () => void load())
   border: 1px solid var(--kcgl-color-border);
   background: var(--kcgl-color-card);
   color: var(--kcgl-color-text-sub);
+}
+
+/* 触屏没有 hover，按压态是唯一反馈：边框加重 + 1px 下沉（禁动布局属性） */
+.today-retry:active {
+  transform: translateY(1px);
+  border-color: var(--kcgl-color-border-strong);
 }
 
 .today-empty {
@@ -261,12 +266,12 @@ useSyncInvalidation(['ITEM', 'IMAGE'], () => void load())
   border-radius: var(--kcgl-radius-s);
   background: var(--kcgl-color-danger-bg);
   color: var(--kcgl-color-danger);
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 600;
 }
 
 .today-void-reason {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-text-sub);
   white-space: nowrap;
   overflow: hidden;
@@ -275,7 +280,7 @@ useSyncInvalidation(['ITEM', 'IMAGE'], () => void load())
 
 .today-time {
   flex-shrink: 0;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
   color: var(--kcgl-color-text-sub);
 }

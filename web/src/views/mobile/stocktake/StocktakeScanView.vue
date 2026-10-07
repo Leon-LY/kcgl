@@ -592,9 +592,9 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/* 内容列宽由移动壳统一持有（--kcgl-content-width），视图根不再自设限宽/居中：
+   否则窄壳与平板档各自算一套宽度，手机档被夹成"缩小版 PC"（docs/07 §1 设备三档）。 */
 .session-view {
-  max-width: 560px;
-  margin: 0 auto;
   display: grid;
   gap: 12px;
 }
@@ -609,6 +609,12 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 8px;
   justify-items: start;
+}
+
+/* 本页裸 .kcgl-btn（非主色，如「再読み込み」）没有基元级按压态：
+   补 1px 下沉，保证加载失败重试也有触屏反馈。 */
+.session-error .kcgl-btn:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .session-summary {
@@ -635,7 +641,7 @@ onBeforeUnmount(() => {
   padding: 2px 8px;
   border: 1px solid var(--kcgl-color-border);
   border-radius: var(--kcgl-radius-s);
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--kcgl-color-text-sub);
   white-space: nowrap;
 }
@@ -651,7 +657,7 @@ onBeforeUnmount(() => {
 }
 
 .session-summary-wh {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-text-sub);
 }
 
@@ -663,17 +669,17 @@ onBeforeUnmount(() => {
 
 .session-summary-by {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-text-faint);
 }
 
 .session-closed-note {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 .session-guide {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-text-sub);
 }
 
@@ -705,8 +711,22 @@ onBeforeUnmount(() => {
   background: rgba(31, 35, 41, 0.55);
   color: #fff;
   font: inherit;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   cursor: pointer;
+  transition: transform var(--kcgl-dur-fast) var(--kcgl-ease-out);
+}
+
+/* 触控目标 ≥44px，但视觉保持紧凑：按钮压在取景框上，放大视觉会遮住扫码区；
+   故不撑大本体的盒子，改用透明 ::after 外扩热区（36 + 4×2 = 44）。 */
+.session-torch::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+}
+
+/* 触屏没有 hover，按压态是唯一反馈：1px 下沉（对齐 .kcgl-btn-primary:active）。 */
+.session-torch:active {
+  transform: translateY(1px);
 }
 
 .session-torch.is-on {
@@ -737,7 +757,7 @@ onBeforeUnmount(() => {
   border-radius: var(--kcgl-radius-s);
   background: var(--kcgl-color-danger-bg);
   color: var(--kcgl-color-danger);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 .session-card {
@@ -782,7 +802,7 @@ onBeforeUnmount(() => {
 
 .session-card-note {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 .session-card-note.is-warning {
@@ -797,7 +817,7 @@ onBeforeUnmount(() => {
 }
 
 .session-queued-note {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 .session-flush-failures {
@@ -807,7 +827,7 @@ onBeforeUnmount(() => {
   border-color: var(--kcgl-color-warning-border);
   background: var(--kcgl-color-warning-bg);
   color: var(--kcgl-color-warning);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 .session-flush-text {
@@ -816,14 +836,29 @@ onBeforeUnmount(() => {
 }
 
 .session-flush-dismiss {
+  position: relative;
   padding: 4px 12px;
   border: 1px solid currentColor;
   border-radius: var(--kcgl-radius-s);
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   cursor: pointer;
+  transition: transform var(--kcgl-dur-fast) var(--kcgl-ease-out);
+}
+
+/* 这是行内小按钮，视觉须保持紧凑（撑到 44px 会把警示条撑高、比例失衡）；
+   故用透明 ::after 外扩热区到 44px（本体约 33px + 6×2）。 */
+.session-flush-dismiss::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+
+/* 触屏没有 hover，按压态是唯一反馈：1px 下沉。 */
+.session-flush-dismiss:active {
+  transform: translateY(1px);
 }
 
 .session-actions {
@@ -837,6 +872,12 @@ onBeforeUnmount(() => {
   background: var(--kcgl-color-card);
   color: var(--kcgl-color-text-sub);
   font-weight: 500;
+}
+
+/* 非主色 .kcgl-btn 没有基元级按压态（brand.css 只给了 .kcgl-btn-primary），
+   这里补 1px 下沉，与相邻主色按钮手感一致。 */
+.session-cancel-btn:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .session-actions .kcgl-btn-primary {
@@ -870,7 +911,7 @@ onBeforeUnmount(() => {
 
 .session-dialog-note {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 1rem;
   line-height: 1.6;
   color: var(--kcgl-color-text-sub);
 }
@@ -882,7 +923,7 @@ onBeforeUnmount(() => {
   border-radius: var(--kcgl-radius-s);
   background: var(--kcgl-color-danger-bg);
   color: var(--kcgl-color-danger);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 .session-dialog-actions {
@@ -898,13 +939,19 @@ onBeforeUnmount(() => {
   font-weight: 500;
 }
 
+/* 非主色 .kcgl-btn 没有基元级按压态（brand.css 只给了 .kcgl-btn-primary），
+   这里补 1px 下沉，保证弹层里取消键与确认键手感一致。 */
+.session-dialog-cancel:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
 .session-dialog-actions .kcgl-btn-primary {
   flex: 2;
 }
 
 .session-fade-enter-active,
 .session-fade-leave-active {
-  transition: opacity 0.15s ease;
+  transition: opacity var(--kcgl-dur-fast) var(--kcgl-ease-in-out);
 }
 
 .session-fade-enter-from,

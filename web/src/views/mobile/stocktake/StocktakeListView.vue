@@ -229,9 +229,9 @@ function countText(row: StocktakeSummary): string {
 </template>
 
 <style scoped>
+/* 内容列宽由移动壳统一持有（--kcgl-content-width），视图根不再自设限宽/居中：
+   否则窄壳与平板档各自算一套宽度，手机档被夹成"缩小版 PC"（docs/07 §1 设备三档）。 */
 .stocktake-view {
-  max-width: 560px;
-  margin: 0 auto;
   display: grid;
   gap: 12px;
 }
@@ -270,9 +270,15 @@ function countText(row: StocktakeSummary): string {
   border: 1px solid var(--kcgl-color-border);
   border-radius: var(--kcgl-radius-s);
   background: var(--kcgl-color-card);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-text-sub);
   cursor: pointer;
+  transition: transform var(--kcgl-dur-fast) var(--kcgl-ease-out);
+}
+
+/* 触屏按压态（无 hover）：1px 下沉。 */
+.stocktake-wh-option:active {
+  transform: translateY(1px);
 }
 
 .stocktake-wh-option.is-active {
@@ -295,7 +301,7 @@ function countText(row: StocktakeSummary): string {
   border-radius: var(--kcgl-radius-s);
   background: var(--kcgl-color-warning-bg);
   color: var(--kcgl-color-warning);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   line-height: 1.6;
 }
 
@@ -304,6 +310,12 @@ function countText(row: StocktakeSummary): string {
   background: var(--kcgl-color-primary-bg);
   color: var(--kcgl-color-primary);
   font-weight: 600;
+}
+
+/* 非主色 .kcgl-btn 没有基元级按压态（brand.css 只给了 .kcgl-btn-primary），
+   这里补 1px 下沉，与相邻主色按钮手感一致。 */
+.stocktake-start-open:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .stocktake-history-title {
@@ -332,14 +344,25 @@ function countText(row: StocktakeSummary): string {
   font: inherit;
   text-align: left;
   cursor: pointer;
+  transition:
+    border-color var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    transform var(--kcgl-dur-fast) var(--kcgl-ease-out);
 }
 
 .stocktake-row + .stocktake-row {
   margin-top: 8px;
 }
 
-.stocktake-row:hover {
-  border-color: var(--kcgl-color-primary);
+/* 悬停只在真有指针的设备上生效：触屏点一下后 :hover 会粘在最后点的行上。 */
+@media (hover: hover) {
+  .stocktake-row:hover {
+    border-color: var(--kcgl-color-primary);
+  }
+}
+
+/* 整行可点但原无按压反馈：触屏上点了没反应像"没点中"，补 1px 下沉。 */
+.stocktake-row:active {
+  transform: translateY(1px);
 }
 
 .stocktake-row-head {
@@ -360,7 +383,7 @@ function countText(row: StocktakeSummary): string {
   padding: 2px 8px;
   border: 1px solid var(--kcgl-color-border);
   border-radius: var(--kcgl-radius-s);
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--kcgl-color-text-sub);
   white-space: nowrap;
 }
@@ -376,12 +399,12 @@ function countText(row: StocktakeSummary): string {
 }
 
 .stocktake-row-count {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-text-sub);
 }
 
 .stocktake-row-meta {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-text-faint);
 }
 

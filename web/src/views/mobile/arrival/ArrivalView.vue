@@ -486,9 +486,9 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/* 内容列宽由移动壳统一持有（--kcgl-content-width），页面根不再自设 560px——
+   那等于在手机上又把版面缩回「PC 窄列」，正是「缩小版 PC」观感的成因之一 */
 .arrival-view {
-  max-width: 560px;
-  margin: 0 auto;
   display: grid;
   gap: 12px;
 }
@@ -521,18 +521,24 @@ onBeforeUnmount(() => {
   gap: 8px;
 }
 
+/* 筛选片：文案是仓库名（内容不是微型标签），抬到移动端下限 0.9rem，行高随
+   0.9rem 放到 1.5；min-height 40→44px——工具栏单行有富余，直接抬高视觉盒，
+   不必做不可见热区（后者在三片相邻时会互相盖住） */
 .arrival-filter-option {
   flex: 1;
-  min-height: 40px;
+  min-height: 44px;
   padding: 4px 8px;
   border: 1px solid var(--kcgl-color-border);
   border-radius: var(--kcgl-radius-s);
   background: var(--kcgl-color-card);
   color: var(--kcgl-color-text-sub);
   font: inherit;
-  font-size: 0.85rem;
-  line-height: 1.4;
+  font-size: 0.9rem;
+  line-height: 1.5;
   cursor: pointer;
+  transition:
+    background-color var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    border-color var(--kcgl-dur-fast) var(--kcgl-ease-out);
 }
 
 .arrival-filter-option.is-active {
@@ -540,6 +546,13 @@ onBeforeUnmount(() => {
   background: var(--kcgl-color-primary-bg);
   color: var(--kcgl-color-primary);
   font-weight: 600;
+}
+
+/* 触屏无 hover，按下态是唯一反馈：只换底色与描边，不动任何布局属性。放在
+   .is-active 之后，保证选中片被再次按下时同样有反馈（同特异性、后者胜出） */
+.arrival-filter-option:active {
+  background: var(--kcgl-color-fill);
+  border-color: var(--kcgl-color-border-strong);
 }
 
 .arrival-done {
@@ -572,6 +585,16 @@ onBeforeUnmount(() => {
   font: inherit;
   text-align: left;
   cursor: pointer;
+  transition:
+    background-color var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    border-color var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    transform var(--kcgl-dur-fast) var(--kcgl-ease-out);
+}
+
+/* 整卡按压：1px 下沉（与 .kcgl-btn-primary:active 同一克制语汇）。触屏无 hover，
+   这是选中操作唯一的即时反馈；transform 不触发重排 */
+.arrival-card:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .arrival-card + .arrival-card {
@@ -624,16 +647,17 @@ onBeforeUnmount(() => {
 }
 
 .arrival-date {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-text-sub);
 }
 
+/* 仓库片：内容是仓库名（业务字段），不是微型标签，0.75→0.9rem */
 .arrival-wh {
   flex-shrink: 0;
   padding: 2px 8px;
   border: 1px solid var(--kcgl-color-border);
   border-radius: var(--kcgl-radius-s);
-  font-size: 0.75rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-text-sub);
   white-space: nowrap;
 }
@@ -684,9 +708,11 @@ onBeforeUnmount(() => {
   border-top: 1px solid var(--kcgl-color-border);
 }
 
+/* 固定操作条横跨视口（left/right:0），内层必须与内容列同宽并居中，否则按钮
+   落在壳的内容列之外；限宽改用壳的内容列令牌而非写死 560px */
 .arrival-actionbar-inner {
-  max-width: 560px;
-  margin: 0 auto;
+  max-width: var(--kcgl-content-width);
+  margin-inline: auto;
 }
 
 .arrival-overlay {
@@ -722,7 +748,7 @@ onBeforeUnmount(() => {
 
 .arrival-dialog-hint {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-text-faint);
 }
 
@@ -732,6 +758,8 @@ onBeforeUnmount(() => {
   margin: 0;
   padding: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* iOS 保持惯性滚动 */
+  overscroll-behavior: contain; /* 内滚到底不回弹传染给背后的页面 */
   list-style: none;
   display: grid;
   gap: 10px;
@@ -750,7 +778,7 @@ onBeforeUnmount(() => {
 }
 
 .arrival-override-code {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
@@ -760,18 +788,24 @@ onBeforeUnmount(() => {
   gap: 6px;
 }
 
+/* 改仓选项承载日文最长文案「予定どおり（第１倉庫）」：0.75→0.9rem、行高
+   1.3→1.5，min-height 34→44px 直接抬高视觉盒。这里不做不可见热区——三片
+   同排、行间仅 6px，外扩热区会互相盖住导致误点；弹层清单本就自滚，加高不挤 */
 .arrival-override-wh-option {
   flex: 1;
-  min-height: 34px;
+  min-height: 44px;
   padding: 4px 6px;
   border: 1px solid var(--kcgl-color-border);
   border-radius: var(--kcgl-radius-s);
   background: var(--kcgl-color-card);
   color: var(--kcgl-color-text-sub);
   font: inherit;
-  font-size: 0.75rem;
-  line-height: 1.3;
+  font-size: 0.9rem;
+  line-height: 1.5;
   cursor: pointer;
+  transition:
+    background-color var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    border-color var(--kcgl-dur-fast) var(--kcgl-ease-out);
 }
 
 .arrival-override-wh-option.is-active {
@@ -781,9 +815,17 @@ onBeforeUnmount(() => {
   font-weight: 600;
 }
 
+/* 同筛选片：按下态置于 .is-active 之后，选中项再按也有反馈 */
+.arrival-override-wh-option:active:not(:disabled) {
+  background: var(--kcgl-color-fill);
+  border-color: var(--kcgl-color-border-strong);
+}
+
+/* 货架输入：输入值是内容，0.85→0.9rem；min-height 补到 44px 与触控下限一致
+   （.kcgl-input 基元本就有 height:44px，此前的 36px 是个不起作用的旧值） */
 .arrival-override-shelf {
-  min-height: 36px;
-  font-size: 0.85rem;
+  min-height: 44px;
+  font-size: 0.9rem;
 }
 
 .arrival-dialog-error {
@@ -793,7 +835,7 @@ onBeforeUnmount(() => {
   border-radius: var(--kcgl-radius-s);
   background: var(--kcgl-color-danger-bg);
   color: var(--kcgl-color-danger);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 .arrival-dialog-actions {
@@ -815,11 +857,31 @@ onBeforeUnmount(() => {
 
 .arrival-fade-enter-active,
 .arrival-fade-leave-active {
-  transition: opacity 0.15s ease;
+  transition: opacity var(--kcgl-dur-fast) var(--kcgl-ease-out);
 }
 
 .arrival-fade-enter-from,
 .arrival-fade-leave-to {
   opacity: 0;
+}
+
+/* 手机档（<600px）：改仓三项一行放不下——「予定どおり（名古屋倉庫）」是最长的
+   一片（12 字 ≈ 190px），挤在一行里三片各自折行反而更乱。改仓这一组本来就是
+   「沿用默认」+「两个具体仓库」的语义，按语义分组竖排：
+   第一片（沿用）独占一行，后两片两两并排。
+   （仓库筛选那三片是「すべて／名古屋／福岡」，最窄机型 320px 下也只需 272px，
+   一行放得下，保持单行不折。） */
+@media (max-width: 599px) {
+  .arrival-override-wh {
+    flex-wrap: wrap;
+  }
+
+  .arrival-override-wh-option:first-child {
+    flex: 1 1 100%;
+  }
+
+  .arrival-override-wh-option:not(:first-child) {
+    flex: 1 1 calc(50% - 3px);
+  }
 }
 </style>

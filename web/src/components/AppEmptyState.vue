@@ -98,6 +98,13 @@ defineProps<{
   color: var(--kcgl-color-text-sub);
 }
 
+/* 移动端字号下限（docs/07 §3）：空态说明是内容，0.875rem=14px 差一口气到
+   0.9rem（14.4px）的下限；桌面保持原值。空态出现在到货/盘点等列表页，
+   手机上本来就是"看一句说明再决定下一步"的场景，字小了直接影响引导。 */
+.shell-mobile .empty-state-desc {
+  font-size: 0.9rem;
+}
+
 .empty-state-action:not(:empty) {
   margin-top: var(--kcgl-space-3);
 }

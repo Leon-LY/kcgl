@@ -762,7 +762,7 @@ async function onSubmit(): Promise<void> {
 
 .entry-prev-day {
   color: var(--kcgl-color-danger);
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   border: 1px solid var(--kcgl-color-danger-border);
   background: var(--kcgl-color-danger-bg);
   border-radius: 4px;
@@ -773,7 +773,7 @@ async function onSubmit(): Promise<void> {
 .entry-venue-unavailable {
   margin: 0;
   padding: 8px 16px 10px;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   line-height: 1.5;
   color: var(--kcgl-color-warning);
   background: var(--kcgl-color-warning-bg);
@@ -804,7 +804,7 @@ async function onSubmit(): Promise<void> {
 
 .entry-warehouse-option {
   flex: 1;
-  height: 40px;
+  height: 44px;
   border: 1px solid var(--kcgl-color-border);
   border-radius: 4px;
   background: #fff;
@@ -812,12 +812,22 @@ async function onSubmit(): Promise<void> {
   font: inherit;
   font-size: 0.9rem;
   cursor: pointer;
+  transition:
+    border-color var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    color var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    transform var(--kcgl-dur-fast) var(--kcgl-ease-out);
 }
 
 .entry-warehouse-option.is-active {
   border-color: var(--kcgl-color-primary);
   color: var(--kcgl-color-primary);
   font-weight: 600;
+}
+
+/* 按压反馈：1px 下沉 + 边框加重（触屏无 hover，按压态是唯一反馈） */
+.entry-warehouse-option:active {
+  transform: translateY(1px);
+  border-color: var(--kcgl-color-border-strong);
 }
 
 /* 照片区：缩略图 56px + 删除角标（触控目标 ≥44px 由按钮整体承担，角标为可点区域中心） */
@@ -857,6 +867,18 @@ async function onSubmit(): Promise<void> {
   font-size: 0.8rem;
   line-height: 1;
   cursor: pointer;
+  transition: transform var(--kcgl-dur-fast) var(--kcgl-ease-out);
+}
+
+/* 删除角标视觉必须保持 20px（放大就盖住缩略图），命中区靠透明覆盖层撑到 ≥44px */
+.entry-photo-remove::after {
+  content: '';
+  position: absolute;
+  inset: -12px;
+}
+
+.entry-photo-remove:active {
+  transform: translateY(1px);
 }
 
 .entry-photo-count {
@@ -870,21 +892,26 @@ async function onSubmit(): Promise<void> {
   padding: 0 16px 8px;
 }
 
+/* 不再覆盖高度：回到 .kcgl-btn 的 44px 触控下限（覆盖前是 36px，手机偏小） */
 .entry-photo-btn {
   flex: 1;
-  height: 36px;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
+}
+
+/* 按压反馈：1px 下沉（.kcgl-btn 已含 transform 过渡） */
+.entry-photo-btn:active {
+  transform: translateY(1px);
 }
 
 .entry-photo-error {
   margin: 0 16px 4px;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-danger);
 }
 
 .entry-photo-hint {
   margin: 0 16px 8px;
-  font-size: 0.75rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-text-sub);
 }
 
@@ -906,7 +933,7 @@ async function onSubmit(): Promise<void> {
 }
 
 .entry-preview-label {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-text-sub);
 }
 
@@ -919,13 +946,13 @@ async function onSubmit(): Promise<void> {
 
 .entry-preview-error {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-danger);
 }
 
 .entry-preview-note {
   margin: 0;
-  font-size: 0.75rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-text-sub);
 }
 
@@ -940,7 +967,7 @@ async function onSubmit(): Promise<void> {
 
 .entry-in-date-hint {
   margin: -4px 16px 0;
-  font-size: 0.75rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-text-sub);
 }
 
@@ -956,16 +983,21 @@ async function onSubmit(): Promise<void> {
 }
 
 .entry-error-id {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   opacity: 0.8;
 }
 
+/* 去掉 36px 覆盖：回到 .kcgl-btn 的 44px 触控下限 */
 .entry-error-retry {
   justify-self: start;
   background: var(--kcgl-color-danger);
   color: #fff;
-  font-size: 0.85rem;
-  height: 36px;
+  font-size: 0.9rem;
+}
+
+/* 按压反馈：1px 下沉（.kcgl-btn 已含 transform 过渡） */
+.entry-error-retry:active {
+  transform: translateY(1px);
 }
 
 .entry-submit {
@@ -995,21 +1027,35 @@ async function onSubmit(): Promise<void> {
 
 .entry-reentry-note {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.9rem;
   line-height: 1.6;
   color: var(--kcgl-color-text-sub);
 }
 
 .entry-reentry-cancel {
+  position: relative;
   border: none;
   background: none;
   padding: 2px 4px;
   font: inherit;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--kcgl-color-primary);
   text-decoration: underline;
   white-space: nowrap;
   cursor: pointer;
+  transition: color var(--kcgl-dur-fast) var(--kcgl-ease-out);
+}
+
+/* 文字链接视觉保持小号，仅用透明覆盖层把命中区撑到 ≥44px（不撑大视觉盒子） */
+.entry-reentry-cancel::after {
+  content: '';
+  position: absolute;
+  inset: -12px;
+}
+
+/* 按压反馈：主色加深（触屏无 hover，按压态是唯一反馈） */
+.entry-reentry-cancel:active {
+  color: var(--kcgl-color-primary-dark);
 }
 
 /* 继承图片：只读缩略图（不可删——服务端保存时整组复制到新件） */
@@ -1031,7 +1077,7 @@ async function onSubmit(): Promise<void> {
 
 .entry-inherited-note {
   margin: 0 16px 12px;
-  font-size: 0.75rem;
+  font-size: 0.9rem;
   line-height: 1.6;
   color: var(--kcgl-color-text-sub);
 }

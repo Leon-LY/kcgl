@@ -34,6 +34,12 @@ withDefaults(defineProps<{ tone?: Tone }>(), { tone: 'neutral' })
   white-space: nowrap;
 }
 
+/* 移动端微型标签下限 0.8rem（docs/07 §3）：0.78rem=12.5px 差一口气，
+   在手机上是全页最小的一处字。桌面保持原值（高密度是对的）。 */
+.shell-mobile .status-tag {
+  font-size: 0.8rem;
+}
+
 .status-tag.is-neutral {
   border-color: var(--kcgl-color-neutral-border);
   background: var(--kcgl-color-neutral-bg);

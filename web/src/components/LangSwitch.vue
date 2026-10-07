@@ -46,4 +46,12 @@ async function onChange(event: Event): Promise<void> {
   font-size: 0.85rem;
   cursor: pointer;
 }
+
+/* 移动壳顶栏（min-height 52px）内把触控目标补到 44px：52 减 44 留 8px 余量，
+   不会把顶栏撑高。桌面顶栏保持 32px 密度（docs/07 §1）。
+   字号同步抬到移动端下限 0.9rem（0.85rem=13.6px 在手机上是桌面密度）。 */
+.shell-mobile .lang-switch {
+  height: 44px;
+  font-size: 0.9rem;
+}
 </style>
