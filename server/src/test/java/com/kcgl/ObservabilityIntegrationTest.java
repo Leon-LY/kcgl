@@ -1,5 +1,6 @@
 package com.kcgl;
 
+import com.kcgl.common.i18n.Msg;
 import com.kcgl.common.obs.AlertService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,6 +21,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.mysql.MySQLContainer;
+
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -186,22 +189,49 @@ class ObservabilityIntegrationTest {
 
     @Test
     void recordAlert_sameDedupKey_keepsLatestOpenState() {
-        alertService.record("DISK_USAGE", 2, "ディスク使用率 85%", "disk-usage", "{\"pct\":85}");
-        alertService.record("DISK_USAGE", 3, "ディスク使用率 92%", "disk-usage", "{\"pct\":92}");
+        // D-128：文案走 Msg（code+params+原文），message_key/message_params 一并落库
+        alertService.record("DISK_USAGE", 2,
+                Msg.of("system.alert.diskUsage", Map.of("used", 85, "threshold", 80),
+                        "ディスク使用率が85%に達しました（閾値80%）"),
+                "disk-usage", "{\"pct\":85}");
+        alertService.record("DISK_USAGE", 3,
+                Msg.of("system.alert.diskUsage", Map.of("used", 92, "threshold", 80),
+                        "ディスク使用率が92%に達しました（閾値80%）"),
+                "disk-usage", "{\"pct\":92}");
 
         Integer count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM sys_alert WHERE dedup_key='disk-usage'", Integer.class);
         assertThat(count).isEqualTo(1);
-        var row = jdbcTemplate.queryForMap(
-                "SELECT level, message, status FROM sys_alert WHERE dedup_key='disk-usage'");
+        var row = jdbcTemplate.queryForMap("SELECT level, message, message_key, message_params, "
+                + "status FROM sys_alert WHERE dedup_key='disk-usage'");
         assertThat(((Number) row.get("level")).intValue()).isEqualTo(3);
-        assertThat(row.get("message")).isEqualTo("ディスク使用率 92%");
+        assertThat(row.get("message")).isEqualTo("ディスク使用率が92%に達しました（閾値80%）");
+        assertThat(row.get("message_key")).isEqualTo("system.alert.diskUsage");
+        // 去空白后比对：JSON 由 Jackson 输出（冒号后带空格），断言不该依赖序列化器的缩进风格
+        assertThat(((String) row.get("message_params")).replace(" ", ""))
+                .contains("\"used\":92");
         assertThat(((Number) row.get("status")).intValue()).isEqualTo(0);
+    }
+
+    /** 2 参工厂（无插值参数）→ message_params 存 NULL 而非 "{}"：空对象与无结构化键在列上应可区分。 */
+    @Test
+    void recordAlert_msgWithoutParams_storesNullParams() {
+        alertService.record("IMAGE_AUDIT", 1,
+                Msg.of("system.alert.imageOrphan", "孤立画像ファイル：3件が表から未参照です（クリーンアップ候補）"),
+                "alert-no-params", null);
+
+        var row = jdbcTemplate.queryForMap(
+                "SELECT message_key, message_params FROM sys_alert WHERE dedup_key='alert-no-params'");
+        assertThat(row.get("message_key")).isEqualTo("system.alert.imageOrphan");
+        assertThat(row.get("message_params")).isNull();
     }
 
     @Test
     void markAlertRead_adminOnly_canListAlerts() throws Exception {
-        alertService.record("BACKUP_STALE", 2, "バックアップが3日間実行されていません", "backup-stale", null);
+        alertService.record("SEQ_COUNTER_MISMATCH", 2,
+                Msg.of("system.alert.counterMismatch", Map.of("count", 3),
+                        "管理番号カウンタ不整合：3件のカウンタが実データより遅れています"),
+                "backup-stale", null);
         Long alertId = jdbcTemplate.queryForObject(
                 "SELECT id FROM sys_alert WHERE dedup_key='backup-stale'", Long.class);
 
@@ -219,6 +249,9 @@ class ObservabilityIntegrationTest {
         assertThat(status).isEqualTo(1);
         mockMvc.perform(get("/api/alerts").session(admin))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.list[0].dedupKey").value("backup-stale"));
+                .andExpect(jsonPath("$.data.list[0].dedupKey").value("backup-stale"))
+                // 前端契约：实体直出即含 messageKey/messageParams（JSON 列落为字符串）
+                .andExpect(jsonPath("$.data.list[0].messageKey").value("system.alert.counterMismatch"))
+                .andExpect(jsonPath("$.data.list[0].messageParams").value(org.hamcrest.Matchers.containsString("3")));
     }
 }

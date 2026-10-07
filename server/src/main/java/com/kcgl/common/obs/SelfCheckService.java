@@ -1,5 +1,6 @@
 package com.kcgl.common.obs;
 
+import com.kcgl.common.i18n.Msg;
 import com.kcgl.module.image.ImageProperties;
 import com.kcgl.module.inventory.LedgerConsistencyService;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -206,68 +207,92 @@ public class SelfCheckService {
 
     // ------------------------------------------------------------------ 告警落库
 
-    /** 各节独立告警（一节异常不掩盖其余节）；payload 供管理页展开定位。 */
+    /**
+     * 各节独立告警（一节异常不掩盖其余节）；payload 供管理页展开定位。
+     *
+     * <p>文案走 {@link Msg}（D-128）：{@code text} 与 i18n 里 ja 值必须逐字一致——同一句
+     * 告警在「命中键」与「回退原文」两条路径上不该出两种日文。故此处先用局部变量拼出
+     * 句子与 params，两处引用同一份计数。
+     */
     private void recordAlerts(SelfCheckReport report) {
         if (!report.ledger().ok()) {
             List<String> codes = report.ledger().drifts().stream()
                     .map(LedgerConsistencyService.ItemDrift::itemCode).toList();
+            int driftCount = report.ledger().driftCount();
+            String samples = String.join("、", cap(codes, 3));
             alertService.record(TYPE_RECONCILE, AlertService.LEVEL_ERROR,
-                    "帳実不一致が検出されました：" + report.ledger().driftCount()
-                            + "件（例: " + String.join("、", cap(codes, 3)) + "）",
+                    Msg.of("system.alert.ledgerDrift",
+                            Map.of("count", driftCount, "samples", samples),
+                            "帳実不一致が検出されました：" + driftCount + "件（例: " + samples + "）"),
                     "self-check-ledger",
                     objectMapper.writeValueAsString(Map.of(
                             "balances", report.ledger().balances(),
                             "drifts", report.ledger().drifts())));
         }
         if (!report.counters().ok()) {
+            int mismatchCount = report.counters().mismatches().size();
             alertService.record(TYPE_SEQ_COUNTER, AlertService.LEVEL_ERROR,
-                    "管理番号カウンタ不整合：" + report.counters().mismatches().size()
-                            + "件のカウンタが実データより遅れています",
+                    Msg.of("system.alert.counterMismatch", Map.of("count", mismatchCount),
+                            "管理番号カウンタ不整合：" + mismatchCount
+                                    + "件のカウンタが実データより遅れています"),
                     "self-check-counter",
                     objectMapper.writeValueAsString(Map.of(
                             "mismatches", report.counters().mismatches())));
         }
         if (!report.volumes().ok()) {
+            long itemCount = report.volumes().itemCount();
+            long ledgerCount = report.volumes().ledgerCount();
+            long logCount = report.volumes().logCount();
             alertService.record(TYPE_DATA_VOLUME, AlertService.LEVEL_WARN,
-                    "データ量が閾値を超えました：商品 " + report.volumes().itemCount()
-                            + "／流水 " + report.volumes().ledgerCount()
-                            + "／操作ログ " + report.volumes().logCount(),
+                    Msg.of("system.alert.dataVolume",
+                            Map.of("items", itemCount, "ledger", ledgerCount, "logs", logCount),
+                            "データ量が閾値を超えました：商品 " + itemCount
+                                    + "／流水 " + ledgerCount
+                                    + "／操作ログ " + logCount),
                     "self-check-volume",
                     objectMapper.writeValueAsString(Map.of(
-                            "itemCount", report.volumes().itemCount(),
-                            "ledgerCount", report.volumes().ledgerCount(),
-                            "logCount", report.volumes().logCount(),
+                            "itemCount", itemCount,
+                            "ledgerCount", ledgerCount,
+                            "logCount", logCount,
                             "itemThreshold", report.volumes().itemThreshold(),
                             "ledgerThreshold", report.volumes().ledgerThreshold(),
                             "logThreshold", report.volumes().logThreshold())));
         }
         if (!report.disk().ok()) {
+            int usedPercent = report.disk().usedPercent();
+            int threshold = properties.diskWarnPercent();
             alertService.record(TYPE_DISK_USAGE, AlertService.LEVEL_ERROR,
-                    "ディスク使用率が" + report.disk().usedPercent()
-                            + "%に達しました（閾値" + properties.diskWarnPercent() + "%）",
+                    Msg.of("system.alert.diskUsage",
+                            Map.of("used", usedPercent, "threshold", threshold),
+                            "ディスク使用率が" + usedPercent
+                                    + "%に達しました（閾値" + threshold + "%）"),
                     "self-check-disk",
                     objectMapper.writeValueAsString(Map.of(
                             "path", report.disk().path(),
                             "totalBytes", report.disk().totalBytes(),
                             "usableBytes", report.disk().usableBytes(),
-                            "usedPercent", report.disk().usedPercent())));
+                            "usedPercent", usedPercent)));
         }
         if (report.imageAudit().missingCount() > 0) {
+            long missingCount = report.imageAudit().missingCount();
             alertService.record(TYPE_IMAGE_AUDIT, AlertService.LEVEL_ERROR,
-                    "画像ファイル欠損：" + report.imageAudit().missingCount()
-                            + "件の表参照先に実ファイルがありません",
+                    Msg.of("system.alert.imageMissing", Map.of("count", missingCount),
+                            "画像ファイル欠損：" + missingCount
+                                    + "件の表参照先に実ファイルがありません"),
                     "self-check-image-missing",
                     objectMapper.writeValueAsString(Map.of(
-                            "missingCount", report.imageAudit().missingCount(),
+                            "missingCount", missingCount,
                             "missingSamples", report.imageAudit().missingSamples())));
         }
         if (report.imageAudit().orphanCount() > 0) {
+            long orphanCount = report.imageAudit().orphanCount();
             alertService.record(TYPE_IMAGE_AUDIT, AlertService.LEVEL_WARN,
-                    "孤立画像ファイル：" + report.imageAudit().orphanCount()
-                            + "件が表から未参照です（クリーンアップ候補）",
+                    Msg.of("system.alert.imageOrphan", Map.of("count", orphanCount),
+                            "孤立画像ファイル：" + orphanCount
+                                    + "件が表から未参照です（クリーンアップ候補）"),
                     "self-check-image-orphan",
                     objectMapper.writeValueAsString(Map.of(
-                            "orphanCount", report.imageAudit().orphanCount(),
+                            "orphanCount", orphanCount,
                             "orphanSamples", report.imageAudit().orphanSamples())));
         }
     }

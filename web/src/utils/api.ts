@@ -1461,13 +1461,21 @@ export function downloadDiagnosticsExport(): Promise<BlobDownload> {
   return requestBlob('/api/diagnostics/export', 'kcgl-diagnostics.json')
 }
 
-/** 统一告警行：level 1提示 2警告 3错误；status 0开启 1已读。 */
+/**
+ * 统一告警行：level 1提示 2警告 3错误；status 0开启 1已读。
+ *
+ * messageKey/messageParams（V6，D-128）：告警文案的 i18n 键与插值参数（JSON 文本，
+ * 与批次表同口径需前端 parse）。message 是 V6 之前的日文原文，两者都留——
+ * messageKey 为空即历史行，渲染时回退 message（renderMessageJson）。
+ */
 export interface SysAlert {
   id: number
   type: string
   dedupKey: string
   level: number
   message: string
+  messageKey?: string | null
+  messageParams?: string | null
   payload: string | null
   status: number
   readBy: number | null

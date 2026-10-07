@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppPageHeader from '@/components/AppPageHeader.vue'
 import { formatBytes, formatJstDateTime } from '@/utils/format'
-import { toDisplayMessage } from '@/utils/errors'
+import { renderMessageJson, toDisplayMessage } from '@/utils/errors'
 import {
   downloadDiagnosticsExport,
   fetchAlerts,
@@ -201,6 +201,11 @@ function alertLevelClass(level: number | null | undefined): string {
 
 function alertLevelText(level: number | null | undefined): string {
   return level == null ? '' : t(`system.alertLevelItem.${level}`)
+}
+
+/** 告警文案随界面语言走（D-128）：messageKey 为空的历史行回退 message 日文原文。 */
+function alertMessage(alert: SysAlert): string | null {
+  return renderMessageJson(alert.messageKey, alert.messageParams, t, alert.message)
 }
 
 // ------------------------------------------------------------- 帳実自検
@@ -550,7 +555,7 @@ onMounted(() => {
           >
             <template #default="{ row }">
               <span :class="{ 'system-alert-open': (row as SysAlert).status === 0 }">
-                {{ (row as SysAlert).message }}
+                {{ alertMessage(row as SysAlert) }}
               </span>
             </template>
           </el-table-column>

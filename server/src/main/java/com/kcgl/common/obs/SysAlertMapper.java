@@ -10,13 +10,18 @@ import org.apache.ibatis.annotations.Param;
 public interface SysAlertMapper extends BaseMapper<SysAlertEntity> {
 
     @Insert("""
-            INSERT INTO sys_alert(type, dedup_key, level, message, payload, status, created_at)
-            VALUES (#{type}, #{dedupKey}, #{level}, #{message}, #{payload}, 0, #{now})
+            INSERT INTO sys_alert(type, dedup_key, level, message, message_key, message_params,
+                                  payload, status, created_at)
+            VALUES (#{type}, #{dedupKey}, #{level}, #{message}, #{messageKey}, #{messageParams},
+                    #{payload}, 0, #{now})
             ON DUPLICATE KEY UPDATE
-              level = VALUES(level), message = VALUES(message), payload = VALUES(payload),
+              level = VALUES(level), message = VALUES(message),
+              message_key = VALUES(message_key), message_params = VALUES(message_params),
+              payload = VALUES(payload),
               status = 0, read_by = NULL, read_at = NULL, created_at = VALUES(created_at)
             """)
     int upsertOpen(@Param("type") String type, @Param("dedupKey") String dedupKey,
             @Param("level") int level, @Param("message") String message,
+            @Param("messageKey") String messageKey, @Param("messageParams") String messageParams,
             @Param("payload") String payload, @Param("now") java.time.LocalDateTime now);
 }

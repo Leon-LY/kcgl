@@ -12,7 +12,7 @@ import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppPageHeader from '@/components/AppPageHeader.vue'
 import { dayjs, formatJstDateTime, JST_TZ } from '@/utils/format'
 import { normalizeNumericText } from '@/utils/normalize'
-import { renderErrorMessage, renderMessage, toDisplayMessage } from '@/utils/errors'
+import { renderMessage, renderMessageJson, toDisplayMessage } from '@/utils/errors'
 import {
   downloadExcelExport,
   downloadExcelTemplate,
@@ -41,7 +41,7 @@ const canUpload = computed(() => auth.me != null && auth.me.role <= 2)
 
 /** 批次级失败提示（errorMessageParams 是 JSON 列，线上为字符串）。 */
 function batchErrorMessage(row: ExcelImportBatch): string | null {
-  return renderErrorMessage(row.errorMessageCode, row.errorMessageParams, t, row.errorMessage)
+  return renderMessageJson(row.errorMessageCode, row.errorMessageParams, t, row.errorMessage)
 }
 
 /** 错误行原因。 */

@@ -1,5 +1,6 @@
 package com.kcgl.module.itemcode;
 
+import com.kcgl.common.i18n.Msg;
 import com.kcgl.common.obs.AlertService;
 import com.kcgl.common.sse.SseHub;
 import com.kcgl.common.sse.SyncEvent;
@@ -13,6 +14,7 @@ import org.springframework.dao.DeadlockLoserDataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -68,7 +70,10 @@ public class ItemCodeService {
                     log.error("管理号生成重试耗尽 attempts={} {} {}", MAX_ATTEMPTS,
                             e.getClass().getSimpleName(), detail, e);
                     alertService.record("ITEM_CODE", AlertService.LEVEL_ERROR,
-                            "管理号生成のリトライ回数が上限に達しました（" + MAX_ATTEMPTS + "回）",
+                            Msg.of("system.alert.itemCodeRetryExhausted",
+                                    Map.of("attempts", MAX_ATTEMPTS),
+                                    "管理号生成のリトライ回数が上限に達しました（"
+                                            + MAX_ATTEMPTS + "回）"),
                             "item-code-retry-exhausted",
                             "{\"cause\":\"" + e.getClass().getSimpleName() + "\","
                                     + "\"clientReqId\":\"" + cmd.clientReqId() + "\"}");

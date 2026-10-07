@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.kcgl.common.audit.AuditRecorder;
 import com.kcgl.common.sse.SseHub;
 import com.kcgl.common.sse.SyncEvent;
+import com.kcgl.common.i18n.Msg;
 import com.kcgl.common.obs.AlertService;
 import com.kcgl.common.web.BizException;
 import com.kcgl.common.web.ErrorCode;
@@ -161,7 +162,10 @@ public class StocktakeService {
                     log.error("棚卸開始のリトライ回数が上限に達しました attempts={} {} warehouse={}",
                             MAX_ATTEMPTS, e.getClass().getSimpleName(), warehouse, e);
                     alertService.record("STOCKTAKE", AlertService.LEVEL_ERROR,
-                            "棚卸の開始が混雑のため失敗しました（" + MAX_ATTEMPTS + "回試行）",
+                            Msg.of("system.alert.stocktakeRetryExhausted",
+                                    Map.of("attempts", MAX_ATTEMPTS),
+                                    "棚卸の開始が混雑のため失敗しました（"
+                                            + MAX_ATTEMPTS + "回試行）"),
                             "stocktake-create-retry-exhausted",
                             "{\"cause\":\"" + e.getClass().getSimpleName() + "\",\"warehouse\":"
                                     + warehouse + "}");

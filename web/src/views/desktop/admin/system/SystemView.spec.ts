@@ -91,6 +91,9 @@ function alert(overrides: Partial<SysAlert> = {}): SysAlert {
     dedupKey: 'disk-usage',
     level: 2,
     message: 'ディスク使用率が閾値を超えました',
+    // 缺省即历史行（V6 之前落库的告警只有日文原文，结构化列空）
+    messageKey: null,
+    messageParams: null,
     payload: null,
     status: 0,
     readBy: null,
@@ -212,6 +215,39 @@ describe('system view (M5-4)', () => {
     // 已读行不再出现既読按钮，显示既読済み
     expect(wrapper.findAll('button').some((b) => b.text() === '既読')).toBe(false)
     expect(wrapper.text()).toContain('既読済み')
+  })
+
+  it('renders the alert message in the current UI language when messageKey is present', async () => {
+    apiMocks.fetchAlerts.mockResolvedValue({
+      list: [
+        alert({
+          messageKey: 'system.alert.diskUsage',
+          messageParams: '{"used":92,"threshold":80}',
+          message: 'ディスク使用率が92%に達しました（閾値80%）',
+        }),
+      ],
+      total: 1,
+      page: 1,
+      size: 50,
+    })
+    const wrapper = await mountView()
+    expect(wrapper.find('.system-alert-table').text()).toContain('ディスク使用率が92%に達しました（閾値80%）')
+
+    // 账号级语言切换后同一行改按中文出（D-128：告警文案不再恒为日文）
+    i18n.global.locale.value = 'zh-CN'
+    await flushPromises()
+    expect(wrapper.find('.system-alert-table').text()).toContain('磁盘使用率已达 92%（阈值 80%）')
+    expect(wrapper.find('.system-alert-table').text()).not.toContain('ディスク使用率')
+  })
+
+  it('falls back to the stored Japanese message for legacy alerts without messageKey', async () => {
+    apiMocks.fetchAlerts.mockResolvedValue({ list: [alert()], total: 1, page: 1, size: 50 })
+    const wrapper = await mountView()
+
+    i18n.global.locale.value = 'zh-CN'
+    await flushPromises()
+    // 无键即旧数据：不渲染空串，原样回退落库日文（自然老化）
+    expect(wrapper.find('.system-alert-table').text()).toContain('ディスク使用率が閾値を超えました')
   })
 
   it('runs the self-check and renders the five-section report with an all-ok summary', async () => {

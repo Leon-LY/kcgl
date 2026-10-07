@@ -89,8 +89,11 @@ function parseNoteJson(noteJson: string | null | undefined): StructuredMessage[]
   }
 }
 
-/** 批次级 errorMessage 渲染：errorMessageParams 是 JSON 列，线上是**字符串**需自行解析。 */
-export function renderErrorMessage(
+/**
+ * 单条结构化消息渲染，但 params 在**线上是字符串**：JSON 列（批次的 errorMessageParams、
+ * 告警的 messageParams）与实体字段同口径落为 String，故这里自行 parse。
+ */
+export function renderMessageJson(
   code: string | null | undefined,
   paramsJson: string | null | undefined,
   t: Composer['t'],

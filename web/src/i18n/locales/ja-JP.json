@@ -980,6 +980,16 @@
     "alertMarkRead": "既読",
     "alertRead": "既読済み",
     "alertEmpty": "アラートはありません",
+    "alert": {
+      "ledgerDrift": "帳実不一致が検出されました：{count}件（例: {samples}）",
+      "counterMismatch": "管理番号カウンタ不整合：{count}件のカウンタが実データより遅れています",
+      "dataVolume": "データ量が閾値を超えました：商品 {items}／流水 {ledger}／操作ログ {logs}",
+      "diskUsage": "ディスク使用率が{used}%に達しました（閾値{threshold}%）",
+      "imageMissing": "画像ファイル欠損：{count}件の表参照先に実ファイルがありません",
+      "imageOrphan": "孤立画像ファイル：{count}件が表から未参照です（クリーンアップ候補）",
+      "itemCodeRetryExhausted": "管理号生成のリトライ回数が上限に達しました（{attempts}回）",
+      "stocktakeRetryExhausted": "棚卸の開始が混雑のため失敗しました（{attempts}回試行）"
+    },
     "check": {
       "run": "整合性チェックを実行",
       "running": "実行中…",

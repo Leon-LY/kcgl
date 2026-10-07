@@ -980,6 +980,16 @@
     "alertMarkRead": "标记已读",
     "alertRead": "已读",
     "alertEmpty": "没有告警",
+    "alert": {
+      "ledgerDrift": "检测到账实不符：{count} 件（示例：{samples}）",
+      "counterMismatch": "管理编号计数器不一致：{count} 个计数器落后于实际数据",
+      "dataVolume": "数据量超过阈值：商品 {items}／流水 {ledger}／操作日志 {logs}",
+      "diskUsage": "磁盘使用率已达 {used}%（阈值 {threshold}%）",
+      "imageMissing": "图片文件缺失：{count} 条表内记录找不到实际文件",
+      "imageOrphan": "孤立图片文件：{count} 个文件未被表引用（可清理）",
+      "itemCodeRetryExhausted": "管理号生成重试次数已达上限（{attempts} 次）",
+      "stocktakeRetryExhausted": "盘点因繁忙启动失败（已试 {attempts} 次）"
+    },
     "check": {
       "run": "执行账实自检",
       "running": "执行中…",

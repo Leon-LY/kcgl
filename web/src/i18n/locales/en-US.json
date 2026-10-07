@@ -980,6 +980,16 @@
     "alertMarkRead": "Mark read",
     "alertRead": "Read",
     "alertEmpty": "No alerts",
+    "alert": {
+      "ledgerDrift": "Ledger mismatch detected: {count} item(s) (e.g. {samples})",
+      "counterMismatch": "Item code counter mismatch: {count} counter(s) behind the actual data",
+      "dataVolume": "Data volume over threshold: items {items} / ledger {ledger} / audit logs {logs}",
+      "diskUsage": "Disk usage reached {used}% (threshold {threshold}%)",
+      "imageMissing": "Missing image files: {count} record(s) point to files that do not exist",
+      "imageOrphan": "Orphan image files: {count} file(s) not referenced by any record (cleanup candidates)",
+      "itemCodeRetryExhausted": "Item code generation hit the retry limit ({attempts} attempts)",
+      "stocktakeRetryExhausted": "Stocktake could not start due to contention (after {attempts} attempts)"
+    },
     "check": {
       "run": "Run self-check",
       "running": "Running…",

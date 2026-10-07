@@ -22,6 +22,13 @@ public class SysAlertEntity {
     private String dedupKey;
     private Integer level;      // 1提示 2警告 3错误
     private String message;
+    /**
+     * 文案 i18n 键与插值参数（V6，D-128）：消息键为空即历史行（V6 之前），前端回退
+     * {@link #message} 的日文原文。params 是 JSON 列，在实体上落为 String（与
+     * yahoo/excel 批次表同口径），前端读回后自行 parse。
+     */
+    private String messageKey;
+    private String messageParams;
     private String payload;     // JSON 文本
     private Integer status;     // 0开启 1已读
     private Long readBy;

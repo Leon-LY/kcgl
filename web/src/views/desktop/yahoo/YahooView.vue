@@ -7,7 +7,7 @@ import { useSyncInvalidation } from '@/composables/useSyncInvalidation'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppPageHeader from '@/components/AppPageHeader.vue'
 import { formatJstDateTime, formatYen } from '@/utils/format'
-import { renderErrorMessage, renderMessage, renderNoteJson, toDisplayMessage } from '@/utils/errors'
+import { renderMessage, renderMessageJson, renderNoteJson, toDisplayMessage } from '@/utils/errors'
 import {
   fetchPendingShipments,
   fetchYahooBatches,
@@ -123,7 +123,7 @@ function hasUnmatched(row: YahooImportBatch): boolean {
 
 /** 批次级失败提示（errorMessageParams 是 JSON 列，线上为字符串）。 */
 function batchErrorMessage(row: YahooImportBatch): string | null {
-  return renderErrorMessage(row.errorMessageCode, row.errorMessageParams, t, row.errorMessage)
+  return renderMessageJson(row.errorMessageCode, row.errorMessageParams, t, row.errorMessage)
 }
 
 /** 批次補注（まとめ売り 単価未分割）：结构化数组逐条翻译后重连。 */

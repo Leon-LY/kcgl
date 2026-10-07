@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { renderErrorMessage, renderMessage, renderNoteJson, toDisplayMessage } from './errors'
+import { renderMessage, renderMessageJson, renderNoteJson, toDisplayMessage } from './errors'
 import { ApiError } from './api'
 import { i18n } from '@/i18n'
 
@@ -144,10 +144,10 @@ describe('renderNoteJson', () => {
   })
 })
 
-describe('renderErrorMessage', () => {
+describe('renderMessageJson', () => {
   it('parses the JSON params column and renders the active locale', () => {
     const rendered = withLocale('zh-CN', () =>
-      renderErrorMessage(
+      renderMessageJson(
         'imports.batch.excelHeaderMismatch',
         JSON.stringify({ column: '3', expected: '落札日', actual: '購入日' }),
         t,
@@ -158,17 +158,74 @@ describe('renderErrorMessage', () => {
   })
 
   it('falls back to the stored message when the batch has no code', () => {
-    expect(renderErrorMessage(null, null, t, '最初のワークシートが空です')).toBe(
+    expect(renderMessageJson(null, null, t, '最初のワークシートが空です')).toBe(
       '最初のワークシートが空です',
     )
   })
 
   it('still renders when the params column is malformed or not an object', () => {
-    expect(renderErrorMessage('imports.batch.failed', '{oops', t, '原文')).toBe(
+    expect(renderMessageJson('imports.batch.failed', '{oops', t, '原文')).toBe(
       t('imports.batch.failed'),
     )
     // JSON 合法但不是对象（null / 数组）：参数视同缺失，句子照出而不是炸掉
-    expect(renderErrorMessage('imports.batch.failed', 'null', t, '原文')).toBe(t('imports.batch.failed'))
-    expect(renderErrorMessage('imports.batch.failed', '[1,2]', t, '原文')).toBe(t('imports.batch.failed'))
+    expect(renderMessageJson('imports.batch.failed', 'null', t, '原文')).toBe(t('imports.batch.failed'))
+    expect(renderMessageJson('imports.batch.failed', '[1,2]', t, '原文')).toBe(t('imports.batch.failed'))
+  })
+})
+
+/**
+ * D-128 一致性护栏：告警文案有「命中键」与「回退原文」两条路径，ja 值必须与后端
+ * Msg.text() 逐字一致——否则同一句告警在历史行（只有 message）与新行（有 messageKey）
+ * 上会出两种日文，而 ja 是甲方语言，漂移最先被看见。此处写死后端原文（见
+ * SelfCheckService.recordAlerts / ItemCodeService / StocktakeService 的 Msg.of 第三参），
+ * 后端改文案而前端未跟随时本用例即红。
+ */
+describe('system.alert ja 值与后端兜底原文逐字一致', () => {
+  const cases = [
+    {
+      key: 'system.alert.ledgerDrift',
+      params: { count: 2, samples: 'HT9-A1X、HT9-A2X' },
+      text: '帳実不一致が検出されました：2件（例: HT9-A1X、HT9-A2X）',
+    },
+    {
+      key: 'system.alert.counterMismatch',
+      params: { count: 3 },
+      text: '管理番号カウンタ不整合：3件のカウンタが実データより遅れています',
+    },
+    {
+      key: 'system.alert.dataVolume',
+      params: { items: 150_001, ledger: 3_000_001, logs: 2_999_999 },
+      text: 'データ量が閾値を超えました：商品 150001／流水 3000001／操作ログ 2999999',
+    },
+    {
+      key: 'system.alert.diskUsage',
+      params: { used: 92, threshold: 80 },
+      text: 'ディスク使用率が92%に達しました（閾値80%）',
+    },
+    {
+      key: 'system.alert.imageMissing',
+      params: { count: 4 },
+      text: '画像ファイル欠損：4件の表参照先に実ファイルがありません',
+    },
+    {
+      key: 'system.alert.imageOrphan',
+      params: { count: 7 },
+      text: '孤立画像ファイル：7件が表から未参照です（クリーンアップ候補）',
+    },
+    {
+      // 后端常量 MAX_ATTEMPTS=3（ItemCodeService / StocktakeService）
+      key: 'system.alert.itemCodeRetryExhausted',
+      params: { attempts: 3 },
+      text: '管理号生成のリトライ回数が上限に達しました（3回）',
+    },
+    {
+      key: 'system.alert.stocktakeRetryExhausted',
+      params: { attempts: 3 },
+      text: '棚卸の開始が混雑のため失敗しました（3回試行）',
+    },
+  ]
+
+  it.each(cases)('$key', ({ key, params, text }) => {
+    expect(t(key, params)).toBe(text)
   })
 })

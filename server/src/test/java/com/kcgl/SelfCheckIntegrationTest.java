@@ -32,6 +32,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Comparator;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -287,6 +288,18 @@ class SelfCheckIntegrationTest {
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT payload FROM sys_alert WHERE type = 'RECONCILE_MISMATCH'", String.class))
                 .contains("drifts");
+
+        // D-128：告警文案结构化（i18n 键 + 插值参数），日文原文照旧落 message 供旧行/日志/诊断包消费
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM sys_alert WHERE message_key IS NULL", Long.class)).isZero();
+        Map<String, Object> driftAlert = jdbcTemplate.queryForMap(
+                "SELECT message, message_key, message_params FROM sys_alert "
+                        + "WHERE type = 'RECONCILE_MISMATCH'");
+        assertThat(driftAlert.get("message_key")).isEqualTo("system.alert.ledgerDrift");
+        assertThat((String) driftAlert.get("message")).startsWith("帳実不一致が検出されました：");
+        // 去空白后比对：params 由 Jackson 输出（冒号后带空格），断言不该依赖缩进风格
+        assertThat(((String) driftAlert.get("message_params")).replace(" ", ""))
+                .contains("\"count\"").contains("\"samples\"");
 
         // 同键 upsert：再跑一轮告警不刷屏
         selfCheck.checkAndAlert();
