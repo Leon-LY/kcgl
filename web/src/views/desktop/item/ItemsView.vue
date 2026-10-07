@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter, type LocationQuery } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useSyncInvalidation } from '@/composables/useSyncInvalidation'
+import { useMediaQuery } from '@/composables/useMediaQuery'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import { formatJstDate, formatJstDateTime, formatYen } from '@/utils/format'
 import { toDisplayMessage } from '@/utils/errors'
@@ -25,6 +26,24 @@ const router = useRouter()
 const route = useRoute()
 
 const isAdmin = computed(() => auth.me != null && auth.me.role === 1)
+
+/**
+ * 列宽分档（D-120）：列表 11 列合计 1298px，而可用宽度 = 视口 − 216(侧栏) − 128
+ * (shell 内容区 32×2 + 卡片 32×2 内边距) − 约 15(竖滚动条)。列宽不是估的：用
+ * Chromium 实测每种单元格「一行放下」的自然宽（含 12px×2 单元格内边距）后取的
+ * 上界，如「状態」最宽组合=出庫済み+キャンセル 需 159、「仕入単価」8 位数 ￥99,999,999
+ * 需 108、「商品」11 位管理号（正则上限 AA12-AAA99Z）需 168。
+ * 三档（阈值各留约 40px 余量，日文字形宽随字体栈有出入）：
+ *   ≥1680   11 列全显示（容器 ≥1336）
+ *   1400-1679  收「落札日/棚番号/滞留」→ 1014
+ *   <1400   再收「会場」→ 898
+ * 分档边界与下限用真实 Chromium 跑真应用实测过（1920/1680/1679/1440/1400/1399/1366/
+ * 1280/1240/1200）：各档表格内部横向滚动量恒为 0，档位恰在 1680 与 1400 翻转。
+ * 页面级横向滚动只在窄于 1212px 的视口出现——窄档列宽 898 + 卡片内边距 64 + 边框 2
+ * = 964 是卡片的最小内容宽（无法再压），加 216 侧栏即 1212。1280/1366 笔记本宽裕。
+ */
+const isWideTable = useMediaQuery('(min-width: 1680px)')
+const isMidTable = useMediaQuery('(min-width: 1400px)')
 
 const activeTab = ref('list')
 
@@ -522,7 +541,7 @@ onMounted(() => {
             >
               <el-table-column
                 :label="t('items.column.item')"
-                min-width="210"
+                min-width="168"
               >
                 <template #default="{ row }">
                   <div class="items-item">
@@ -540,7 +559,7 @@ onMounted(() => {
               </el-table-column>
               <el-table-column
                 :label="t('items.column.itemName')"
-                min-width="140"
+                min-width="130"
                 show-overflow-tooltip
               >
                 <template #default="{ row }">
@@ -548,17 +567,20 @@ onMounted(() => {
                 </template>
               </el-table-column>
               <el-table-column
+                v-if="isMidTable"
                 :label="t('items.column.venue')"
-                min-width="120"
+                min-width="116"
                 show-overflow-tooltip
               >
                 <template #default="{ row }">
                   {{ (row as ItemSearchRow).venueName ?? '—' }}
                 </template>
               </el-table-column>
+              <!-- 以下三列只在宽屏（≥1680）出现，中窄屏收起以保证不出横向滚动条（D-120） -->
               <el-table-column
+                v-if="isWideTable"
                 :label="t('items.column.buyDate')"
-                width="110"
+                width="100"
               >
                 <template #default="{ row }">
                   {{ formatJstDate((row as ItemSearchRow).buyDate) }}
@@ -566,7 +588,7 @@ onMounted(() => {
               </el-table-column>
               <el-table-column
                 :label="t('items.column.purchasePrice')"
-                width="110"
+                width="112"
                 align="right"
               >
                 <template #default="{ row }">
@@ -575,7 +597,7 @@ onMounted(() => {
               </el-table-column>
               <el-table-column
                 :label="t('items.column.totalCost')"
-                width="110"
+                width="112"
                 align="right"
               >
                 <template #default="{ row }">
@@ -584,7 +606,7 @@ onMounted(() => {
               </el-table-column>
               <el-table-column
                 :label="t('items.column.profit')"
-                width="100"
+                width="112"
                 align="right"
               >
                 <template #default="{ row }">
@@ -593,15 +615,16 @@ onMounted(() => {
               </el-table-column>
               <el-table-column
                 :label="t('items.column.warehouse')"
-                width="120"
+                width="100"
               >
                 <template #default="{ row }">
                   {{ warehouseOf((row as ItemSearchRow).warehouse) }}
                 </template>
               </el-table-column>
               <el-table-column
+                v-if="isWideTable"
                 :label="t('items.column.shelfNo')"
-                width="100"
+                width="88"
               >
                 <template #default="{ row }">
                   {{ (row as ItemSearchRow).shelfNo ?? '—' }}
@@ -609,7 +632,7 @@ onMounted(() => {
               </el-table-column>
               <el-table-column
                 :label="t('items.column.status')"
-                width="170"
+                width="164"
               >
                 <template #default="{ row }">
                   <div class="items-tags">
@@ -625,8 +648,9 @@ onMounted(() => {
                 </template>
               </el-table-column>
               <el-table-column
+                v-if="isWideTable"
                 :label="t('items.column.slowMove')"
-                width="100"
+                width="96"
               >
                 <template #default="{ row }">
                   <span
@@ -692,7 +716,7 @@ onMounted(() => {
             >
               <el-table-column
                 :label="t('items.recycle.column.item')"
-                min-width="210"
+                min-width="168"
               >
                 <template #default="{ row }">
                   <div class="items-item">
@@ -710,7 +734,7 @@ onMounted(() => {
               </el-table-column>
               <el-table-column
                 :label="t('items.recycle.column.itemName')"
-                min-width="140"
+                min-width="130"
                 show-overflow-tooltip
               >
                 <template #default="{ row }">
@@ -718,8 +742,9 @@ onMounted(() => {
                 </template>
               </el-table-column>
               <el-table-column
+                v-if="isWideTable"
                 :label="t('items.recycle.column.venue')"
-                min-width="120"
+                min-width="116"
                 show-overflow-tooltip
               >
                 <template #default="{ row }">
@@ -728,7 +753,7 @@ onMounted(() => {
               </el-table-column>
               <el-table-column
                 :label="t('items.recycle.column.warehouse')"
-                width="120"
+                width="100"
               >
                 <template #default="{ row }">
                   {{ warehouseOf((row as RecycleBinRow).warehouse) }}
@@ -736,7 +761,7 @@ onMounted(() => {
               </el-table-column>
               <el-table-column
                 :label="t('items.recycle.column.status')"
-                width="170"
+                width="164"
               >
                 <template #default="{ row }">
                   <div class="items-tags">
@@ -760,6 +785,7 @@ onMounted(() => {
                 </template>
               </el-table-column>
               <el-table-column
+                v-if="isMidTable"
                 :label="t('items.recycle.column.reason')"
                 min-width="140"
                 show-overflow-tooltip

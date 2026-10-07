@@ -346,12 +346,14 @@ function onSwitchMobile(): void {
   border-color: var(--kcgl-color-danger-border);
 }
 
-/* 内容容器：1280 上限（docs/07 §4 v2 由 1080 放宽——桌面主任务是读表，
-   1080 在 1440 屏上左右各留 180px 空白，列表列数被迫压缩） */
+/* 内容容器：1600 上限（docs/07 §4）。v1=1080 → v2=1280 的理由是「11 列表格被迫
+   压缩」，但 1280 仍不够：商品列表 11 列实测 1298px，而 1280 − 32×2(shell 内边距)
+   − 32×2(卡片内边距) 只剩 1152，永远横向滚动（D-120）。上限必须 ≥ 表格 1298 +
+   128 = 1426 才可能不滚动，取 1600 留余量；窄屏放不下由列分档解决（ItemsView）。 */
 .shell-main {
   flex: 1;
   width: 100%;
-  max-width: 1280px;
+  max-width: 1600px;
   margin: 0 auto;
   padding: var(--kcgl-space-5) var(--kcgl-space-6) var(--kcgl-space-7);
 }

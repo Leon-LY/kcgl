@@ -123,8 +123,33 @@ async function mountView(
 
 enableAutoUnmount(afterEach)
 
+/**
+ * 覆写媒体查询桩：按查询里的 min-width 与给定视口宽比较（与真实浏览器同判）。
+ * 默认桩恒 false（=最窄档），列分档的用例必须显式声明视口，否则只测到窄屏形态。
+ */
+function stubViewport(width: number): void {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => {
+      const min = /min-width:\s*(\d+)px/.exec(query)
+      return {
+        matches: min != null && width >= Number(min[1]),
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }
+    }),
+  })
+}
+
 beforeEach(() => {
   vi.resetAllMocks()
+  // 默认按 24 吋（1920）宽屏挂载：与客户现场一致，也让既有断言看到全部列
+  stubViewport(1920)
   setActivePinia(createPinia())
   i18n.global.locale.value = 'ja-JP'
   apiMocks.searchItems.mockResolvedValue(result())
@@ -380,5 +405,72 @@ describe('items list state in the URL (C1)', () => {
     await router.back()
     await flushPromises()
     expect(router.currentRoute.value.name).toBe('home')
+  })
+})
+
+/**
+ * 列分档（D-120）：11 列合计 1298px 放不进窄内容区——要么横滑，要么按视口收列。
+ * 这里锁的是「不会横滑」这个不变量：每档最小视口下，可见列宽合计 ≤ 可用容器宽。
+ * 判据的依据：el-table 是 table-layout:fixed，列宽由声明值决定，合计超过容器才出
+ * 横向滚动条（合计小于容器时富余宽度分给 min-width 列，仍不滚动）。
+ */
+describe('items view column tiers (D-120)', () => {
+  /** 列表标签页当前可见列：表头文案 + 声明列宽（width / min-width）合计。
+   *  width 为空串时（EP 的 prop 默认值）落到 min-width；用 || 而非 ?? 正是为此。 */
+  function listColumns(wrapper: VueWrapper): { labels: string[]; sum: number } {
+    const pane = wrapper.find('#pane-list')
+    const sum = pane
+      .findAllComponents({ name: 'ElTableColumn' })
+      .reduce(
+        (n, col) => n + (Number(col.props('width')) || Number(col.props('minWidth')) || 0),
+        0,
+      )
+    return {
+      labels: pane.findAll('.el-table__header-wrapper th .cell').map((cell) => cell.text()),
+      sum,
+    }
+  }
+
+  /** 该视口下的可用容器宽（= DesktopShell：视口 − 216 侧栏 − 32×2 shell 内边距
+   *  − 32×2 卡片内边距）。各档取本档的最小视口，即最不利情形。 */
+  function container(viewport: number): number {
+    return viewport - 216 - 32 * 2 - 32 * 2
+  }
+
+  it('宽屏 1920：11 列全在，合计不超容器', async () => {
+    stubViewport(1920)
+    const { wrapper } = await mountView()
+
+    const { labels, sum } = listColumns(wrapper)
+    expect(labels).toHaveLength(11)
+    expect(labels).toEqual(expect.arrayContaining(['落札日', '棚番号', '滞留', '会場', '状態']))
+    expect(sum).toBe(1298)
+    expect(sum).toBeLessThanOrEqual(container(1680))
+  })
+
+  it('中屏 1440：收「落札日/棚番号/滞留」，会場保留', async () => {
+    stubViewport(1440)
+    const { wrapper } = await mountView()
+
+    const { labels, sum } = listColumns(wrapper)
+    expect(labels).toHaveLength(8)
+    expect(labels).toContain('会場')
+    expect(labels).not.toContain('落札日')
+    expect(labels).not.toContain('棚番号')
+    expect(labels).not.toContain('滞留')
+    expect(sum).toBe(1014)
+    expect(sum).toBeLessThanOrEqual(container(1400))
+  })
+
+  it('窄屏 1280：再收「会場」（筛选下拉与详情页仍有会场名）', async () => {
+    stubViewport(1280)
+    const { wrapper } = await mountView()
+
+    const { labels, sum } = listColumns(wrapper)
+    expect(labels).toHaveLength(7)
+    expect(labels).not.toContain('会場')
+    expect(labels).toEqual(expect.arrayContaining(['商品', '商品名', '倉庫', '状態']))
+    expect(sum).toBe(898)
+    expect(sum).toBeLessThanOrEqual(container(1280))
   })
 })
