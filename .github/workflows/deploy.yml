@@ -1,14 +1,20 @@
 name: Deploy
 
-# 测试环境 CI/CD（docs/01 九节）：构建 app+web 双镜像 → ghcr.io → runner 经 SSH 直送
-# 服务器装载 → 滚动更新。**服务器不再从 ghcr 拉镜像**，原因见「交付镜像」一步的注释。
+# 测试环境部署 —— **前半程**（docs/01 九节）。
+# 一次完整部署 = 本流水线 + 本机脚本，按**网络位置**切：
+#   1. 本流水线（构建推送 ghcr + 同步制品，小文件、不挑链路）：构建 app+web 双镜像
+#      推到 ghcr.io，按精确 commit 同步 migrations/ 与 deploy/ 工件到 /opt/kcgl，
+#      并把 .env 的 KCGL_VERSION 回写成目标版本。
+#   2. 本机脚本 deploy/deploy-test.sh <版本>：拉镜像、直送服务器装载、滚动更新、核对。
+# 为什么镜像交付不在 CI：测试服务器的国际出口被掐到 15–23 KB/s（双向），
+# 详见作业末「后续：镜像交付与滚动更新在本机执行」一步的注释。
+#
 # - 触发：手动 workflow_dispatch（常规）/ 推 v* tag（发版联动）；不挂在 push main 上
 #   ——测试环境按需更新，不是每次提交的义务。
 # - 迁移目录随部署同步（镜像与 migrations 必须同版本，Flyway 对「已应用脚本缺失」
 #   会报错——这是刻意的防漂移设计）。
 # - 首次部署不走本流水线：需先在服务器准备 /opt/kcgl（deploy/ 目录 + .env），
-#   见 docs/deployment.md「首次部署」一节。服务器无需配置 ghcr 凭据——镜像由
-#   runner 送达，与 deploy/pack-release.sh 给甲方的交付方式同构。
+#   见 docs/deployment.md「首次部署」一节。服务器无需配置 ghcr 凭据。
 # - 前置 secrets：TEST_SSH_HOST / TEST_SSH_USER / TEST_SSH_PRIVATE_KEY（部署私钥）。
 #   host key 校验用 accept-new（TOFU）；收紧为 pin 时把公钥录进 known_hosts 再改。
 
@@ -84,7 +90,7 @@ jobs:
             ${{ env.IMAGE_WEB }}:latest
 
   deploy-test:
-    name: 部署测试环境（49.232.49.175）
+    name: 同步部署制品到测试环境（49.232.49.175）
     needs: build-push
     runs-on: ubuntu-latest
     steps:
@@ -165,77 +171,21 @@ jobs:
           grep -q '^KCGL_VERSION=${{ needs.build-push.outputs.version }}\$' .env &&
           echo '✓ .env 已回写为本次版本'"
 
-      - name: 交付镜像到服务器（runner 代下 + SSH 直送装载）
-        # 为什么不让服务器自己 pull（原设计的做法）：2026-10-07 实测服务器直连
-        # ghcr.io 只有 23 KB/s，`docker compose pull` 跑了 56 分钟连一个镜像都没
-        # 拉完，整轮部署最终只能手工收拾。而 runner 拉 ghcr 是秒级（同一次运行的
-        # build-push 作业刚刚验证过），所以改为 runner 下载后经 SSH 直送 docker load。
-        # 这与 deploy/pack-release.sh 给甲方的交付方式同构：谁的网络通，谁去取。
+      - name: 后续：镜像交付与滚动更新在本机执行
+        # 到这里，本作业完成了它**能**完成的部分：按精确 commit 同步 migrations/
+        # 与部署工件、把 .env 的 KCGL_VERSION 回写成目标版本（后两步见上）。
         #
-        # 必须用「装载」**替代** pull，不能当作 pull 失败后的补救：docker save/load
-        # 不保留 RepoDigests，装载进来的层在 docker 眼里仍算「本地没有」，pull 照旧
-        # 从头下（2026-10-07 实测：手工装载完成后，服务器上那个 pull 依旧 23 KB/s
-        # 原地空转，一小时毫无进展）。
+        # 为什么镜像交付不在这里：测试服务器的**国际出口被掐到 15–23 KB/s，双向**。
+        # 2026-10-07 三次实测——服务器自己 `docker compose pull` 从 ghcr 拉，56 分钟
+        # 没拉完一个镜像；换成 runner 代下后经 SSH 直送，只有 15 KB/s（600MB 要 11
+        # 小时，实测 4 分钟无爬坡）；而本机在境内，`docker save | ssh docker load`
+        # 是 18 MB/s、33 秒。差 1000 倍，差别只在有没有跨境。所以把活按网络位置切：
+        # 构建推送 ghcr 与制品同步（小文件）留在 CI，取镜像这一段放本机。
         #
-        # 未做 docker login：ghcr 上这两个包是公开的，匿名可拉。若日后改为私有包，
-        # 这里需补 `docker login ghcr.io` 并给本作业加 `packages: read` 权限。
+        # 本机侧：deploy/deploy-test.sh <版本>，它内含滚动更新、健康验证、版本核对
+        # 与巡检（原本是本作业的后续三步）。它以「.env 已回写为 <版本>」为凭证校验
+        # 本作业确实跑过——两半不会错配；因此本作业必须先跑，且必须先绿。
         run: |
-          set -euo pipefail
-          APP="${{ env.IMAGE_APP }}:${{ needs.build-push.outputs.version }}"
-          WEB="${{ env.IMAGE_WEB }}:${{ needs.build-push.outputs.version }}"
-          echo "::group::拉取镜像到 runner"
-          docker pull "$APP"
-          docker pull "$WEB"
-          echo "::endgroup::"
-          # 记起止时间：这台 runner 到北京服务器的上行带宽是本次改造唯一未经验证的
-          # 环节（本机在境内测到 18 MB/s，但 runner 在境外）。留时间戳便于下次部署
-          # 从作业时长反推实际吞吐，不必依赖需 admin 权限才能读的 Action 日志。
-          echo "::group::直送服务器 $(date -u +%H:%M:%S)"
-          docker save "$APP" "$WEB" \
-            | ssh ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }} 'docker load'
-          echo "::endgroup::$(date -u +%H:%M:%S) 送达"
-
-      - name: 滚动更新（镜像已在服务器本地，不再 pull）
-        # --pull never 是有意的：镜像由上一步装载，这里禁止 compose 自己去 registry 取。
-        # 服务器→ghcr 只有 23 KB/s，本步一旦退化成 pull 就是几小时的空转；宁可让它因
-        # 「本地没有该镜像」立刻失败（那说明上一步漏装了镜像），也不要挂在这里静默等待。
-        # mysql:8.4 / flyway:11-alpine 是固定版本、服务器上长期存在，故不在装载之列；
-        # 将来若升级这两个基础镜像版本，需一并纳入上一步的 docker save 清单。
-        #
-        # --force-recreate：确保应用本体被替换（推荐，非必需）。旧文称「不带则
-        # 新迁移永不执行」实测不成立——Compose v5.5.1 下 up -d 也会重启已退出
-        # 的一次性容器并应用新迁移（D-092，真实 V5 探针验到 schema 4→5）。
-        # 故是否生效一律核对结果：migrate 退出码 0 且运行镜像 tag = 目标版本。
-        run: >
-          ssh ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}
-          "cd ${{ env.DEPLOY_DIR }} &&
-          KCGL_VERSION=${{ needs.build-push.outputs.version }}
-          docker compose up -d --pull never --force-recreate --remove-orphans"
-
-      - name: 健康验证（登录页 200 = web/app/mysql 整链路通）
-        run: >
-          ssh ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}
-          "for i in \$(seq 1 60); do
-          curl -fsS -o /dev/null http://127.0.0.1:8082/ && break; sleep 5;
-          done;
-          cd ${{ env.DEPLOY_DIR }} && docker compose ps -a;
-          curl -fsS -o /dev/null -w 'login page HTTP %{http_code}\n' http://127.0.0.1:8082/"
-
-      - name: 核对版本透传（不信任 up 已生效，D-092/D-093）
-        # 与 deploy/upgrade.sh 同口径：升级是否生效**核对结果**，不看是否带了
-        # --force-recreate。运行镜像 tag ≠ 目标版本即失败——这正是 D-093 的症状
-        # （镜像换了、巡检全绿，但版本显示没变）在本流水线上的表现。
-        run: >
-          ssh ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}
-          "cd ${{ env.DEPLOY_DIR }} &&
-          running=\$(docker compose ps -q app | xargs -r docker inspect -f '{{.Config.Image}}') &&
-          echo \"app 运行镜像：\${running:-<空>}\" &&
-          case \"\$running\" in
-          *:${{ needs.build-push.outputs.version }}) echo \"✓ 版本核对通过（:${{ needs.build-push.outputs.version }}）\" ;;
-          *) echo \"✗ 运行镜像 '\${running:-<空>}' 与目标版本不符——compose 未同步或镜像未拉取？\"; exit 1 ;;
-          esac"
-
-      - name: 部署后巡检
-        run: >
-          ssh ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}
-          "cd ${{ env.DEPLOY_DIR }} && ./kcgl-doctor.sh || true"
+          echo "::notice::镜像交付与滚动更新属境内侧操作，请在本机执行：deploy/deploy-test.sh ${{ needs.build-push.outputs.version }}"
+          echo "本作业已完成：migrations/ 与部署工件同步、.env 回写为 ${{ needs.build-push.outputs.version }}"
+          echo "本机待做：docker pull → docker save | ssh docker load → compose up -d --pull never → 核对"
