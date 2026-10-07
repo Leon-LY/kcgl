@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import AppPageHeader from '@/components/AppPageHeader.vue'
 import { formatJstDate, formatJstDateTime, formatYen } from '@/utils/format'
 import { toDisplayMessage } from '@/utils/errors'
 import { ApiError } from '@/utils/api'
@@ -292,19 +293,17 @@ watch(() => route.params.id, (next, prev) => {
 
 <template>
   <section class="itemd-view">
-    <div class="admin-header">
-      <div>
-        <el-button
-          link
-          type="primary"
-          class="itemd-back"
-          @click="goBack"
-        >
-          ← {{ t('items.detail.back') }}
-        </el-button>
-        <h1
+    <!-- 返回走 history 而非具名跳转（:on-back="goBack"）：列表的筛选与页码在 query 里，
+         push 一个具名路由会把它们丢掉（D-112/C1）。标题不是纯文本（管理号 + 状态片），
+         故用 title 插槽；分岐提示自带警示色，用 description 插槽而非 description 属性。 -->
+    <AppPageHeader
+      :back-label="t('items.detail.back')"
+      :on-back="goBack"
+    >
+      <template #title>
+        <span
           v-if="item"
-          class="admin-title itemd-title"
+          class="itemd-title"
         >
           <span class="itemd-code">{{ item.itemCode }}</span>
           <span
@@ -319,47 +318,48 @@ watch(() => route.params.id, (next, prev) => {
             v-if="item.voided"
             class="itemd-tag is-danger"
           >{{ t('scan.voidedTag') }}</span>
-        </h1>
-        <p
-          v-if="item && diverged"
-          class="itemd-divergence"
-        >
+        </span>
+      </template>
+      <template
+        v-if="item && diverged"
+        #description
+      >
+        <p class="itemd-divergence">
           {{ t('items.detail.divergence') }}
         </p>
-      </div>
-      <div
-        v-if="item && !item.voided"
-        class="itemd-actions"
-      >
-        <el-button
-          v-if="canEdit"
-          type="primary"
-          @click="editOpen = true"
-        >
-          {{ t('items.detail.edit') }}
-        </el-button>
-        <el-button
-          v-if="canEdit"
-          @click="voidOpen = true"
-        >
-          {{ t('entry.voidButton') }}
-        </el-button>
-        <el-button
-          v-if="isAdmin"
-          @click="adjustOpen = true"
-        >
-          {{ t('items.detail.adjust') }}
-        </el-button>
-        <el-button
-          v-if="isAdmin"
-          type="danger"
-          plain
-          @click="deleteOpen = true"
-        >
-          {{ t('items.detail.delete') }}
-        </el-button>
-      </div>
-    </div>
+      </template>
+      <template #actions>
+        <template v-if="item && !item.voided">
+          <el-button
+            v-if="canEdit"
+            type="primary"
+            @click="editOpen = true"
+          >
+            {{ t('items.detail.edit') }}
+          </el-button>
+          <el-button
+            v-if="canEdit"
+            @click="voidOpen = true"
+          >
+            {{ t('entry.voidButton') }}
+          </el-button>
+          <el-button
+            v-if="isAdmin"
+            @click="adjustOpen = true"
+          >
+            {{ t('items.detail.adjust') }}
+          </el-button>
+          <el-button
+            v-if="isAdmin"
+            type="danger"
+            plain
+            @click="deleteOpen = true"
+          >
+            {{ t('items.detail.delete') }}
+          </el-button>
+        </template>
+      </template>
+    </AppPageHeader>
 
     <p
       v-if="item && item.voided"
@@ -761,20 +761,12 @@ watch(() => route.params.id, (next, prev) => {
   gap: 16px;
 }
 
-.itemd-back {
-  padding: 0 0 6px;
-  margin-bottom: 4px;
-  height: auto;
-}
-
+/* 标题内容（管理号 + 状态片）的排布；字号字重由 AppPageHeader 的 .page-header-title 定 */
 .itemd-title {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  margin: 0;
-  font-size: 1.2rem;
-  font-weight: 600;
 }
 
 .itemd-code {
@@ -786,12 +778,6 @@ watch(() => route.params.id, (next, prev) => {
   margin: 6px 0 0;
   font-size: 0.85rem;
   color: var(--kcgl-color-warning);
-}
-
-.itemd-actions {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
 }
 
 .itemd-state {

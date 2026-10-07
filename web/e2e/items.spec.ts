@@ -131,7 +131,7 @@ test.describe('item list and detail (desktop-chromium)', () => {
     // EP 关闭弹层不卸载 DOM——一律 :visible 限定当前弹层（防 strict 命中历史弹层）
     const dialog = page.locator('.el-dialog:visible')
     await expect(dialog).toContainText('管理番号は変更されません')
-    const field = (label: string) => dialog.locator('.itemd-field', { hasText: label })
+    const field = (label: string) => dialog.locator('.kcgl-field', { hasText: label })
     await field('商品名').locator('input').fill('E2E備前茶碗')
     await field('棚番号').locator('input').fill('E2-99')
     await field('備考').locator('textarea').fill('E2E備考')
@@ -150,10 +150,10 @@ test.describe('item list and detail (desktop-chromium)', () => {
 
     // ---- 作废：理由必填拦截 → 填理由 → 跳录入页重录横幅（?reEntry= 深链）
     await page.locator('.el-tabs__item', { hasText: '基本情報' }).click()
-    await page.locator('.itemd-actions').getByRole('button', { name: '取り消して再登録' }).click()
+    await page.locator('.page-header-actions').getByRole('button', { name: '取り消して再登録' }).click()
     const voidDialog = page.locator('.el-dialog:visible')
     await voidDialog.getByRole('button', { name: '取り消して再入力へ' }).click()
-    await expect(voidDialog.locator('.itemd-form-error')).toContainText('取り消し理由を入力してください')
+    await expect(voidDialog.locator('.kcgl-form-error')).toContainText('取り消し理由を入力してください')
     await voidDialog.locator('textarea').fill('E2E価格入力ミス')
     await voidDialog.getByRole('button', { name: '取り消して再入力へ' }).click()
     // ?reEntry= 参数在 EntryView onMounted 即刻清参（防刷新留痕），URL 断言只锚定
@@ -175,7 +175,7 @@ test.describe('item list and detail (desktop-chromium)', () => {
 
     // 详情页删除（理由可选，填上留痕）
     await page.goto(`/items/${itemC.id}`)
-    await page.locator('.itemd-actions').getByRole('button', { name: '削除する' }).click()
+    await page.locator('.page-header-actions').getByRole('button', { name: '削除する' }).click()
     const dialog = page.locator('.el-dialog:visible')
     await expect(dialog).toContainText('「削除済み商品」から復元できます')
     await dialog.locator('textarea').fill('E2E整理')

@@ -470,7 +470,8 @@ describe('item detail view (M5-1)', () => {
 
     expect(wrapper.find('.kcgl-info-box').text()).toBe('取り消し済みの商品です（理由：誤登録）。')
     expect(wrapper.find('.itemd-title .itemd-tag.is-danger').text()).toBe('取り消し済み')
-    expect(wrapper.find('.itemd-actions').exists()).toBe(false)
+    // 操作区容器由 AppPageHeader 提供、恒在（空则不占位），故断其内无按钮而非容器不存在
+    expect(wrapper.find('.page-header-actions button').exists()).toBe(false)
   })
 })
 
@@ -587,7 +588,7 @@ describe('detail back navigation (C1)', () => {
     const wrapper = mount(ItemDetailView, { global: { plugins: [i18n, router] } })
     await flushPromises()
 
-    await wrapper.find('.itemd-back').trigger('click')
+    await wrapper.find('.page-header-back').trigger('click')
     await settleOn(router, 'items')
 
     expect(router.currentRoute.value.query).toEqual({ kw: 'HT9', page: '3' })
@@ -596,7 +597,7 @@ describe('detail back navigation (C1)', () => {
   it('falls back to a bare list push when there is no back entry (deep link)', async () => {
     const { wrapper, router } = await mountView(2)
 
-    await wrapper.find('.itemd-back').trigger('click')
+    await wrapper.find('.page-header-back').trigger('click')
     await flushPromises()
 
     expect(router.currentRoute.value.name).toBe('items')

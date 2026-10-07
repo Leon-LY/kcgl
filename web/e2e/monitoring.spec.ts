@@ -42,7 +42,7 @@ test.describe('monitoring pages (desktop-chromium)', () => {
     // qty 0、stock —→0：登记语义，仓流转自入库起算——ItemCodeTxService 契约）
     await page.goto('/ledgers')
     await expect(page).toHaveURL(/\/ledgers$/)
-    await expect(page.locator('.admin-title')).toHaveText('台帳ブラウズ')
+    await expect(page.locator('.page-header-title')).toHaveText('台帳ブラウズ')
     const rows = page.locator('.ledgers-table .el-table__row')
     await expect(rows.first()).toBeVisible()
     const countBefore = await rows.count()
@@ -67,7 +67,7 @@ test.describe('monitoring pages (desktop-chromium)', () => {
   test('admin queries operation logs: action prefix, operator narrowing, and expandable detail JSON', async ({ page }) => {
     await login(page, 'admin')
     await page.goto('/admin/logs')
-    await expect(page.locator('.admin-title')).toHaveText('操作ログ')
+    await expect(page.locator('.page-header-title')).toHaveText('操作ログ')
 
     const rows = page.locator('.el-table__row')
     await expect(rows.first()).toBeVisible()
@@ -82,8 +82,8 @@ test.describe('monitoring pages (desktop-chromium)', () => {
     // 旧首行本就含 ITEM_，纯文本断言会吃陈旧 DOM，展开点击撞上重渲染即 detach）
     const filteredResponse = page.waitForResponse((r) =>
       r.url().includes('/api/operation-logs?action=ITEM_') && r.request().method() === 'GET')
-    await page.getByPlaceholder('アクション（前方一致）').fill('ITEM_')
-    await page.getByPlaceholder('アクション（前方一致）').press('Enter')
+    await page.getByPlaceholder('操作の種類（先頭の文字が一致）').fill('ITEM_')
+    await page.getByPlaceholder('操作の種類（先頭の文字が一致）').press('Enter')
     await filteredResponse
     await expect(rows.first()).toContainText('ITEM_')
 
@@ -101,7 +101,7 @@ test.describe('monitoring pages (desktop-chromium)', () => {
   test('admin views system status, runs the all-green self-check, and exports diagnostics', async ({ page }) => {
     await login(page, 'admin')
     await page.goto('/admin/system')
-    await expect(page.locator('.admin-title')).toHaveText('システム状況')
+    await expect(page.locator('.page-header-title')).toHaveText('システム状況')
 
     // 速览卡：版本/起動/稼働時間 + 资源（堆/池/磁盘）+ 数据量与号引擎
     await expect(page.locator('.system-stat.is-version')).toBeVisible()

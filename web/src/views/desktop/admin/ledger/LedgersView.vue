@@ -2,6 +2,7 @@
 import { markRaw, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
+import AppPageHeader from '@/components/AppPageHeader.vue'
 import { formatJstDateTime } from '@/utils/format'
 import { toDisplayMessage } from '@/utils/errors'
 import { fetchLedgers } from '@/utils/api'
@@ -109,13 +110,7 @@ function warehouseText(value: number | null | undefined): string {
 
 <template>
   <section class="ledgers-view">
-    <div class="admin-header">
-      <div>
-        <h1 class="admin-title">
-          {{ t('ledgers.title') }}
-        </h1>
-      </div>
-    </div>
+    <AppPageHeader :title="t('ledgers.title')" />
 
     <div class="kcgl-card ledgers-body">
       <div class="ledgers-toolbar">

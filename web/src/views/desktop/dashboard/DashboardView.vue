@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useSyncInvalidation } from '@/composables/useSyncInvalidation'
+import AppPageHeader from '@/components/AppPageHeader.vue'
 import SetupChecklistCard from '@/components/SetupChecklistCard.vue'
 import {
   fetchDashboardStats,
@@ -134,9 +135,7 @@ useSyncInvalidation(['ITEM', 'INVENTORY', 'YAHOO_IMPORT', 'SETTING'], () => void
 
 <template>
   <section class="dashboard-view">
-    <h1 class="dashboard-title">
-      {{ t('dashboard.title') }}
-    </h1>
+    <AppPageHeader :title="t('dashboard.title')" />
 
     <SetupChecklistCard />
 
@@ -288,12 +287,6 @@ useSyncInvalidation(['ITEM', 'INVENTORY', 'YAHOO_IMPORT', 'SETTING'], () => void
 .dashboard-view {
   display: grid;
   gap: var(--kcgl-space-5);
-}
-
-.dashboard-title {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
 }
 
 .dashboard-card {

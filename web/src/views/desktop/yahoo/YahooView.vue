@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useSyncInvalidation } from '@/composables/useSyncInvalidation'
 import AppEmptyState from '@/components/AppEmptyState.vue'
+import AppPageHeader from '@/components/AppPageHeader.vue'
 import { formatJstDateTime, formatYen } from '@/utils/format'
 import { toDisplayMessage } from '@/utils/errors'
 import {
@@ -259,13 +260,7 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="yahoo-view">
-    <div class="admin-header">
-      <div>
-        <h1 class="admin-title">
-          {{ t('yahoo.title') }}
-        </h1>
-      </div>
-    </div>
+    <AppPageHeader :title="t('yahoo.title')" />
 
     <div class="kcgl-card yahoo-body">
       <el-tabs

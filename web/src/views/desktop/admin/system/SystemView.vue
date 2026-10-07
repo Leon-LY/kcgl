@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AppPageHeader from '@/components/AppPageHeader.vue'
 import { formatBytes, formatJstDateTime } from '@/utils/format'
 import { toDisplayMessage } from '@/utils/errors'
 import {
@@ -323,13 +324,8 @@ onMounted(() => {
 
 <template>
   <section class="system-view">
-    <div class="admin-header">
-      <div>
-        <h1 class="admin-title">
-          {{ t('system.title') }}
-        </h1>
-      </div>
-      <div class="system-header-actions">
+    <AppPageHeader :title="t('system.title')">
+      <template #actions>
         <el-button
           type="primary"
           :disabled="checking"
@@ -343,8 +339,8 @@ onMounted(() => {
         >
           {{ exporting ? t('system.export.running') : t('system.export.run') }}
         </el-button>
-      </div>
-    </div>
+      </template>
+    </AppPageHeader>
 
     <div
       v-if="loadError"
@@ -643,11 +639,6 @@ onMounted(() => {
 .system-view {
   display: grid;
   gap: 16px;
-}
-
-.system-header-actions {
-  display: flex;
-  gap: 8px;
 }
 
 .system-card {

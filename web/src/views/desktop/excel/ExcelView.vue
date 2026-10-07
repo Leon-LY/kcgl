@@ -9,6 +9,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useDictsStore } from '@/stores/dicts'
 import { useSyncInvalidation } from '@/composables/useSyncInvalidation'
 import AppEmptyState from '@/components/AppEmptyState.vue'
+import AppPageHeader from '@/components/AppPageHeader.vue'
 import { dayjs, formatJstDateTime, JST_TZ } from '@/utils/format'
 import { normalizeNumericText } from '@/utils/normalize'
 import { toDisplayMessage } from '@/utils/errors'
@@ -242,13 +243,7 @@ onBeforeUnmount(() => {
 <template>
   <el-config-provider :locale="epLocale">
     <section class="excel-view">
-      <div class="admin-header">
-        <div>
-          <h1 class="admin-title">
-            {{ t('excel.title') }}
-          </h1>
-        </div>
-      </div>
+      <AppPageHeader :title="t('excel.title')" />
 
       <div class="kcgl-card excel-body">
         <el-tabs

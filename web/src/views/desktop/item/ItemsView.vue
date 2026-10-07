@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useSyncInvalidation } from '@/composables/useSyncInvalidation'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 import AppEmptyState from '@/components/AppEmptyState.vue'
+import AppPageHeader from '@/components/AppPageHeader.vue'
 import { formatJstDate, formatJstDateTime, formatYen } from '@/utils/format'
 import { toDisplayMessage } from '@/utils/errors'
 import { fetchRecycleBin, fetchVenues, restoreItem, searchItems } from '@/utils/api'
@@ -41,6 +42,11 @@ const isAdmin = computed(() => auth.me != null && auth.me.role === 1)
  * 1280/1240/1200）：各档表格内部横向滚动量恒为 0，档位恰在 1680 与 1400 翻转。
  * 页面级横向滚动只在窄于 1212px 的视口出现——窄档列宽 898 + 卡片内边距 64 + 边框 2
  * = 964 是卡片的最小内容宽（无法再压），加 216 侧栏即 1212。1280/1366 笔记本宽裕。
+ *
+ * 分档只作用于**主列表**。回收站的「削除理由」列曾一并挂在 isMidTable 上，实测是
+ * 过度收列：回收站恒定列 822px + 理由 140 = 962，1280 视口下卡片内容宽约 966，
+ * 放得下（Chromium 实测 1280/1366 含理由仍横滑 0、页面横滑 0），且删除理由**全站
+ * 只在这里显示**——软删后详情页已不可达，没有第二条路看到它。故该列改为恒显。
  */
 const isWideTable = useMediaQuery('(min-width: 1680px)')
 const isMidTable = useMediaQuery('(min-width: 1400px)')
@@ -323,13 +329,7 @@ onMounted(() => {
 
 <template>
   <section class="items-view">
-    <div class="admin-header">
-      <div>
-        <h1 class="admin-title">
-          {{ t('items.title') }}
-        </h1>
-      </div>
-    </div>
+    <AppPageHeader :title="t('items.title')" />
 
     <div class="kcgl-card items-body">
       <el-tabs
@@ -785,7 +785,6 @@ onMounted(() => {
                 </template>
               </el-table-column>
               <el-table-column
-                v-if="isMidTable"
                 :label="t('items.recycle.column.reason')"
                 min-width="140"
                 show-overflow-tooltip

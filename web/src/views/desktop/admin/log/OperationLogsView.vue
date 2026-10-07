@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AppPageHeader from '@/components/AppPageHeader.vue'
 import { formatJstDateTime } from '@/utils/format'
 import { toDisplayMessage } from '@/utils/errors'
 import { fetchOperationLogs } from '@/utils/api'
@@ -98,13 +99,7 @@ onMounted(() => {
 
 <template>
   <section class="oplogs-view">
-    <div class="admin-header">
-      <div>
-        <h1 class="admin-title">
-          {{ t('oplogs.title') }}
-        </h1>
-      </div>
-    </div>
+    <AppPageHeader :title="t('oplogs.title')" />
 
     <div class="kcgl-card oplogs-body">
       <div class="oplogs-toolbar">

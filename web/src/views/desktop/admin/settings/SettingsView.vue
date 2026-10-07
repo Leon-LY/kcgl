@@ -2,6 +2,7 @@
 import { onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSettingsStore } from '@/stores/settings'
+import AppPageHeader from '@/components/AppPageHeader.vue'
 import { fetchSettings, updateSetting, type SettingsData } from '@/utils/api'
 import { toDisplayMessage } from '@/utils/errors'
 
@@ -213,9 +214,7 @@ async function saveLabel(): Promise<void> {
 
 <template>
   <section class="settings-view">
-    <h1 class="settings-title">
-      {{ t('settings.title') }}
-    </h1>
+    <AppPageHeader :title="t('settings.title')" />
 
     <div
       v-if="loadError"
@@ -370,12 +369,6 @@ async function saveLabel(): Promise<void> {
   display: grid;
   gap: 16px;
   max-width: 720px;
-}
-
-.settings-title {
-  margin: 0;
-  font-size: 1.2rem;
-  font-weight: 600;
 }
 
 .settings-card {

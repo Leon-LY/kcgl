@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AppPageHeader from '@/components/AppPageHeader.vue'
 import { toDisplayMessage } from '@/utils/errors'
 import {
   createPriceBand,
@@ -168,22 +169,19 @@ const dialogTitle = computed(() =>
 
 <template>
   <section class="band-admin">
-    <div class="admin-header">
-      <div>
-        <h1 class="admin-title">
-          {{ t('admin.band.title') }}
-        </h1>
-        <p class="admin-note">
-          {{ t('admin.band.note') }}
-        </p>
-      </div>
-      <el-button
-        type="primary"
-        @click="openCreate"
-      >
-        {{ t('admin.band.createButton') }}
-      </el-button>
-    </div>
+    <AppPageHeader
+      :title="t('admin.band.title')"
+      :description="t('admin.band.note')"
+    >
+      <template #actions>
+        <el-button
+          type="primary"
+          @click="openCreate"
+        >
+          {{ t('admin.band.createButton') }}
+        </el-button>
+      </template>
+    </AppPageHeader>
 
     <div class="kcgl-card admin-body">
       <p
@@ -323,25 +321,6 @@ const dialogTitle = computed(() =>
 .band-admin {
   display: grid;
   gap: 12px;
-}
-
-.admin-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.admin-title {
-  margin: 0;
-  font-size: 1.2rem;
-  font-weight: 600;
-}
-
-.admin-note {
-  margin: 4px 0 0;
-  font-size: 0.85rem;
-  color: var(--kcgl-color-text-sub);
 }
 
 .admin-body {

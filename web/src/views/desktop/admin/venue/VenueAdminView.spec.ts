@@ -79,7 +79,7 @@ async function fillDialog(
   code: string,
   name: string,
 ): Promise<void> {
-  await wrapper.find('.admin-header button').trigger('click')
+  await wrapper.find('.page-header-actions button').trigger('click')
   await flushPromises()
   const inputs = wrapper.findAll('.el-dialog input')
   await inputs[0]!.setValue(code)

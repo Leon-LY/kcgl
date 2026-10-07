@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AppPageHeader from '@/components/AppPageHeader.vue'
 import { toDisplayMessage } from '@/utils/errors'
 import { useAuthStore } from '@/stores/auth'
 import {
@@ -186,22 +187,19 @@ async function onResetPassword(row: AdminUser): Promise<void> {
 
 <template>
   <section class="user-admin">
-    <div class="admin-header">
-      <div>
-        <h1 class="admin-title">
-          {{ t('admin.user.title') }}
-        </h1>
-        <p class="admin-note">
-          {{ t('admin.user.note') }}
-        </p>
-      </div>
-      <el-button
-        type="primary"
-        @click="openCreate"
-      >
-        {{ t('admin.user.createButton') }}
-      </el-button>
-    </div>
+    <AppPageHeader
+      :title="t('admin.user.title')"
+      :description="t('admin.user.note')"
+    >
+      <template #actions>
+        <el-button
+          type="primary"
+          @click="openCreate"
+        >
+          {{ t('admin.user.createButton') }}
+        </el-button>
+      </template>
+    </AppPageHeader>
 
     <div class="kcgl-card admin-body">
       <p
@@ -431,25 +429,6 @@ async function onResetPassword(row: AdminUser): Promise<void> {
 .user-admin {
   display: grid;
   gap: 12px;
-}
-
-.admin-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.admin-title {
-  margin: 0;
-  font-size: 1.2rem;
-  font-weight: 600;
-}
-
-.admin-note {
-  margin: 4px 0 0;
-  font-size: 0.85rem;
-  color: var(--kcgl-color-text-sub);
 }
 
 .admin-body {

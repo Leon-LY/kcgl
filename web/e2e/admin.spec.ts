@@ -26,7 +26,7 @@ async function login(page: Page, username: string): Promise<void> {
 
 /** 打开新增弹层并按顺序填字段。 */
 async function fillCreateDialog(page: Page, values: string[]): Promise<void> {
-  await page.locator('.admin-header button').first().click()
+  await page.locator('.page-header-actions button').first().click()
   const inputs = page.locator('.el-dialog input')
   await expect(inputs.first()).toBeVisible()
   for (let i = 0; i < values.length; i++) {
@@ -71,7 +71,7 @@ test.describe('dictionary admin (desktop-chromium)', () => {
     // ---- 会场：新增 → 改名 → 停用（尾部停用=恢复 enabled 下拉种子态）
     await nav.filter({ hasText: '会場' }).click()
     await expect(page).toHaveURL(/\/admin\/venues$/)
-    await expect(page.locator('.admin-title')).toHaveText('会場管理')
+    await expect(page.locator('.page-header-title')).toHaveText('会場管理')
     await expect(page.locator('.el-table__row')).toHaveCount(1)
 
     await fillCreateDialog(page, ['ZZ', 'E2Eテスト会場'])
@@ -108,7 +108,7 @@ test.describe('dictionary admin (desktop-chromium)', () => {
     const selfRow = page.locator('.el-table__row', { hasText: 'admin' })
     await expect(selfRow.getByRole('button', { name: '停止する' })).toHaveCount(0)
 
-    await page.locator('.admin-header button').first().click()
+    await page.locator('.page-header-actions button').first().click()
     const userInputs = page.locator('.el-dialog input')
     await expect(userInputs.first()).toBeVisible()
     await userInputs.nth(0).fill('hanako')
@@ -152,7 +152,7 @@ test.describe('dictionary admin (desktop-chromium)', () => {
 
     // 会场页可达：新增/改名可用，无停用按钮
     await nav.filter({ hasText: '会場' }).click()
-    await expect(page.locator('.admin-header button').first()).toBeVisible()
+    await expect(page.locator('.page-header-actions button').first()).toBeVisible()
     await expect(page.getByRole('button', { name: '停止する' })).toHaveCount(0)
 
     // 直敲 URL → 路由守卫回大盘（服务端 403 二次兜底；桌面壳 '/' 即 dashboard）
