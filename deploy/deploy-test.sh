@@ -111,11 +111,12 @@ for _ in $(seq 1 24); do
   sleep 5
 done
 echo "    web 容器健康状态：$web_health"
-# 用 `bash kcgl-doctor.sh` 而不是 `./kcgl-doctor.sh`：这些部署脚本在 git 里是
-# 100644（本机 core.filemode=false，git 不记录执行位），CI 在 Linux 检出后 rsync
-# 过来仍是 644，`./` 调用必然 Permission denied。原 CI 那步写的是
-# `./kcgl-doctor.sh || true`，恰好把这个报错吞了——「部署后巡检」实际一直在空跑。
-# 显式 bash 调用与目标文件的模式无关，到哪儿都跑得动。
+# 用 `bash kcgl-doctor.sh` 而不是 `./kcgl-doctor.sh`：与目标文件的执行位无关，
+# 到哪儿都跑得动。（D-124 起因：这些脚本在 git 里曾长期是 100644——本机
+# core.filemode=false，git 不记录执行位——CI 在 Linux 检出后 rsync 过来仍是 644，
+# `./` 调用必然 Permission denied；而原 CI 那步写的是 `./kcgl-doctor.sh || true`，
+# `|| true` 恰好把这个报错吞了，「部署后巡检」实际一直在空跑。执行位已在同一轮修掉，
+# 这里保持显式 bash 只是不再依赖它。）
 # 巡检输出仍不当作部署成败的判据（与 CI 同口径）：硬门槛是上一步的 200 + 版本核对。
 ssh_do "cd $DEPLOY_DIR && bash kcgl-doctor.sh" || true
 
