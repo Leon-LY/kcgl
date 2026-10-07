@@ -12,14 +12,14 @@ import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppPageHeader from '@/components/AppPageHeader.vue'
 import { dayjs, formatJstDateTime, JST_TZ } from '@/utils/format'
 import { normalizeNumericText } from '@/utils/normalize'
-import { toDisplayMessage } from '@/utils/errors'
+import { renderErrorMessage, renderMessage, toDisplayMessage } from '@/utils/errors'
 import {
   downloadExcelExport,
   downloadExcelTemplate,
   fetchExcelBatches,
   uploadExcelWorkbook,
 } from '@/utils/api'
-import type { ExcelImportBatch } from '@/utils/api'
+import type { ExcelImportBatch, ExcelImportErrorRow } from '@/utils/api'
 
 /**
  * エクセル連携桌面页（M4-⑤，D-058）：两标签——インポート（模板下载+上传毫秒级
@@ -35,6 +35,19 @@ const auth = useAuthStore()
 const dicts = useDictsStore()
 
 const canUpload = computed(() => auth.me != null && auth.me.role <= 2)
+
+// 导入报告两处落库文案的渲染出口（D-127）：code+params 优先、日文原文兜底
+// （历史批次无 code）。note 不在此列——它是「A0→A5」这类纯数据，无语言差异。
+
+/** 批次级失败提示（errorMessageParams 是 JSON 列，线上为字符串）。 */
+function batchErrorMessage(row: ExcelImportBatch): string | null {
+  return renderErrorMessage(row.errorMessageCode, row.errorMessageParams, t, row.errorMessage)
+}
+
+/** 错误行原因。 */
+function rowReason(row: ExcelImportErrorRow): string {
+  return renderMessage(row.code, row.params, t, row.reason)
+}
 
 const route = useRoute()
 
@@ -332,10 +345,10 @@ onBeforeUnmount(() => {
                 <template #default="{ row }">
                   <div class="excel-detail">
                     <p
-                      v-if="(row as ExcelImportBatch).errorMessage"
+                      v-if="batchErrorMessage(row as ExcelImportBatch)"
                       class="kcgl-error-box"
                     >
-                      {{ t('excel.import.errorMessage') }}：{{ (row as ExcelImportBatch).errorMessage }}
+                      {{ t('excel.import.errorMessage') }}：{{ batchErrorMessage(row as ExcelImportBatch) }}
                     </p>
                     <template v-if="(row as ExcelImportBatch).errorRows.length > 0">
                       <p class="excel-errors-title">
@@ -358,9 +371,12 @@ onBeforeUnmount(() => {
                         />
                         <el-table-column
                           :label="t('excel.import.errorReason')"
-                          prop="reason"
                           min-width="220"
-                        />
+                        >
+                          <template #default="{ row: errorRow }">
+                            {{ rowReason(errorRow as ExcelImportErrorRow) }}
+                          </template>
+                        </el-table-column>
                       </el-table>
                     </template>
                     <p

@@ -501,6 +501,50 @@
     "NETWORK_ERROR": "无法连接服务器，请检查网络",
     "INVALID_RESPONSE": "通信未能正常完成，请重试。"
   },
+  "imports": {
+    "listSeparator": "、",
+    "batch": {
+      "concurrent": "同时导入的任务较多，暂时无法处理。请稍后再试",
+      "failed": "导入过程中发生错误",
+      "interrupted": "处理被中断。请确认文件后重新导入",
+      "excelHeaderMismatch": "第{column}列的表头应为「{expected}」，实际是「{actual}」",
+      "yahooHeaderMismatch": "{column}列的表头应为「{expected}」，实际是「{actual}」",
+      "yahooSheetEmpty": "第一个工作表是空的。请确认文件是从受注管理下载的"
+    },
+    "note": {
+      "multiItemByOrder": "订单{orderId}（{codes}）包含多件商品，单价尚未拆分",
+      "multiItemByLine": "第{line}行（{codes}）包含多件商品，单价尚未拆分"
+    },
+    "reason": {
+      "itemCodeFormat": "管理编号格式不正确：{raw}",
+      "venueCodeRequired": "会场代码不能为空",
+      "venueCodeFormat": "会场代码请填写 2 位半角英文字母：{raw}",
+      "venueNotRegistered": "会场代码「{code}」尚未登记",
+      "codeVenueMismatch": "管理编号中的会场代码（{codeVenue}）与会场代码列（{rowVenue}）不一致",
+      "codeMonthMismatch": "管理编号中的月份（{codeMonth}）与中标日期不一致",
+      "codeAlreadyUsed": "管理编号已被使用：{code}",
+      "buyDateFuture": "中标日期不能填写未来的日期",
+      "photoDateFuture": "拍摄日期不能填写未来的日期",
+      "warehouseRequired": "仓库不能为空",
+      "warehouseFormat": "仓库请填写 1／2／名古屋／福岡 之一：{raw}",
+      "fieldRequired": "{field}不能为空",
+      "fieldNotNumber": "{field}不是有效的数字：{raw}",
+      "fieldNotDate": "{field}不是有效的日期：{raw}",
+      "fieldTooLong": "{field}超过{max}个字符",
+      "moneyOverMax": "{field}超过上限（{max}日元）",
+      "moneyBelowMin": "{field}请填写 1 以上的数值",
+      "moneyNegative": "{field}不能填写负数",
+      "weightRange": "{field}请填写 {min}～{max} 之间的数值",
+      "orderTimeRequired": "订单时间不能为空",
+      "orderTimeFormat": "无法识别订单时间：{raw}",
+      "auctionIdRequired": "拍卖 ID 不能为空",
+      "tooManyCodes": "一行中的商品代码过多（最多{max}个）",
+      "soldPriceInvalid": "成交价格不正确：{raw}",
+      "soldPriceOverMax": "成交价格超过上限（{max}日元）",
+      "soldPriceNotNumber": "成交价格不是有效的数字：{raw}",
+      "rowFailed": "处理该行时发生错误"
+    }
+  },
   "yahoo": {
     "title": "雅虎联动",
     "itemCode": "管理号",

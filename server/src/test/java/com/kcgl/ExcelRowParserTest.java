@@ -1,5 +1,6 @@
 package com.kcgl;
 
+import com.kcgl.common.i18n.Msg;
 import com.kcgl.module.excel.ExcelProperties;
 import com.kcgl.module.excel.ExcelRowParser;
 import com.kcgl.module.excel.ExcelRowParser.ParseOutcome;
@@ -41,14 +42,18 @@ class ExcelRowParserTest {
     void headerMismatch_wrongHeader_reportsColumnNumberAndBothNames() {
         List<String> cells = new ArrayList<>(PROPS.columns().headerOrder());
         cells.set(2, "購入日");
-        String message = parser.headerMismatch(cells);
-        assertThat(message).contains("3列目").contains("落札日").contains("購入日");
+        Msg msg = parser.headerMismatch(cells);
+        assertThat(msg.text()).contains("3列目").contains("落札日").contains("購入日");
+        // 结构化提示（D-127）：键+参数与兜底原文同源，前端据此按语言重排
+        assertThat(msg.code()).isEqualTo("imports.batch.excelHeaderMismatch");
+        assertThat(msg.params()).containsEntry("column", "3")
+                .containsEntry("expected", "落札日").containsEntry("actual", "購入日");
     }
 
     @Test
     void headerMismatch_shortHeader_reportsMissingColumnAsEmpty() {
         List<String> cells = PROPS.columns().headerOrder().subList(0, 18);
-        String message = parser.headerMismatch(cells);
+        String message = parser.headerMismatch(cells).text();
         assertThat(message).contains("19列目").contains("販売チャネル");
     }
 
@@ -275,7 +280,7 @@ class ExcelRowParserTest {
         // strict mode 下 1406 在 catch 块内再抛 → 批次永停 processing（A3/D-110）。
         List<String> cells = new ArrayList<>(PROPS.columns().headerOrder());
         cells.set(0, "あ".repeat(30_000));
-        String message = parser.headerMismatch(cells);
+        String message = parser.headerMismatch(cells).text();
         assertThat(message).contains("1列目").contains("管理番号").endsWith("…」になっています");
         assertThat(message).hasSizeLessThan(500);
     }

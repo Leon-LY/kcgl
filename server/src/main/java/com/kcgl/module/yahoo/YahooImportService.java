@@ -4,6 +4,7 @@ import cn.idev.excel.FastExcel;
 import cn.idev.excel.context.AnalysisContext;
 import cn.idev.excel.event.AnalysisEventListener;
 import tools.jackson.databind.ObjectMapper;
+import com.kcgl.common.i18n.Msg;
 import com.kcgl.common.sse.SseHub;
 import com.kcgl.common.sse.SyncEvent;
 import com.kcgl.common.web.BizException;
@@ -69,8 +70,26 @@ public class YahooImportService {
     private final ObjectMapper objectMapper;
     private final ThreadPoolTaskExecutor executor;
 
-    /** 错误行采样条目（JSON 落库形态）。 */
-    public record ErrorRow(long line, String raw, String reason) {
+    /**
+     * 错误行采样条目（JSON 落库形态）：{@code reason}=日文兜底原文，{@code code}+
+     * {@code params}=机器可读提示（前端按当前语言渲染；旧数据行无这两项即回退原文）。
+     */
+    public record ErrorRow(long line, String raw, String reason, String code,
+            Map<String, Object> params) {
+
+        static ErrorRow of(long line, String raw, Msg msg) {
+            return new ErrorRow(line, raw, msg.text(), msg.code(), msg.params());
+        }
+    }
+
+    /**
+     * 批次補注：结构化消息 + 日文兜底文案。text 一律取自 msg.text()——note 与
+     * note_json 两列由同一份文案派生，改模板不会只改到一边。
+     */
+    private record Note(Msg msg, String text) {
+        static Note of(Msg msg) {
+            return new Note(msg, msg.text());
+        }
     }
 
     public YahooImportService(YahooProperties props, YahooImportBatchMapper batchMapper,
@@ -131,8 +150,9 @@ public class YahooImportService {
             executor.execute(() -> process(batch.getId(), userId, username, displayName));
         } catch (org.springframework.core.task.TaskRejectedException e) {
             // 队列满：批次转失败但 sha 占位保留——忙时重传同文件 409 而非绕过限流
-            txTemplate.executeWithoutResult(status ->
-                    failBatch(batch.getId(), "同時インポートが多いため処理できませんでした。しばらくしてからもう一度お試しください"));
+            txTemplate.executeWithoutResult(status -> failBatch(batch.getId(), Msg.of(
+                    "imports.batch.concurrent",
+                    "同時インポートが多いため処理できませんでした。しばらくしてからもう一度お試しください")));
             throw new BizException(ErrorCode.RATE_LIMITED);
         }
         return ImportBatchResponse.of(batch, List.of());
@@ -148,23 +168,27 @@ public class YahooImportService {
                 FastExcel.read(in, listener).sheet(0).headRowNumber(0).doRead();
             }
             if (listener.headerError != null) {
-                throw new BizException(ErrorCode.YAHOO_FILE_INVALID, listener.headerError);
+                throw new BizException(ErrorCode.YAHOO_FILE_INVALID, listener.headerError.text(),
+                        listener.headerError);
             }
             if (!listener.headerSeen) {
                 // 零行首表不触发任何回调——契约校验必须在此兜底，否则静默 DONE 0 行
                 throw new BizException(ErrorCode.YAHOO_FILE_INVALID,
-                        "最初のワークシートが空です。受注管理からダウンロードしたファイルか確認してください");
+                        "最初のワークシートが空です。受注管理からダウンロードしたファイルか確認してください",
+                        Msg.of("imports.batch.yahooSheetEmpty",
+                                "最初のワークシートが空です。受注管理からダウンロードしたファイルか確認してください"));
             }
             if (listener.limitExceeded) {
                 throw new BizException(ErrorCode.YAHOO_ROW_LIMIT);
             }
             finalizeBatch(batch, listener);
         } catch (BizException e) {
-            txTemplate.executeWithoutResult(status -> failBatch(batchId, e.getMessage()));
+            txTemplate.executeWithoutResult(status -> failBatch(batchId, structuredOf(e)));
             sseHub.broadcast(SyncEvent.TYPE_YAHOO_IMPORT, String.valueOf(batchId), operatorId);
         } catch (Exception e) {
             log.error("yahoo import batch {} failed", batchId, e);
-            txTemplate.executeWithoutResult(status -> failBatch(batchId, "インポート処理中にエラーが発生しました"));
+            txTemplate.executeWithoutResult(status -> failBatch(batchId,
+                    Msg.of("imports.batch.failed", "インポート処理中にエラーが発生しました")));
             sseHub.broadcast(SyncEvent.TYPE_YAHOO_IMPORT, String.valueOf(batchId), operatorId);
         }
     }
@@ -176,7 +200,8 @@ public class YahooImportService {
         batch.setUnmatchedCount((int) listener.unmatched);
         batch.setUpdatedCount((int) listener.updated);
         batch.setErrorRowsJson(toJson(listener.errors));
-        batch.setNote(joinNotes(listener.multiNotes));
+        batch.setNote(joinNotes(listener.multiNotes.stream().map(Note::text).toList()));
+        batch.setNoteJson(toJsonMsgs(listener.multiNotes.stream().map(Note::msg).toList()));
         batch.setStatus(YahooImportBatchEntity.STATUS_DONE);
         batch.setFinishedAt(LocalDateTime.now(clock));
         txTemplate.executeWithoutResult(status -> batchMapper.updateById(batch));
@@ -184,14 +209,50 @@ public class YahooImportService {
                 batch.getUploadedBy());
     }
 
+    /**
+     * 批次级失败提示：异常自带结构化键则用之；否则回退其 ErrorCode 的本地化键
+     * （`errors.<码>` 已是三语覆盖的通用文案，如「行数が上限を超えています」）——
+     * 后者的具体原因被泛化，但至少不再是一条日文卡在所有语言里。
+     */
+    private static Msg structuredOf(BizException e) {
+        return e.structured() != null ? e.structured()
+                : Msg.of("errors." + e.errorCode().code(), e.getMessage());
+    }
+
     /** 条件置失败：仅 processing 态生效（终态批次不二次改写），单语句原子。消息截断防超宽。 */
-    private void failBatch(long batchId, String message) {
+    private void failBatch(long batchId, Msg msg) {
         batchMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<YahooImportBatchEntity>()
                 .eq(YahooImportBatchEntity::getId, batchId)
                 .eq(YahooImportBatchEntity::getStatus, YahooImportBatchEntity.STATUS_PROCESSING)
                 .set(YahooImportBatchEntity::getStatus, YahooImportBatchEntity.STATUS_FAILED)
-                .set(YahooImportBatchEntity::getErrorMessage, truncateMessage(message))
+                .set(YahooImportBatchEntity::getErrorMessage, truncateMessage(msg.text()))
+                .set(YahooImportBatchEntity::getErrorMessageCode, msg.code())
+                .set(YahooImportBatchEntity::getErrorMessageParams, toJsonParams(msg.params()))
                 .set(YahooImportBatchEntity::getFinishedAt, LocalDateTime.now(clock)));
+    }
+
+    /** 参数 JSON（空参数存 NULL——前端以「有无键」判定，空对象等价于无）。 */
+    private String toJsonParams(Map<String, Object> params) {
+        if (params == null || params.isEmpty()) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(params);
+        } catch (RuntimeException e) { // Jackson 3：JacksonException 已 unchecked
+            return null;
+        }
+    }
+
+    /** 结构化消息数组序列化（批次補注 note_json）。 */
+    private String toJsonMsgs(List<Msg> msgs) {
+        if (msgs.isEmpty()) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(msgs);
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     /** 落库消息截断（表头不符消息内嵌原格文本可超列宽——对齐 joinNotes 对 NOTE_MAX 的处理）。 */
@@ -231,7 +292,8 @@ public class YahooImportService {
                         .lt(YahooImportBatchEntity::getCreatedAt, threshold));
         for (YahooImportBatchEntity zombie : zombies) {
             log.warn("marking zombie yahoo import batch {} as failed", zombie.getId());
-            failBatch(zombie.getId(), "処理が中断されました。ファイルを再確認のうえ再インポートしてください");
+            failBatch(zombie.getId(), Msg.of("imports.batch.interrupted",
+                    "処理が中断されました。ファイルを確認のうえ再インポートしてください"));
         }
     }
 
@@ -319,9 +381,9 @@ public class YahooImportService {
         private final String username;
         private final String displayName;
         final List<ErrorRow> errors = new ArrayList<>();
-        final List<String> multiNotes = new ArrayList<>();
+        final List<Note> multiNotes = new ArrayList<>();
         boolean headerSeen;
-        String headerError;
+        Msg headerError;
         long dataRows;
         long matched;
         long unmatched;
@@ -360,7 +422,7 @@ public class YahooImportService {
             YahooOrderParser.RowOutcome outcome = YahooOrderParser.parse(row);
             if (outcome instanceof YahooOrderParser.RowOutcome.Err err) {
                 if (errors.size() < ERROR_SAMPLE_LIMIT) {
-                    errors.add(new ErrorRow(physicalLine, abbreviate(row), err.reason()));
+                    errors.add(ErrorRow.of(physicalLine, abbreviate(row), err.msg()));
                 }
                 return;
             }
@@ -381,8 +443,8 @@ public class YahooImportService {
                     // 子行级合并失败（如并发锁）：记错误行继续——一子行不连坐全批
                     log.warn("yahoo import row {} merge failed", physicalLine, e);
                     if (errors.size() < ERROR_SAMPLE_LIMIT) {
-                        errors.add(new ErrorRow(physicalLine, abbreviate(row),
-                                "行の処理中にエラーが発生しました"));
+                        errors.add(ErrorRow.of(physicalLine, abbreviate(row),
+                                reasonOf(e)));
                     }
                 }
             }
@@ -397,14 +459,42 @@ public class YahooImportService {
             // 终态汇总由 process 在 doRead 返回后执行
         }
 
-        /** まとめ売り補注（D-069 4：导入报告行提示单价未分割）。 */
-        private String multiNoteOf(long line, List<YahooOrderParser.ParsedRow> rows) {
+        /**
+         * 行处理期异常 → 提示：{@link BizException} 自带结构化键（如会场未登记、号已占用）
+         * 则直接用；否则回退其 ErrorCode 的本地化键；非业务异常走通用行失败文案。
+         */
+        private static Msg reasonOf(Exception e) {
+            if (e instanceof BizException biz) {
+                if (biz.structured() != null) {
+                    return biz.structured();
+                }
+                if (biz.getMessage() != null) {
+                    return Msg.of("errors." + biz.errorCode().code(), biz.getMessage());
+                }
+            }
+            return Msg.of("imports.reason.rowFailed", "行の処理中にエラーが発生しました");
+        }
+
+        /**
+         * まとめ売り補注（D-069 4：导入报告行提示单价未分割）。
+         * 锚点是「注文<ID>」还是「<行>行目」决定用哪条模板——两者都是日文短语，
+         * 拼成一个参数会把日文漏进另两种语言。
+         */
+        private Note multiNoteOf(long line, List<YahooOrderParser.ParsedRow> rows) {
+            // 多子行必有码（codesOf 已滤空段，空 B 列走单占位子行不构成まとめ売り），
+            // 故这里不存在「コードなし」分支
             String codes = rows.stream()
-                    .map(row -> row.rawItemCode() != null ? row.rawItemCode() : "（コードなし）")
+                    .map(YahooOrderParser.ParsedRow::rawItemCode)
                     .reduce((a, b) -> a + "・" + b).orElse("");
-            String anchor = rows.get(0).orderId() != null
-                    ? "注文" + rows.get(0).orderId() : line + "行目";
-            return anchor + "（" + codes + "）は複数商品のため単価が未分割です";
+            String orderId = rows.get(0).orderId();
+            if (orderId != null) {
+                return Note.of(Msg.of("imports.note.multiItemByOrder",
+                        Map.of("orderId", orderId, "codes", codes),
+                        "注文" + orderId + "（" + codes + "）は複数商品のため単価が未分割です"));
+            }
+            return Note.of(Msg.of("imports.note.multiItemByLine",
+                    Map.of("line", String.valueOf(line), "codes", codes),
+                    line + "行目（" + codes + "）は複数商品のため単価が未分割です"));
         }
 
         /** 全空行判定（FastExcel 对空行可能回调空 map 或全 null 值）。 */

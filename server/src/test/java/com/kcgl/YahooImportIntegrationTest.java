@@ -291,6 +291,17 @@ class YahooImportIntegrationTest {
                 "SELECT note FROM yahoo_import_batch WHERE id = ?", String.class, batchId))
                 .contains("注文10004900").contains("HT9-A1X・HT9-A2X").contains("単価が未分割");
 
+        // 同一条補注的结构化形态（D-127）：前端据此按当前语言渲染，
+        // note 仅作旧数据/日志/诊断导出的兜底——两列必须同源。
+        // 去空白后比对：落库的 JSON 由 Jackson 输出（冒号后带空格），
+        // 断言不该依赖序列化器的缩进风格。
+        String noteJson = jdbcTemplate.queryForObject(
+                "SELECT note_json FROM yahoo_import_batch WHERE id = ?", String.class, batchId);
+        assertThat(noteJson.replace(" ", ""))
+                .contains("\"code\":\"imports.note.multiItemByOrder\"")
+                .contains("\"orderId\":\"10004900\"")
+                .contains("HT9-A1X・HT9-A2X");
+
         // 商品侧：双件 SOLD_MARK；単価未分割 → sold_price 不写（手填后补）
         assertThat(saleStatusOf(item1)).isEqualTo(2);
         assertThat(saleStatusOf(item2)).isEqualTo(2);
@@ -424,6 +435,13 @@ class YahooImportIntegrationTest {
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT error_message FROM yahoo_import_batch WHERE id = ?", String.class, headerBatch))
                 .contains("B列は「YahooAuctionMerchantId」").contains("P列は「UnitPrice」");
+        // 表头不符的结构化形态：列名进参数，前端按语言重排句子（D-127）
+        assertThat(jdbcTemplate.queryForMap(
+                "SELECT error_message_code, error_message_params FROM yahoo_import_batch WHERE id = ?",
+                headerBatch))
+                .containsEntry("error_message_code", "imports.batch.yahooHeaderMismatch")
+                .satisfies(map -> assertThat((String) map.get("error_message_params"))
+                        .contains("\"expected\"").contains("YahooAuctionMerchantId"));
     }
 
     @Test

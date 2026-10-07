@@ -7,7 +7,7 @@ import { useSyncInvalidation } from '@/composables/useSyncInvalidation'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppPageHeader from '@/components/AppPageHeader.vue'
 import { formatJstDateTime, formatYen } from '@/utils/format'
-import { toDisplayMessage } from '@/utils/errors'
+import { renderErrorMessage, renderMessage, renderNoteJson, toDisplayMessage } from '@/utils/errors'
 import {
   fetchPendingShipments,
   fetchYahooBatches,
@@ -17,6 +17,7 @@ import {
 } from '@/utils/api'
 import type {
   YahooImportBatch,
+  YahooImportErrorRow,
   YahooPendingShipment,
   YahooReconcile,
   YahooReconcileRow,
@@ -115,6 +116,24 @@ interface YahooUnmatchedState {
  */
 function hasUnmatched(row: YahooImportBatch): boolean {
   return row.unmatchedCount !== 0
+}
+
+// 导入报告三处落库文案的渲染出口（D-127）：后端同时存 code+params 与日文原文，
+// 这里按当前语言出文案，历史批次（无 code）自动回退原文。见 utils/errors.ts。
+
+/** 批次级失败提示（errorMessageParams 是 JSON 列，线上为字符串）。 */
+function batchErrorMessage(row: YahooImportBatch): string | null {
+  return renderErrorMessage(row.errorMessageCode, row.errorMessageParams, t, row.errorMessage)
+}
+
+/** 批次補注（まとめ売り 単価未分割）：结构化数组逐条翻译后重连。 */
+function batchNote(row: YahooImportBatch): string | null {
+  return renderNoteJson(row.noteJson, row.note, t)
+}
+
+/** 错误行原因。 */
+function rowReason(row: YahooImportErrorRow): string {
+  return renderMessage(row.code, row.params, t, row.reason)
 }
 
 async function onBatchExpand(row: YahooImportBatch, expandedRows: YahooImportBatch[]): Promise<void> {
@@ -336,16 +355,16 @@ onBeforeUnmount(() => {
               <template #default="{ row }">
                 <div class="yahoo-detail">
                   <p
-                    v-if="(row as YahooImportBatch).errorMessage"
+                    v-if="batchErrorMessage(row as YahooImportBatch)"
                     class="kcgl-error-box"
                   >
-                    {{ t('yahoo.import.errorMessage') }}：{{ (row as YahooImportBatch).errorMessage }}
+                    {{ t('yahoo.import.errorMessage') }}：{{ batchErrorMessage(row as YahooImportBatch) }}
                   </p>
                   <p
-                    v-if="(row as YahooImportBatch).note"
+                    v-if="batchNote(row as YahooImportBatch)"
                     class="kcgl-info-box"
                   >
-                    {{ (row as YahooImportBatch).note }}
+                    {{ batchNote(row as YahooImportBatch) }}
                   </p>
                   <template v-if="(row as YahooImportBatch).errorRows.length > 0">
                     <p class="yahoo-errors-title">
@@ -368,9 +387,12 @@ onBeforeUnmount(() => {
                       />
                       <el-table-column
                         :label="t('yahoo.import.errorReason')"
-                        prop="reason"
                         min-width="220"
-                      />
+                      >
+                        <template #default="{ row: errorRow }">
+                          {{ rowReason(errorRow as YahooImportErrorRow) }}
+                        </template>
+                      </el-table-column>
                     </el-table>
                   </template>
                   <template v-if="hasUnmatched(row as YahooImportBatch)">

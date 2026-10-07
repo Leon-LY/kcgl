@@ -53,9 +53,10 @@ class V4YahooOrderMigrationTest {
         // —— 推进到 V4（Spring 自动配置停在 V3；新实例默认 target=latest）
         Flyway.configure().dataSource(dataSource).load().migrate();
 
-        assertThat(jdbc.queryForObject("SELECT version FROM flyway_schema_history "
-                + "WHERE success = 1 ORDER BY installed_rank DESC LIMIT 1", String.class))
-                .isEqualTo("4");
+        // 断言 V4 成功执行过，而非「最新版本=4」——链上追加 V(n) 不改写本测试语义
+        // （同 V3DropYearCodeMigrationTest；先前写法在 V5 落地时会误红）
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM flyway_schema_history "
+                + "WHERE version = '4' AND success = 1", Integer.class)).isEqualTo(1);
 
         // —— 存量行保全（旧单拍卖唯一时代的两行：一行挂商品、一行未匹配占位）
         assertThat(jdbc.queryForObject(

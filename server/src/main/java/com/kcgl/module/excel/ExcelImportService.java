@@ -4,6 +4,7 @@ import cn.idev.excel.FastExcel;
 import cn.idev.excel.context.AnalysisContext;
 import cn.idev.excel.event.AnalysisEventListener;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.kcgl.common.i18n.Msg;
 import com.kcgl.common.sse.SseHub;
 import com.kcgl.common.sse.SyncEvent;
 import com.kcgl.common.web.BizException;
@@ -83,8 +84,16 @@ public class ExcelImportService {
     private final ObjectMapper objectMapper;
     private final ThreadPoolTaskExecutor executor;
 
-    /** 错误行采样条目（JSON 落库形态）。 */
-    public record ErrorRow(long line, String raw, String reason) {
+    /**
+     * 错误行采样条目（JSON 落库形态）：{@code reason}=日文兜底原文，{@code code}+
+     * {@code params}=机器可读提示（前端按当前语言渲染；旧数据行无这两项即回退原文）。
+     */
+    public record ErrorRow(long line, String raw, String reason, String code,
+            Map<String, Object> params) {
+
+        static ErrorRow of(long line, String raw, Msg msg) {
+            return new ErrorRow(line, raw, msg.text(), msg.code(), msg.params());
+        }
     }
 
     public ExcelImportService(ExcelProperties props, ExcelImportBatchMapper batchMapper,
@@ -147,8 +156,9 @@ public class ExcelImportService {
             executor.execute(() -> process(batch.getId(), userId, operatorName));
         } catch (org.springframework.core.task.TaskRejectedException e) {
             // 队列满：批次转失败但 sha 占位保留——忙时重传同文件 409 而非绕过限流
-            txTemplate.executeWithoutResult(status ->
-                    failBatch(batch.getId(), "同時インポートが多いため処理できませんでした。しばらくしてからもう一度お試しください"));
+            txTemplate.executeWithoutResult(status -> failBatch(batch.getId(), Msg.of(
+                    "imports.batch.concurrent",
+                    "同時インポートが多いため処理できませんでした。しばらくしてからもう一度お試しください")));
             throw new BizException(ErrorCode.RATE_LIMITED);
         }
         return ExcelImportBatchResponse.of(batch, List.of());
@@ -165,18 +175,20 @@ public class ExcelImportService {
                 FastExcel.read(in, listener).sheet(0).headRowNumber(0).doRead();
             }
             if (listener.headerError != null) {
-                throw new BizException(ErrorCode.EXCEL_FILE_INVALID, listener.headerError);
+                throw new BizException(ErrorCode.EXCEL_FILE_INVALID, listener.headerError.text(),
+                        listener.headerError);
             }
             if (listener.limitExceeded) {
                 throw new BizException(ErrorCode.EXCEL_ROW_LIMIT);
             }
             finalizeBatch(batch, listener);
         } catch (BizException e) {
-            txTemplate.executeWithoutResult(status -> failBatch(batchId, e.getMessage()));
+            txTemplate.executeWithoutResult(status -> failBatch(batchId, structuredOf(e)));
             sseHub.broadcast(SyncEvent.TYPE_EXCEL_IMPORT, String.valueOf(batchId), operatorId);
         } catch (Exception e) {
             log.error("excel import batch {} failed", batchId, e);
-            txTemplate.executeWithoutResult(status -> failBatch(batchId, "インポート処理中にエラーが発生しました"));
+            txTemplate.executeWithoutResult(status -> failBatch(batchId,
+                    Msg.of("imports.batch.failed", "インポート処理中にエラーが発生しました")));
             sseHub.broadcast(SyncEvent.TYPE_EXCEL_IMPORT, String.valueOf(batchId), operatorId);
         }
     }
@@ -197,15 +209,39 @@ public class ExcelImportService {
         sseHub.broadcast(SyncEvent.TYPE_ITEM, "", batch.getUploadedBy());
     }
 
-    private void failBatch(long batchId, String message) {
+    private void failBatch(long batchId, Msg msg) {
         ExcelImportBatchEntity batch = batchMapper.selectById(batchId);
         if (batch == null || batch.getStatus() != ExcelImportBatchEntity.STATUS_PROCESSING) {
             return;
         }
         batch.setStatus(ExcelImportBatchEntity.STATUS_FAILED);
-        batch.setErrorMessage(truncateMessage(message));
+        batch.setErrorMessage(truncateMessage(msg.text()));
+        batch.setErrorMessageCode(msg.code());
+        batch.setErrorMessageParams(toJsonParams(msg.params()));
         batch.setFinishedAt(LocalDateTime.now(clock));
         batchMapper.updateById(batch);
+    }
+
+    /**
+     * 批次级失败提示：异常自带结构化键则用之；否则回退其 ErrorCode 的本地化键
+     * （`errors.<码>` 已是三语覆盖的通用文案，如「行数が上限を超えています」）——
+     * 后者的具体原因被泛化，但至少不再是一条日文卡在所有语言里。
+     */
+    private static Msg structuredOf(BizException e) {
+        return e.structured() != null ? e.structured()
+                : Msg.of("errors." + e.errorCode().code(), e.getMessage());
+    }
+
+    /** 参数 JSON（空参数存 NULL——前端以「有无键」判定，空对象等价于无）。 */
+    private String toJsonParams(Map<String, Object> params) {
+        if (params == null || params.isEmpty()) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(params);
+        } catch (RuntimeException e) { // Jackson 3：JacksonException 已 unchecked
+            return null;
+        }
     }
 
     /** 落库消息截断（表头不符消息内嵌原格文本可超列宽——对齐雅虎管线 truncateMessage）。 */
@@ -214,18 +250,24 @@ public class ExcelImportService {
                 ? message.substring(0, ERROR_MESSAGE_MAX - 1) + "…" : message;
     }
 
-    /** 启动自愈：上次进程中断遗留的 processing 批次标记失败（sha 占位保留）。 */
+    /**
+     * 启动自愈：上次进程中断遗留的 processing 批次标记失败（sha 占位保留）。
+     * 显式列集（仅 V1 期列）——前向迁移测试以 target=n 旧库起容器，全列
+     * SELECT 会撞 V5 期新列（error_message_code/params）导致上下文起不来。
+     */
     @EventListener(ApplicationReadyEvent.class)
     public void recoverZombieBatches() {
         LocalDateTime threshold = LocalDateTime.now(clock).minusMinutes(props.zombieMinutes());
         List<ExcelImportBatchEntity> zombies = batchMapper.selectList(
                 new LambdaQueryWrapper<ExcelImportBatchEntity>()
+                        .select(ExcelImportBatchEntity::getId)
                         .eq(ExcelImportBatchEntity::getStatus, ExcelImportBatchEntity.STATUS_PROCESSING)
                         .lt(ExcelImportBatchEntity::getCreatedAt, threshold));
         for (ExcelImportBatchEntity zombie : zombies) {
             log.warn("marking zombie excel import batch {} as failed", zombie.getId());
-            txTemplate.executeWithoutResult(status ->
-                    failBatch(zombie.getId(), "処理が中断されました。ファイルを確認のうえ再インポートしてください"));
+            txTemplate.executeWithoutResult(status -> failBatch(zombie.getId(),
+                    Msg.of("imports.batch.interrupted",
+                            "処理が中断されました。ファイルを確認のうえ再インポートしてください")));
         }
     }
 
@@ -322,7 +364,7 @@ public class ExcelImportService {
         long errorCount;
         long generated;
         long imported;
-        String headerError;
+        Msg headerError;
         boolean limitExceeded;
 
         ImportRowListener(ExcelImportBatchEntity batch, long operatorId, String operatorName,
@@ -358,7 +400,7 @@ public class ExcelImportService {
             }
             ExcelRowParser.ParseOutcome outcome = parser.parse(cells);
             if (outcome instanceof ExcelRowParser.ParseOutcome.Err err) {
-                recordError(cells, err.reason());
+                recordError(cells, err.msg());
                 return;
             }
             ExcelRowParser.ParsedRow parsed = ((ExcelRowParser.ParseOutcome.Ok) outcome).row();
@@ -390,10 +432,10 @@ public class ExcelImportService {
          * {@code errors.size() < LIMIT} 设界，errorCount 会一并被截成 1000（少报）；
          * 而只留无界列表则 20k 行错误可撑爆堆（A3/D-110）。
          */
-        private void recordError(List<String> cells, String reason) {
+        private void recordError(List<String> cells, Msg msg) {
             errorCount++;
             if (errors.size() < ERROR_SAMPLE_LIMIT) {
-                errors.add(new ErrorRow(dataRows + 1, abbreviate(cells), reason));
+                errors.add(ErrorRow.of(dataRows + 1, abbreviate(cells), msg));
             }
         }
 
@@ -408,16 +450,28 @@ public class ExcelImportService {
                         .eq(VenueEntity::getCode, code));
                 if (venue == null) {
                     throw new BizException(ErrorCode.VENUE_NOT_FOUND,
-                            "会場コード「" + code + "」が登録されていません");
+                            "会場コード「" + code + "」が登録されていません",
+                            Msg.of("imports.reason.venueNotRegistered", Map.of("code", code),
+                                    "会場コード「" + code + "」が登録されていません"));
                 }
                 return venue.getId();
             });
         }
 
-        private String reasonOf(Exception e) {
-            return e instanceof BizException biz && biz.getMessage() != null
-                    ? biz.getMessage()
-                    : "行の処理中にエラーが発生しました";
+        /**
+         * 行处理期异常 → 提示：{@link BizException} 自带结构化键（如会场未登记、号已占用）
+         * 则直接用；否则回退其 ErrorCode 的本地化键；非业务异常走通用行失败文案。
+         */
+        private static Msg reasonOf(Exception e) {
+            if (e instanceof BizException biz) {
+                if (biz.structured() != null) {
+                    return biz.structured();
+                }
+                if (biz.getMessage() != null) {
+                    return Msg.of("errors." + biz.errorCode().code(), biz.getMessage());
+                }
+            }
+            return Msg.of("imports.reason.rowFailed", "行の処理中にエラーが発生しました");
         }
 
         private CreateItemCommand toCommand(ExcelRowParser.ParsedRow row, String clientReqId,

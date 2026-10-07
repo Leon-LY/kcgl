@@ -929,17 +929,25 @@ export function resolveStocktakeDiff(
 
 // ------------------------------------------------------------------ 雅虎受注导入（M5-②b，docs/01 7.4/7.2，D-069）
 
-/** 错误行采样条目（后端前 1000 条采样）。 */
+/**
+ * 错误行采样条目（后端前 1000 条采样）。
+ * code/params=结构化消息（D-127）：前端按当前语言渲染；V5 之前落库的历史行无此
+ * 字段，此时回退 reason 的日文原文（renderMessage 统一处理）。
+ * line/raw 是真实数据不是文案，直出。
+ */
 export interface YahooImportErrorRow {
   line: number
   raw: string
   reason: string
+  code?: string | null
+  params?: Record<string, unknown> | null
 }
 
 /**
  * 导入批次报告：status 0处理中 1完成 2失败；失败批次计数为 null。
  * rowCount=物理数据行；matched/unmatched 按子行（まとめ売り一行拆 N 子行）；
- * note=まとめ売り等批次级補注（単価未分割）。
+ * note=まとめ売り等批次级補注（単価未分割）；
+ * noteJson=同一批注的结构化数组 [{code,params,text}]（D-127），note 为兜底原文。
  */
 export interface YahooImportBatch {
   id: number
@@ -950,7 +958,10 @@ export interface YahooImportBatch {
   unmatchedCount: number | null
   updatedCount: number | null
   note: string | null
+  noteJson: string | null
   errorMessage: string | null
+  errorMessageCode: string | null
+  errorMessageParams: string | null
   uploadedBy: number
   createdAt: string | null
   finishedAt: string | null
@@ -1049,14 +1060,22 @@ export function fetchPendingShipments(): Promise<YahooPendingShipmentList> {
 
 // ------------------------------------------------------------------ Excel 导入导出（M4-⑤，D-058）
 
-/** 错误行采样条目（后端前 1000 条采样）。 */
+/**
+ * 错误行采样条目（后端前 1000 条采样）。
+ * code/params=结构化消息（D-127），历史行缺失时回退 reason 原文。
+ */
 export interface ExcelImportErrorRow {
   line: number
   raw: string
   reason: string
+  code?: string | null
+  params?: Record<string, unknown> | null
 }
 
-/** 导入批次报告：status 0处理中 1完成 2失败；note=计数器跳变说明（A0→A5 等）。 */
+/**
+ * 导入批次报告：status 0处理中 1完成 2失败；note=计数器跳变说明（A0→A5 等）。
+ * note 是纯数据无日文短语，不做结构化（无 noteJson）——与雅虎批次刻意不对称。
+ */
 export interface ExcelImportBatch {
   id: number
   originalFilename: string
@@ -1067,6 +1086,8 @@ export interface ExcelImportBatch {
   errorCount: number
   note: string | null
   errorMessage: string | null
+  errorMessageCode: string | null
+  errorMessageParams: string | null
   uploadedBy: number
   createdAt: string | null
   finishedAt: string | null

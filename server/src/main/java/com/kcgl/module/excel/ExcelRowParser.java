@@ -1,5 +1,6 @@
 package com.kcgl.module.excel;
 
+import com.kcgl.common.i18n.Msg;
 import com.kcgl.common.util.CodeNormalizer;
 import com.kcgl.module.itemcode.ItemCodeFormatter;
 
@@ -11,6 +12,7 @@ import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
@@ -57,12 +59,16 @@ public final class ExcelRowParser {
             String sizeText, Integer weightG, String salesChannel) {
     }
 
-    /** 解析结果：Ok 或 Err（reason 进批次错误采样）。 */
+    /** 解析结果：Ok 或 Err（msg 进批次错误采样：消息键+参数+日文兜底）。 */
     public sealed interface ParseOutcome {
         record Ok(ParsedRow row) implements ParseOutcome {
         }
 
-        record Err(String reason) implements ParseOutcome {
+        record Err(Msg msg) implements ParseOutcome {
+            /** 日文兜底文案（落库 error_rows.reason；保持既有调用点与断言不变）。 */
+            public String reason() {
+                return msg.text();
+            }
         }
     }
 
@@ -77,15 +83,19 @@ public final class ExcelRowParser {
 
     /**
      * 表头契约校验（D-058 E）：前 19 列逐列 trim 比对配置列名；额外尾列忽略
-     * （模板外自加列不阻断导入）。返回 null=通过，否则日文不匹配描述（批次级失败）。
+     * （模板外自加列不阻断导入）。返回 null=通过，否则不匹配描述（批次级失败）。
      */
-    public String headerMismatch(List<String> cells) {
+    public Msg headerMismatch(List<String> cells) {
         List<String> expected = props.columns().headerOrder();
         for (int i = 0; i < expected.size(); i++) {
             String actual = i < cells.size() ? cells.get(i).trim() : "";
             if (!expected.get(i).equals(actual)) {
-                return (i + 1) + "列目の見出しが「" + expected.get(i)
-                        + "」であるべきですが「" + shortRaw(actual) + "」になっています";
+                String column = String.valueOf(i + 1);
+                String actualText = shortRaw(actual);
+                return Msg.of("imports.batch.excelHeaderMismatch",
+                        Map.of("column", column, "expected", expected.get(i), "actual", actualText),
+                        column + "列目の見出しが「" + expected.get(i)
+                                + "」であるべきですが「" + actualText + "」になっています");
             }
         }
         return null;
@@ -95,7 +105,7 @@ public final class ExcelRowParser {
         try {
             return new ParseOutcome.Ok(parseOrThrow(cells));
         } catch (RowException e) {
-            return new ParseOutcome.Err(e.getMessage());
+            return new ParseOutcome.Err(e.msg);
         }
     }
 
@@ -137,8 +147,11 @@ public final class ExcelRowParser {
 
     /** 行级结构错误（进错误采样，不抛出方法外）。 */
     private static final class RowException extends RuntimeException {
-        RowException(String message) {
-            super(message);
+        private final Msg msg;
+
+        RowException(Msg msg) {
+            super(msg.text());
+            this.msg = msg;
         }
     }
 
@@ -148,22 +161,24 @@ public final class ExcelRowParser {
         if (!rawItemCode.isEmpty()) {
             itemCode = CodeNormalizer.normalize(rawItemCode);
             if (!ItemCodeFormatter.matches(itemCode)) {
-                throw new RowException("管理番号の形式が不正です: " + shortRaw(rawItemCode));
+                throw rowError("imports.reason.itemCodeFormat", Map.of("raw", shortRaw(rawItemCode)),
+                        "管理番号の形式が不正です: " + shortRaw(rawItemCode));
             }
         }
 
         String rawVenue = cell(cells, 1);
         if (rawVenue.isEmpty()) {
-            throw new RowException("会場コードが空です");
+            throw rowError("imports.reason.venueCodeRequired", "会場コードが空です");
         }
         String venueCode = CodeNormalizer.normalize(rawVenue);
         if (!VENUE_CODE.matcher(venueCode).matches()) {
-            throw new RowException("会場コードは半角英字2桁で入力してください: " + shortRaw(rawVenue));
+            throw rowError("imports.reason.venueCodeFormat", Map.of("raw", shortRaw(rawVenue)),
+                    "会場コードは半角英字2桁で入力してください: " + shortRaw(rawVenue));
         }
 
         LocalDate buyDate = requiredDateCell(cell(cells, 2), props.columns().buyDate());
         if (buyDate.isAfter(today)) {
-            throw new RowException("落札日に未来の日付は指定できません");
+            throw rowError("imports.reason.buyDateFuture", "落札日に未来の日付は指定できません");
         }
         Long purchasePrice = moneyCell(cell(cells, 3), props.columns().purchasePrice(), true);
         Long fee = moneyCell(cell(cells, 4), props.columns().fee(), false);
@@ -175,7 +190,7 @@ public final class ExcelRowParser {
         String groupNo = lengthCell(cell(cells, 10), props.columns().groupNo(), LEN_SHORT);
         LocalDate photoDate = optionalDateCell(cell(cells, 11), props.columns().photoDate());
         if (photoDate != null && photoDate.isAfter(today)) {
-            throw new RowException("撮影日に未来の日付は指定できません");
+            throw rowError("imports.reason.photoDateFuture", "撮影日に未来の日付は指定できません");
         }
         String remark = lengthCell(cell(cells, 12), props.columns().remark(), LEN_REMARK);
         String itemName = lengthCell(cell(cells, 13), props.columns().itemName(), LEN_ITEM_NAME);
@@ -200,11 +215,24 @@ public final class ExcelRowParser {
         return raw.length() > REASON_RAW_MAX ? raw.substring(0, REASON_RAW_MAX) + "…" : raw;
     }
 
+    /**
+     * 行错误构造点：message 与 params 在同一处给出，避免两者漂移（params 里的 field
+     * 就是配置列名——甲方可改，故不能写死在 i18n 文案里，只能作参数传入）。
+     */
+    private static RowException rowError(String code, Map<String, Object> params, String message) {
+        return new RowException(Msg.of(code, params, message));
+    }
+
+    /** 无插值参数的行错误。 */
+    private static RowException rowError(String code, String message) {
+        return new RowException(Msg.of(code, message));
+    }
+
     /** 必填金额：≥1（仕入単価 @Min(1) 对齐）。 */
     private Long moneyCell(String raw, String name, boolean required) {
         if (raw.isEmpty()) {
             if (required) {
-                throw new RowException(name + "が空です");
+                throw rowError("imports.reason.fieldRequired", Map.of("field", name), name + "が空です");
             }
             return null;
         }
@@ -215,16 +243,21 @@ public final class ExcelRowParser {
         try {
             value = parseWhole(normalized);
         } catch (NumberFormatException e) {
-            throw new RowException(name + "を数値として解釈できません: " + shortRaw(raw));
+            throw rowError("imports.reason.fieldNotNumber", Map.of("field", name, "raw", shortRaw(raw)),
+                    name + "を数値として解釈できません: " + shortRaw(raw));
         }
         if (value > MAX_PRICE) {
-            throw new RowException(name + "が上限（" + MAX_PRICE + "円）を超えています");
+            throw rowError("imports.reason.moneyOverMax",
+                    Map.of("field", name, "max", String.valueOf(MAX_PRICE)),
+                    name + "が上限（" + MAX_PRICE + "円）を超えています");
         }
         if (required && value < 1) {
-            throw new RowException(name + "は1以上を入力してください");
+            throw rowError("imports.reason.moneyBelowMin", Map.of("field", name),
+                    name + "は1以上を入力してください");
         }
         if (!required && value < 0) {
-            throw new RowException(name + "に負の数は入力できません");
+            throw rowError("imports.reason.moneyNegative", Map.of("field", name),
+                    name + "に負の数は入力できません");
         }
         return value;
     }
@@ -232,20 +265,21 @@ public final class ExcelRowParser {
     /** 倉庫：1/2/名古屋/福岡（NFKC 后判定——全角１/２同样接受）。 */
     private Integer warehouseCell(String raw) {
         if (raw.isEmpty()) {
-            throw new RowException("倉庫が空です");
+            throw rowError("imports.reason.warehouseRequired", "倉庫が空です");
         }
         String normalized = Normalizer.normalize(raw, Normalizer.Form.NFKC).trim();
         return switch (normalized) {
             case "1", "名古屋" -> 1;
             case "2", "福岡" -> 2;
-            default -> throw new RowException("倉庫は 1／2／名古屋／福岡 で入力してください: " + shortRaw(raw));
+            default -> throw rowError("imports.reason.warehouseFormat", Map.of("raw", shortRaw(raw)),
+                    "倉庫は 1／2／名古屋／福岡 で入力してください: " + shortRaw(raw));
         };
     }
 
     /** 必填日期（落札日）。 */
     private LocalDate requiredDateCell(String raw, String name) {
         if (raw.isEmpty()) {
-            throw new RowException(name + "が空です");
+            throw rowError("imports.reason.fieldRequired", Map.of("field", name), name + "が空です");
         }
         return dateCell(raw, name);
     }
@@ -265,14 +299,16 @@ public final class ExcelRowParser {
         try {
             return LocalDate.parse(normalized, DATE_SLASH);
         } catch (DateTimeParseException e) {
-            throw new RowException(name + "を日付として解釈できません: " + shortRaw(raw));
+            throw rowError("imports.reason.fieldNotDate", Map.of("field", name, "raw", shortRaw(raw)),
+                    name + "を日付として解釈できません: " + shortRaw(raw));
         }
     }
 
     /** 自由文本：仅 trim+NFKC 宽度归一风险高（㈱ 等合法字符变形），长度校验后原样保留。 */
     private String lengthCell(String raw, String name, int max) {
         if (raw.length() > max) {
-            throw new RowException(name + "が" + max + "文字を超えています");
+            throw rowError("imports.reason.fieldTooLong", Map.of("field", name, "max", String.valueOf(max)),
+                    name + "が" + max + "文字を超えています");
         }
         return raw.isEmpty() ? null : raw;
     }
@@ -281,16 +317,20 @@ public final class ExcelRowParser {
         if (raw.isEmpty()) {
             return null;
         }
+        String label = props.columns().weightG();
         String normalized = Normalizer.normalize(raw, Normalizer.Form.NFKC)
                 .replace(",", "").replace(" ", "");
         int value;
         try {
             value = (int) parseWhole(normalized);
         } catch (NumberFormatException e) {
-            throw new RowException(props.columns().weightG() + "を数値として解釈できません: " + shortRaw(raw));
+            throw rowError("imports.reason.fieldNotNumber", Map.of("field", label, "raw", shortRaw(raw)),
+                    label + "を数値として解釈できません: " + shortRaw(raw));
         }
         if (value < 1 || value > MAX_WEIGHT_G) {
-            throw new RowException(props.columns().weightG() + "は1～" + MAX_WEIGHT_G + "の範囲で入力してください");
+            throw rowError("imports.reason.weightRange",
+                    Map.of("field", label, "min", "1", "max", String.valueOf(MAX_WEIGHT_G)),
+                    label + "は1～" + MAX_WEIGHT_G + "の範囲で入力してください");
         }
         return value;
     }

@@ -1,5 +1,6 @@
 package com.kcgl.module.yahoo;
 
+import com.kcgl.common.i18n.Msg;
 import com.kcgl.common.util.CodeNormalizer;
 import com.kcgl.module.itemcode.ItemCodeFormatter;
 
@@ -79,33 +80,55 @@ public final class YahooOrderParser {
             Long soldPrice, LocalDateTime orderTime, boolean multiItem) {
     }
 
-    /** 一行（物理 xlsx 行）的解析结果：Ok（1..N 子行）或 Err（reason 进批次错误采样）。 */
+    /** 一行（物理 xlsx 行）的解析结果：Ok（1..N 子行）或 Err（msg 进批次错误采样）。 */
     public sealed interface RowOutcome {
         record Ok(List<ParsedRow> rows) implements RowOutcome {
         }
 
-        record Err(String reason) implements RowOutcome {
+        record Err(Msg msg) implements RowOutcome {
+            /** 日文兜底文案（落库 error_rows.reason；保持既有调用点与断言不变）。 */
+            public String reason() {
+                return msg.text();
+            }
         }
     }
 
-    /** 表头契约校验（首行一次，缺列/错列=批次配置性失败而非逐行报错）。 */
-    public static String headerMismatch(Map<Integer, Object> headerCells) {
+    /**
+     * 表头契约校验（首行一次，缺列/错列=批次配置性失败而非逐行报错）。
+     * 多列同时不符时 message 用「、」连接（既有形态），结构化键取**列序最靠前**的
+     * 一处——参数只能承载一组列名，指认最左边那列最便于对照文件，且列序遍历
+     * （EXPECTED_HEADERS 是 Map.of，迭代序不保证）让 message 与 params 都可复现。
+     */
+    public static Msg headerMismatch(Map<Integer, Object> headerCells) {
         List<String> problems = new ArrayList<>();
-        for (var entry : EXPECTED_HEADERS.entrySet()) {
-            String actual = cellText(headerCells.get(entry.getKey()));
-            if (!entry.getValue().equals(actual)) {
-                problems.add((char) ('A' + entry.getKey()) + "列は「" + entry.getValue()
-                        + "」であるべきですが「" + (actual.isEmpty() ? "（空）" : actual) + "」です");
+        Msg first = null;
+        for (int col : EXPECTED_HEADERS.keySet().stream().sorted().toList()) {
+            String expected = EXPECTED_HEADERS.get(col);
+            String actual = cellText(headerCells.get(col));
+            if (expected.equals(actual)) {
+                continue;
+            }
+            String column = String.valueOf((char) ('A' + col));
+            String actualText = actual.isEmpty() ? "（空）" : actual;
+            problems.add(column + "列は「" + expected + "」であるべきですが「" + actualText + "」です");
+            if (first == null) {
+                first = Msg.of("imports.batch.yahooHeaderMismatch",
+                        Map.of("column", column, "expected", expected, "actual", actualText),
+                        column + "列は「" + expected + "」であるべきですが「" + actualText + "」です");
             }
         }
-        return problems.isEmpty() ? null : String.join("、", problems);
+        if (first == null) {
+            return null;
+        }
+        return problems.size() == 1 ? first
+                : Msg.of(first.code(), first.params(), String.join("、", problems));
     }
 
     public static RowOutcome parse(Map<Integer, Object> cells) {
         try {
             return new RowOutcome.Ok(parseOrThrow(cells));
         } catch (RowException e) {
-            return new RowOutcome.Err(e.getMessage());
+            return new RowOutcome.Err(e.msg);
         }
     }
 
@@ -155,7 +178,7 @@ public final class YahooOrderParser {
     /** 成交时刻：显示文本（Map 模式原生形态）/序列数值/日期对象三态 → LocalDateTime。 */
     static LocalDateTime orderTimeCell(Object value) {
         if (value == null || value instanceof String s && s.isBlank()) {
-            throw new RowException("注文日時が空です");
+            throw rowError("imports.reason.orderTimeRequired", "注文日時が空です");
         }
         if (value instanceof Number n) {
             return serialToLocalDateTime(n.doubleValue());
@@ -176,7 +199,9 @@ public final class YahooOrderParser {
             try {
                 return LocalDateTime.parse(raw.replace('/', '-'), TEXT_DATETIME);
             } catch (DateTimeParseException e2) {
-                throw new RowException("注文日時を解釈できません: " + shortRaw(raw));
+                throw new RowException(Msg.of("imports.reason.orderTimeFormat",
+                        Map.of("raw", shortRaw(raw)),
+                        "注文日時を解釈できません: " + shortRaw(raw)));
             }
         }
     }
@@ -204,7 +229,7 @@ public final class YahooOrderParser {
         if (value instanceof Number n) {
             double d = n.doubleValue();
             if (d != Math.rint(d) || d < 0 || d > MAX_PRICE) {
-                throw new RowException("落札価格が不正です: " + shortRaw(cellText(value)));
+                throw soldPriceInvalid(shortRaw(cellText(value)));
             }
             return (long) d;
         }
@@ -215,30 +240,48 @@ public final class YahooOrderParser {
         try {
             long price = Long.parseLong(normalized);
             if (price < 0) { // 文本分支与 Number 分支同口径（负价=不正，非落札事实）
-                throw new RowException("落札価格が不正です: " + shortRaw(raw));
+                throw soldPriceInvalid(shortRaw(raw));
             }
             if (price > MAX_PRICE) {
-                throw new RowException("落札価格が上限（" + MAX_PRICE + "円）を超えています");
+                throw new RowException(Msg.of("imports.reason.soldPriceOverMax",
+                        Map.of("max", String.valueOf(MAX_PRICE)),
+                        "落札価格が上限（" + MAX_PRICE + "円）を超えています"));
             }
             return price;
         } catch (NumberFormatException e) {
-            throw new RowException("落札価格を数値として解釈できません: " + shortRaw(raw));
+            throw new RowException(Msg.of("imports.reason.soldPriceNotNumber",
+                    Map.of("raw", shortRaw(raw)),
+                    "落札価格を数値として解釈できません: " + shortRaw(raw)));
         }
+    }
+
+    private static RowException soldPriceInvalid(String raw) {
+        return new RowException(Msg.of("imports.reason.soldPriceInvalid", Map.of("raw", raw),
+                "落札価格が不正です: " + raw));
     }
 
     // ------------------------------------------------------------- 内部
 
     /** 行级结构错误（进错误采样，不抛出方法外）。 */
     static final class RowException extends RuntimeException {
-        RowException(String message) {
-            super(message);
+        private final Msg msg;
+
+        RowException(Msg msg) {
+            super(msg.text());
+            this.msg = msg;
         }
+    }
+
+    /** 无插值参数的行错误（带参数的在各自调用点直接 {@link Msg#of}）。 */
+    private static RowException rowError(String code, String message) {
+        return new RowException(Msg.of(code, message));
     }
 
     private static List<ParsedRow> parseOrThrow(Map<Integer, Object> cells) {
         String auctionId = idCell(cells.get(COL_AUCTION_ID), "オークションID");
         if (auctionId == null) {
-            throw new RowException("オークションIDが空です"); // 幂等键，结构性必填
+            throw rowError("imports.reason.auctionIdRequired",
+                    "オークションIDが空です"); // 幂等键，结构性必填
         }
         String orderId = idCell(cells.get(COL_ORDER_ID), "注文ID");
         LocalDateTime orderTime = orderTimeCell(cells.get(COL_ORDER_TIME));
@@ -279,13 +322,17 @@ public final class YahooOrderParser {
             String trimmed = part.trim();
             if (!trimmed.isEmpty()) {
                 if (trimmed.length() > MAX_ID_LENGTH) {
-                    throw new RowException("商品コードが長すぎます");
+                    throw new RowException(Msg.of("imports.reason.fieldTooLong",
+                            Map.of("field", "商品コード", "max", String.valueOf(MAX_ID_LENGTH)),
+                            "商品コードが" + MAX_ID_LENGTH + "文字を超えています"));
                 }
                 codes.add(trimmed);
             }
         }
         if (codes.size() > MAX_CODES_PER_ROW) {
-            throw new RowException("1行の商品コード数が多すぎます（最大" + MAX_CODES_PER_ROW + "）");
+            throw new RowException(Msg.of("imports.reason.tooManyCodes",
+                    Map.of("max", String.valueOf(MAX_CODES_PER_ROW)),
+                    "1行の商品コード数が多すぎます（最大" + MAX_CODES_PER_ROW + "）"));
         }
         return codes;
     }
@@ -302,7 +349,9 @@ public final class YahooOrderParser {
             return null;
         }
         if (text.length() > MAX_ID_LENGTH) {
-            throw new RowException(label + "が長すぎます");
+            throw new RowException(Msg.of("imports.reason.fieldTooLong",
+                    Map.of("field", label, "max", String.valueOf(MAX_ID_LENGTH)),
+                    label + "が" + MAX_ID_LENGTH + "文字を超えています"));
         }
         return text;
     }

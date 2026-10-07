@@ -72,7 +72,10 @@ function batch(overrides: Partial<YahooImportBatch> = {}): YahooImportBatch {
     unmatchedCount: 1,
     updatedCount: 0,
     note: null,
+    noteJson: null,
     errorMessage: null,
+    errorMessageCode: null,
+    errorMessageParams: null,
     uploadedBy: 2,
     createdAt: '2026-09-28 09:00:00',
     finishedAt: '2026-09-28 09:00:02',
@@ -189,6 +192,9 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks()
+  // D-127 用例会临时切语言验证落库文案随语言走，本文件其余断言（完了/処理中/
+  // 単価が未分割）都按 ja-JP 写死，必须还原，否则失败顺序一变就互相污染。
+  i18n.global.locale.value = 'ja-JP'
 })
 
 describe('yahoo view (M5-②b)', () => {
@@ -226,6 +232,65 @@ describe('yahoo view (M5-②b)', () => {
 
     expect(wrapper.find('#pane-import .yahoo-detail .kcgl-info-box').text())
       .toContain('単価が未分割')
+  })
+
+  // D-127：批次级失败提示走 code+params（历史批次无 code 才回退日文原文）
+  it('renders a structured batch failure in the active locale', async () => {
+    apiMocks.fetchYahooBatches.mockResolvedValue([
+      batch({ id: 4, status: 2, rowCount: null, matchedCount: null, unmatchedCount: null,
+        updatedCount: null, finishedAt: '2026-09-28 09:01:00',
+        errorMessage: '2列は「YahooAuctionMerchantId」であるべきですが「商品コード」です',
+        errorMessageCode: 'imports.batch.yahooHeaderMismatch',
+        errorMessageParams: JSON.stringify({ column: 'B', expected: 'YahooAuctionMerchantId', actual: '商品コード' }) }),
+    ])
+    i18n.global.locale.value = 'zh-CN'
+    const { wrapper } = await mountView()
+
+    await wrapper.find('#pane-import .el-table__expand-icon').trigger('click')
+    await flushPromises()
+
+    const shown = wrapper.find('#pane-import .yahoo-detail .kcgl-error-box').text()
+    expect(shown).toContain('B列的表头应为「YahooAuctionMerchantId」，实际是「商品コード」')
+    expect(shown).not.toContain('であるべきですが')
+  })
+
+  // D-127：错误行原因同样随语言切换（落库 reason 是日文兜底，只在历史行可见）
+  it('renders a structured error row reason in the active locale', async () => {
+    apiMocks.fetchYahooBatches.mockResolvedValue([
+      batch({ id: 5, status: 2, rowCount: null, matchedCount: null, unmatchedCount: null,
+        updatedCount: null, finishedAt: '2026-09-28 09:01:00',
+        errorRows: [{ line: 2, raw: 'abc,…', reason: '落札価格を数値として解釈できません: abc',
+          code: 'imports.reason.soldPriceNotNumber', params: { raw: 'abc' } }] }),
+    ])
+    i18n.global.locale.value = 'zh-CN'
+    const { wrapper } = await mountView()
+
+    await wrapper.find('#pane-import .el-table__expand-icon').trigger('click')
+    await flushPromises()
+
+    const reason = wrapper.find('#pane-import .yahoo-errors-table .el-table__row').text()
+    expect(reason).toContain('成交价格不是有效的数字：abc')
+  })
+
+  // D-127：まとめ売り補注走 note_json 数组，逐条按当前语言渲染后用当语言连接符重连
+  it('renders the structured multi-item note in the active locale', async () => {
+    apiMocks.fetchYahooBatches.mockResolvedValue([
+      batch({ note: '注文10004900（HT9-A1X・HT9-A2X）は複数商品のため単価が未分割です',
+        noteJson: JSON.stringify([{
+          code: 'imports.note.multiItemByOrder',
+          params: { orderId: '10004900', codes: 'HT9-A1X・HT9-A2X' },
+          text: '注文10004900（HT9-A1X・HT9-A2X）は複数商品のため単価が未分割です',
+        }]) }),
+    ])
+    i18n.global.locale.value = 'en-US'
+    const { wrapper } = await mountView()
+
+    await wrapper.find('#pane-import .el-table__expand-icon').trigger('click')
+    await flushPromises()
+
+    const shown = wrapper.find('#pane-import .yahoo-detail .kcgl-info-box').text()
+    expect(shown).toBe('Order 10004900 (HT9-A1X・HT9-A2X) contains several items, so the unit price was not split')
+    expect(shown).not.toContain('単価が未分割')
   })
 
   it('viewer cannot upload and sees the role note', async () => {

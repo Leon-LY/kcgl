@@ -386,6 +386,13 @@ class ExcelIntegrationTest {
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT error_message FROM excel_import_batch WHERE id = ?", String.class, batchId))
                 .contains("1列目").contains("管理番号").contains("商品番号");
+        // 表头不符的结构化形态：列序号/期望/实际进参数，前端按语言重排句子（D-127）
+        assertThat(jdbcTemplate.queryForMap(
+                "SELECT error_message_code, error_message_params FROM excel_import_batch WHERE id = ?",
+                batchId))
+                .containsEntry("error_message_code", "imports.batch.excelHeaderMismatch")
+                .satisfies(map -> assertThat((String) map.get("error_message_params"))
+                        .contains("\"column\"").contains("\"expected\"").contains("管理番号"));
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM item", Long.class)).isZero();
     }
 
@@ -446,6 +453,9 @@ class ExcelIntegrationTest {
         String errorRows = jdbcTemplate.queryForObject(
                 "SELECT error_rows FROM excel_import_batch WHERE id = ?", String.class, batchId);
         assertThat(errorRows).containsPattern("\"line\"\\s*:\\s*3").contains("倉庫");
+        // 行错误同样带结构化形态（D-127）：仓庫格式错的键 + 原值参数，
+        // reason 仍是日文兜底（旧数据行/服务端日志/诊断导出照读）
+        assertThat(errorRows).contains("imports.reason.warehouseFormat").contains("\"raw\"");
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM item", Long.class)).isEqualTo(2);
     }
 

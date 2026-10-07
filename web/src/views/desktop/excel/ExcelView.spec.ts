@@ -63,6 +63,8 @@ function batch(overrides: Partial<ExcelImportBatch> = {}): ExcelImportBatch {
     errorCount: 0,
     note: null,
     errorMessage: null,
+    errorMessageCode: null,
+    errorMessageParams: null,
     uploadedBy: 2,
     createdAt: '2026-09-28 09:00:00',
     finishedAt: '2026-09-28 09:00:02',
@@ -155,6 +157,30 @@ describe('excel view (M4-5)', () => {
     const detail = wrapper.find('.excel-detail')
     expect(detail.text()).toContain('倉庫の値が不正です')
     expect(detail.text()).toContain('1列目の表頭が一致しません')
+  })
+
+  // D-127：批次级失败提示与错误行原因走 code+params，历史批次无 code 才回退日文
+  // 原文（上面那条用例断言的就是回退形态，两条并存即证明新旧数据都读得出来）。
+  it('renders structured batch failure and error row reason in the active locale', async () => {
+    apiMocks.fetchExcelBatches.mockResolvedValue([
+      batch({ id: 4, status: 2, rowCount: 0, generatedCount: 0, importedCount: 0, errorCount: 1,
+        finishedAt: null,
+        errorMessage: '3列目の見出しが「落札日」であるべきですが「購入日」になっています',
+        errorMessageCode: 'imports.batch.excelHeaderMismatch',
+        errorMessageParams: JSON.stringify({ column: '3', expected: '落札日', actual: '購入日' }),
+        errorRows: [{ line: 3, raw: 'HT9-A5X,…', reason: '倉庫は 1／2／名古屋／福岡 で入力してください: 東京',
+          code: 'imports.reason.warehouseFormat', params: { raw: '東京' } }] }),
+    ])
+    i18n.global.locale.value = 'zh-CN'
+    const wrapper = await mountView()
+
+    await wrapper.find('#pane-import .el-table__row .el-table__expand-icon').trigger('click')
+    await flushPromises()
+
+    const detail = wrapper.find('.excel-detail')
+    expect(detail.text()).toContain('第3列的表头应为「落札日」，实际是「購入日」')
+    expect(detail.text()).toContain('仓库请填写 1／2／名古屋／福岡 之一：東京')
+    expect(detail.text()).not.toContain('であるべきですが')
   })
 
   it('viewer cannot download template nor upload and sees the role note', async () => {

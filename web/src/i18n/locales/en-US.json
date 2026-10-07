@@ -501,6 +501,50 @@
     "NETWORK_ERROR": "Cannot reach the server. Please check your network",
     "INVALID_RESPONSE": "The data could not be received properly. Please try again."
   },
+  "imports": {
+    "listSeparator": ", ",
+    "batch": {
+      "concurrent": "Too many imports are running at once. Please wait a moment and try again",
+      "failed": "An error occurred during the import",
+      "interrupted": "The process was interrupted. Check the file and import it again",
+      "excelHeaderMismatch": "Column {column} should be headed “{expected}”, but it is “{actual}”",
+      "yahooHeaderMismatch": "Column {column} should be “{expected}”, but it is “{actual}”",
+      "yahooSheetEmpty": "The first worksheet is empty. Make sure the file was downloaded from order management"
+    },
+    "note": {
+      "multiItemByOrder": "Order {orderId} ({codes}) contains several items, so the unit price was not split",
+      "multiItemByLine": "Line {line} ({codes}) contains several items, so the unit price was not split"
+    },
+    "reason": {
+      "itemCodeFormat": "The item code format is invalid: {raw}",
+      "venueCodeRequired": "The venue code is required",
+      "venueCodeFormat": "The venue code must be two half-width letters: {raw}",
+      "venueNotRegistered": "Venue code “{code}” is not registered",
+      "codeVenueMismatch": "The venue code in the item code ({codeVenue}) does not match the venue code column ({rowVenue})",
+      "codeMonthMismatch": "The month in the item code ({codeMonth}) does not match the purchase date",
+      "codeAlreadyUsed": "This item code is already in use: {code}",
+      "buyDateFuture": "The purchase date cannot be in the future",
+      "photoDateFuture": "The photo date cannot be in the future",
+      "warehouseRequired": "The warehouse is required",
+      "warehouseFormat": "The warehouse must be 1, 2, 名古屋 or 福岡: {raw}",
+      "fieldRequired": "{field} is required",
+      "fieldNotNumber": "{field} is not a valid number: {raw}",
+      "fieldNotDate": "{field} is not a valid date: {raw}",
+      "fieldTooLong": "{field} is longer than {max} characters",
+      "moneyOverMax": "{field} exceeds the limit ({max} yen)",
+      "moneyBelowMin": "{field} must be 1 or more",
+      "moneyNegative": "{field} cannot be negative",
+      "weightRange": "{field} must be between {min} and {max}",
+      "orderTimeRequired": "The order time is required",
+      "orderTimeFormat": "The order time could not be read: {raw}",
+      "auctionIdRequired": "The auction ID is required",
+      "tooManyCodes": "Too many item codes on one line (maximum {max})",
+      "soldPriceInvalid": "The sold price is invalid: {raw}",
+      "soldPriceOverMax": "The sold price exceeds the limit ({max} yen)",
+      "soldPriceNotNumber": "The sold price is not a valid number: {raw}",
+      "rowFailed": "An error occurred while processing this row"
+    }
+  },
   "yahoo": {
     "title": "Yahoo Integration",
     "itemCode": "Item code",

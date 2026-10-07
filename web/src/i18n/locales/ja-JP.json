@@ -501,6 +501,50 @@
     "NETWORK_ERROR": "サーバーに接続できません。ネットワークを確認してください",
     "INVALID_RESPONSE": "通信がうまくいきませんでした。もう一度お試しください。"
   },
+  "imports": {
+    "listSeparator": "、",
+    "batch": {
+      "concurrent": "同時インポートが多いため処理できませんでした。しばらくしてからもう一度お試しください",
+      "failed": "インポート処理中にエラーが発生しました",
+      "interrupted": "処理が中断されました。ファイルを確認のうえ再インポートしてください",
+      "excelHeaderMismatch": "{column}列目の見出しが「{expected}」であるべきですが「{actual}」になっています",
+      "yahooHeaderMismatch": "{column}列は「{expected}」であるべきですが「{actual}」です",
+      "yahooSheetEmpty": "最初のワークシートが空です。受注管理からダウンロードしたファイルか確認してください"
+    },
+    "note": {
+      "multiItemByOrder": "注文{orderId}（{codes}）は複数商品のため単価が未分割です",
+      "multiItemByLine": "{line}行目（{codes}）は複数商品のため単価が未分割です"
+    },
+    "reason": {
+      "itemCodeFormat": "管理番号の形式が不正です: {raw}",
+      "venueCodeRequired": "会場コードが空です",
+      "venueCodeFormat": "会場コードは半角英字2桁で入力してください: {raw}",
+      "venueNotRegistered": "会場コード「{code}」が登録されていません",
+      "codeVenueMismatch": "管理番号の会場コード（{codeVenue}）と会場コード列（{rowVenue}）が一致しません",
+      "codeMonthMismatch": "管理番号の月（{codeMonth}）が落札日と一致しません",
+      "codeAlreadyUsed": "管理番号は既に使用されています: {code}",
+      "buyDateFuture": "落札日に未来の日付は指定できません",
+      "photoDateFuture": "撮影日に未来の日付は指定できません",
+      "warehouseRequired": "倉庫が空です",
+      "warehouseFormat": "倉庫は 1／2／名古屋／福岡 で入力してください: {raw}",
+      "fieldRequired": "{field}が空です",
+      "fieldNotNumber": "{field}を数値として解釈できません: {raw}",
+      "fieldNotDate": "{field}を日付として解釈できません: {raw}",
+      "fieldTooLong": "{field}が{max}文字を超えています",
+      "moneyOverMax": "{field}が上限（{max}円）を超えています",
+      "moneyBelowMin": "{field}は1以上を入力してください",
+      "moneyNegative": "{field}に負の数は入力できません",
+      "weightRange": "{field}は{min}～{max}の範囲で入力してください",
+      "orderTimeRequired": "注文日時が空です",
+      "orderTimeFormat": "注文日時を解釈できません: {raw}",
+      "auctionIdRequired": "オークションIDが空です",
+      "tooManyCodes": "1行の商品コード数が多すぎます（最大{max}）",
+      "soldPriceInvalid": "落札価格が不正です: {raw}",
+      "soldPriceOverMax": "落札価格が上限（{max}円）を超えています",
+      "soldPriceNotNumber": "落札価格を数値として解釈できません: {raw}",
+      "rowFailed": "行の処理中にエラーが発生しました"
+    }
+  },
   "yahoo": {
     "title": "ヤフー連携",
     "itemCode": "管理番号",

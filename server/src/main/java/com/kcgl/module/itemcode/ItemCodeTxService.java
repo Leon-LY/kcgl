@@ -2,6 +2,7 @@ package com.kcgl.module.itemcode;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.kcgl.common.audit.AuditRecorder;
+import com.kcgl.common.i18n.Msg;
 import com.kcgl.common.web.BizException;
 import com.kcgl.common.web.ErrorCode;
 import com.kcgl.common.util.CodeNormalizer;
@@ -176,19 +177,29 @@ public class ItemCodeTxService {
         String rowCode = CodeNormalizer.normalize(rowVenueCode);
         if (!parsed.venueCode().equals(rowCode)) {
             throw new BizException(ErrorCode.VALIDATION, "管理番号の会場コード（" + parsed.venueCode()
-                    + "）と会場コード列（" + rowCode + "）が一致しません");
+                    + "）と会場コード列（" + rowCode + "）が一致しません",
+                    Msg.of("imports.reason.codeVenueMismatch",
+                            Map.of("codeVenue", parsed.venueCode(), "rowVenue", rowCode),
+                            "管理番号の会場コード（" + parsed.venueCode()
+                                    + "）と会場コード列（" + rowCode + "）が一致しません"));
         }
 
         VenueEntity venue = requireVenueByCode(parsed.venueCode());
         if (parsed.month() != cmd.buyDate().getMonthValue()) {
             throw new BizException(ErrorCode.VALIDATION,
-                    "管理番号の月（" + parsed.month() + "）が落札日と一致しません");
+                    "管理番号の月（" + parsed.month() + "）が落札日と一致しません",
+                    Msg.of("imports.reason.codeMonthMismatch",
+                            Map.of("codeMonth", String.valueOf(parsed.month()),
+                                    "buyMonth", String.valueOf(cmd.buyDate().getMonthValue())),
+                            "管理番号の月（" + parsed.month() + "）が落札日と一致しません"));
         }
         PriceBandResponse band = priceBandService.match(cmd.purchasePrice());
 
         SeqItemCodeEntity bucket = lockOrCreateBucket(venue.getId(), parsed.month());
         if (!codeIsFree(normalized)) {
-            throw new BizException(ErrorCode.VALIDATION, "管理番号は既に使用されています: " + normalized);
+            throw new BizException(ErrorCode.VALIDATION, "管理番号は既に使用されています: " + normalized,
+                    Msg.of("imports.reason.codeAlreadyUsed", Map.of("code", normalized),
+                            "管理番号は既に使用されています: " + normalized));
         }
         String transition = advanceCounterForImport(bucket, parsed.prefix(), parsed.seq());
         String jumpNote = transition == null ? null

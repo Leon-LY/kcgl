@@ -66,7 +66,7 @@ class YahooOrderParserTest {
         Map<Integer, Object> bad = header();
         bad.put(1, "商品コード"); // 误传出品状態表
         bad.put(15, "Total");    // P 列错位
-        String mismatch = YahooOrderParser.headerMismatch(bad);
+        String mismatch = YahooOrderParser.headerMismatch(bad).text();
         assertThat(mismatch).contains("B列").contains("YahooAuctionMerchantId")
                 .contains("P列").contains("UnitPrice");
     }

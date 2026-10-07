@@ -52,6 +52,21 @@ async function orderXlsx(auctionId: string, itemCode: string): Promise<Buffer> {
   return Buffer.from(await workbook.xlsx.writeBuffer())
 }
 
+/**
+ * 文案本地化夹具（D-127）：全部用未登记自码，绝不命中在库商品——命中即产生
+ * 出荷待ち队列行，会污染后续 spec「队列恒 1 件」的断言。
+ * 两个产出点各一行：まとめ売り（B 列换行两码 → 单价未分割補注）
+ * 与落札価格非数值（→ 行错误原因）。
+ */
+async function messageLocaleXlsx(auctionId: string): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook()
+  const sheet = workbook.addWorksheet('受注')
+  sheet.addRow([...HEADER])
+  sheet.addRow(orderRow('10004870', 'ZZZZ-ZZ9X\nYYYY-YY8X', '46034.875', `${auctionId}-m`, '3000'))
+  sheet.addRow(orderRow('10004871', 'ZZZZ-ZZ9X', '46034.875', `${auctionId}-e`, 'abc'))
+  return Buffer.from(await workbook.xlsx.writeBuffer())
+}
+
 interface VenueRow {
   id: number
   code: string
@@ -223,6 +238,51 @@ test.describe('yahoo order pipeline (desktop-chromium)', () => {
     )
     await expect(page.getByRole('tab', { name: '出荷待ち' })).toBeVisible()
     await expect(page.getByRole('tab', { name: '照合' })).toBeVisible()
+  })
+
+  // D-127：导入报告的落库文案必须随界面语言走——用户报障的原场景
+  // （「不管切换什么语言，这段提示词都是日文」）。
+  test('import report note and row reason follow the UI language', async ({ page }) => {
+    await login(page, 'editor')
+    const filename = `言語確認-${crypto.randomUUID().slice(0, 8)}.xlsx`
+
+    await page.goto('/yahoo')
+    await page.setInputFiles('.yahoo-upload-input', {
+      name: filename,
+      mimeType: XLSX_MIME,
+      buffer: await messageLocaleXlsx('auc-e2e-lang'),
+    })
+
+    const row = page.locator('#pane-import .el-table__row', { hasText: filename })
+    await expect(row).toContainText('完了')
+    await row.locator('.el-table__expand-icon').click()
+
+    // 展开区是**另一个 tr**（el-table 把展开内容渲染成数据行之后的同级行），
+    // 不能从数据行往下找；同一时刻只展开本行，故 .yahoo-detail 唯一。
+    // 错误行再按注文番号锚定：不一致行表复用了 .yahoo-errors-table 类名，
+    // 不加锚会同时选中两张表的行。
+    const detail = page.locator('#pane-import .yahoo-detail')
+    const note = detail.locator('.kcgl-info-box')
+    const reason = detail.locator('.yahoo-errors-table .el-table__row', { hasText: '10004871' })
+    try {
+      // ja-JP（系统默认）：まとめ売り補注与错误行原因按日文出
+      await expect(note).toContainText('は複数商品のため単価が未分割です')
+      await expect(reason).toContainText('落札価格を数値として解釈できません')
+
+      // 切中文：同一条補注、同一条原因改按中文出（状态标签作切换生效的信号）
+      await page.selectOption('.lang-switch', 'zh-CN')
+      await expect(row).toContainText('完成')
+      if ((await detail.count()) === 0) {
+        await row.locator('.el-table__expand-icon').click()
+      }
+      await expect(note).toContainText('包含多件商品，单价尚未拆分')
+      await expect(reason).toContainText('成交价格不是有效的数字：abc')
+      await expect(note).not.toContainText('単価が未分割')
+    } finally {
+      // 语言是账号级偏好（服务端持久化）且本文件/后续 spec 的断言都按 ja-JP 写死：
+      // 失败路径也必须还原，否则一次红会连锁成整轮红。
+      await page.selectOption('.lang-switch', 'ja-JP').catch(() => undefined)
+    }
   })
 })
 
