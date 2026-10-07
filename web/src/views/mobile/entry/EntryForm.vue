@@ -80,6 +80,32 @@ function onVenueConfirm({ selectedValues }: { selectedValues: Array<string | num
   showVenuePicker.value = false
 }
 
+/**
+ * 沿用会场失效兜底：venueId 来自上次保存（会话持久化）或重录原件，两者都可能指向
+ * 一个**后来被后台停用**的会场。下拉只列启用会场，于是旧写法里 venueDisplay 算成空串
+ * 而 venueId 仍是那个停用 id——字段看着是空的、内部却有值，提交被 required 规则拦下，
+ * 提示只有一句「请选择会场」，用户不明白自己明明选过。字典就绪后一旦发现沿用 id
+ * 不在启用列表，清掉并给一句白话说明。清空不丢能力：停用会场本就不在可选列表里。
+ */
+const venueUnavailable = ref(false)
+
+watch(
+  () => [dicts.loaded, venueId.value, dicts.enabledVenues] as const,
+  () => {
+    if (!dicts.loaded || venueId.value == null) {
+      return
+    }
+    const stillEnabled = dicts.enabledVenues.some((venue) => venue.id === venueId.value)
+    if (stillEnabled) {
+      venueUnavailable.value = false
+      return
+    }
+    venueId.value = null
+    venueUnavailable.value = true
+  },
+  { immediate: true },
+)
+
 // 落札日历下界 2016（业务起点防误选）；Vant 日历边界取本地语义的日历日（列渲染读本地 Y/M/D）
 const MIN_DATE = dayjs('2016-01-01').toDate()
 /** 落札日禁未来（JST 日界）：max 取 JST 今日 23:59，+08 深夜开发场景下默认值与选择上限一致。 */
@@ -367,6 +393,12 @@ async function onSubmit(): Promise<void> {
         name="venue"
         @click="showVenuePicker = true"
       />
+      <p
+        v-if="venueUnavailable"
+        class="entry-venue-unavailable"
+      >
+        {{ t('entry.venueUnavailable') }}
+      </p>
       <van-popup
         v-model:show="showVenuePicker"
         position="bottom"
@@ -736,6 +768,16 @@ async function onSubmit(): Promise<void> {
   border-radius: 4px;
   padding: 0 6px;
   white-space: nowrap;
+}
+
+.entry-venue-unavailable {
+  margin: 0;
+  padding: 8px 16px 10px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--kcgl-color-warning);
+  background: var(--kcgl-color-warning-bg);
+  border-top: 1px solid var(--kcgl-color-warning-border);
 }
 
 .entry-band {

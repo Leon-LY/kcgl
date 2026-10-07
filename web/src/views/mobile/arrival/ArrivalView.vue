@@ -494,8 +494,8 @@ onBeforeUnmount(() => {
 }
 
 .arrival-view.has-actionbar {
-  /* 底部固定操作条（44px 按钮 + 上下留白 + 安全区）不遮末行卡片 */
-  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+  /* 壳已按底栏（50px + 安全区）预留；这里再加操作条自身高度不遮末行卡片 */
+  padding-bottom: 76px;
 }
 
 .arrival-title {
@@ -670,13 +670,16 @@ onBeforeUnmount(() => {
   transform: translate(-50%, -60%) rotate(45deg);
 }
 
+/* 操作条悬在底部导航之上，不是取代它——早先 bottom:0 直接把壳的 van-tabbar
+   盖死（操作条 z-index 20 > 底栏），编辑者选中行后从这页走不掉。
+   安全区由底栏吃，这里不再重复加 env()。 */
 .arrival-actionbar {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: calc(var(--kcgl-tabbar-height, 50px) + env(safe-area-inset-bottom));
   z-index: 20;
-  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  padding: 10px 16px;
   background: var(--kcgl-color-card);
   border-top: 1px solid var(--kcgl-color-border);
 }

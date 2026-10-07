@@ -8,6 +8,7 @@ import com.kcgl.common.web.BizException;
 import com.kcgl.common.web.ErrorCode;
 import com.kcgl.module.dict.PriceBandService;
 import com.kcgl.module.dict.VenueMapper;
+import com.kcgl.module.dict.dto.PriceBandResponse;
 import com.kcgl.module.item.dto.UpdateItemRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -25,7 +26,8 @@ import java.util.Objects;
  * 号内快照列（venue_code/buy_month/seq_*、item_code）恒不动，管理号不重算。
  * 仓库契约 W（D-066）：非在途（在库/已出库）时仓值变化 → 409013 引导
  * /inventory/transfer（台账路径）；同值提交=无操作放行（A16 在库补录费用仍可编辑）。
- * priceBandCode 即使价格未变也重推导（档位表调整后编辑即对齐）。
+ * priceBandCode 即使价格未变也尽量重推导（档位表调整后编辑即对齐；推导不出则
+ * 保留原码，不停用档位就把存量件锁死——见 resolveBandCode）。
  * total_cost/profit 为生成列（FieldStrategy NEVER）不进 SET，由 DB 重算。
  * 审计 detail=before/after 快照（LinkedHashMap——Map.of 遇 null 值 NPE）。
  */
@@ -57,7 +59,7 @@ public class ItemEditService {
             ItemEntity item = requireEditableItem(itemId);
             requireVenueExists(req.venueId());
             requireWarehouseEditable(item, req.warehouse());
-            String bandCode = priceBandService.match(req.purchasePrice()).code();
+            String bandCode = resolveBandCode(item, req.purchasePrice());
 
             Map<String, Object> before = editSnapshot(item);
             LocalDateTime now = LocalDateTime.now(clock);
@@ -98,6 +100,22 @@ public class ItemEditService {
         });
         sseHub.broadcast(SyncEvent.TYPE_ITEM, updated.getItemCode(), operatorId);
         return updated;
+    }
+
+    /**
+     * 档位码重推导（原为无条件 match）。无条件 match 会把"后台停用了某档位"放大成
+     * 「该价格区间的存量件全部不可编辑」——连只改备注都回 404002，而编辑请求里
+     * 的价根本没动，用户无从下手。规则改为：
+     * - 价格变了：必须按新价匹配，分不了档就是真的分不了档 → 404002 引导后台配置；
+     * - 价格没变：能重推导就重推导（档位表调整后编辑即对齐，原设计意图保留），
+     *   推导不出（该段档位被停用）则保留原档位码，编辑照常放行。
+     */
+    private String resolveBandCode(ItemEntity item, Long newPrice) {
+        if (!Objects.equals(item.getPurchasePrice(), newPrice)) {
+            return priceBandService.match(newPrice).code();
+        }
+        PriceBandResponse rematched = priceBandService.findEnabled(newPrice);
+        return rematched == null ? item.getPriceBandCode() : rematched.code();
     }
 
     /** 软删件=不存在（404）；作废件=终态，引导作废重录（409008——不与 ItemService.requireLiveItem 的 409006 混用）。 */

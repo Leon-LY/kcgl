@@ -97,6 +97,7 @@
     "title": "商品登録",
     "venue": "会場",
     "venuePlaceholder": "会場を選択",
+    "venueUnavailable": "前回の会場は今は使えないため、会場を選び直してください",
     "buyDate": "落札日",
     "purchasePrice": "仕入単価",
     "purchasePriceUnit": "円",

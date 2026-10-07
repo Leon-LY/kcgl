@@ -247,6 +247,42 @@ class ItemGovernanceIntegrationTest {
     }
 
     @Test
+    void editWithUnchangedPrice_survivesDisabledBand_butChangedPriceStillMustMatch() throws Exception {
+        MockHttpSession boss = loginAs("boss");
+        long id = createItem(boss, "c-1", htVenueId, 1000, 1, "");
+
+        // 后台停用覆盖该价的档位 X（[0,3000)）：存量件价格没动，
+        // 编辑（此处只改备注）不该被无关的档位配置卡死成 404002
+        jdbcTemplate.update("UPDATE price_band SET enabled = 0 WHERE code = 'X'");
+        putItem(boss, id, editBody(versionOf(id), htVenueId, "2026-09-15", 1000, 1,
+                ",\"remark\":\"棚卸で確認\""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.priceBandCode").value("X"))
+                .andExpect(jsonPath("$.data.remark").value("棚卸で確認"));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT price_band_code FROM item WHERE id = ?", String.class, id)).isEqualTo("X");
+
+        // 价真的变了：新价仍落空档（X 停用、Y 自 3000 起）→ 照样 404002，
+        // 不能借"保留原码"把改成一个分不了档的价格也放过去
+        putItem(boss, id, editBody(versionOf(id), htVenueId, "2026-09-15", 2000, 1, ""))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(404002));
+
+        // 价变了且新价分得了档 → 正常重推导到 Y（未停用的档位照旧生效）
+        putItem(boss, id, editBody(versionOf(id), htVenueId, "2026-09-15", 5000, 1, ""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.priceBandCode").value("Y"));
+
+        // 价未变、但档位表区间调整后该价落进另一档 → 仍重推导对齐（原设计意图保留）：
+        // 把 5000 从 Y 挪进 X（重新启用 X 并上抬到 10000），编辑一次即刻对齐到 X
+        jdbcTemplate.update("UPDATE price_band SET enabled = 1, upper_bound = 10000 WHERE code = 'X'");
+        jdbcTemplate.update("UPDATE price_band SET lower_bound = 10000 WHERE code = 'Y'");
+        putItem(boss, id, editBody(versionOf(id), htVenueId, "2026-09-15", 5000, 1, ",\"remark\":\"再確認\""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.priceBandCode").value("X"));
+    }
+
+    @Test
     void editVenueAndBuyDate_updatesColumnsSnapshotsStayFrozen() throws Exception {
         MockHttpSession boss = loginAs("boss");
         long id = createItem(boss, "c-1", htVenueId, 1000, 1, "");

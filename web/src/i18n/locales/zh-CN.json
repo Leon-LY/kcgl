@@ -97,6 +97,7 @@
     "title": "商品录入",
     "venue": "拍卖会场",
     "venuePlaceholder": "请选择会场",
+    "venueUnavailable": "上次的会场现在已经不能用了，请重新选择会场",
     "buyDate": "落札日",
     "purchasePrice": "进货单价",
     "purchasePriceUnit": "日元",

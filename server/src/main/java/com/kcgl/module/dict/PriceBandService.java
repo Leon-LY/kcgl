@@ -45,14 +45,27 @@ public class PriceBandService {
                 .toList();
     }
 
-    /** 档位匹配（左闭右开）：无命中=价格落在区间空档或档位全停用 → 404002 引导后台配置。 */
-    public PriceBandResponse match(long price) {
+    /**
+     * 档位匹配（左闭右开）；无启用档位命中（价格落空档，或该段档位被停用）返回 null。
+     * 调用方自行决定是拒绝还是兜底：新建/录入分不了档就该拒（引导后台配置），
+     * 编辑存量件则不该因后台停用档位被卡死（见 ItemEditService.resolveBandCode）。
+     */
+    public PriceBandResponse findEnabled(long price) {
         for (PriceBandResponse band : list()) {
             if (band.enabled() && contains(band, price)) {
                 return band;
             }
         }
-        throw new BizException(ErrorCode.PRICE_BAND_NOT_MATCHED);
+        return null;
+    }
+
+    /** 档位匹配（左闭右开）：无命中=价格落在区间空档或档位全停用 → 404002 引导后台配置。 */
+    public PriceBandResponse match(long price) {
+        PriceBandResponse band = findEnabled(price);
+        if (band == null) {
+            throw new BizException(ErrorCode.PRICE_BAND_NOT_MATCHED);
+        }
+        return band;
     }
 
     @Transactional

@@ -204,6 +204,50 @@ describe('carry over from the previous item (A13)', () => {
     const options = wrapper.findAll('.entry-warehouse-option')
     expect(options[1]!.classes()).toContain('is-active')
   })
+
+  it('drops a carried-over venue that has since been disabled, and says so', async () => {
+    // 会场 8（OS）在夹具里是已停用会场：上次保存时可用，现在选不了了
+    localStorage.setItem(
+      'kcgl-entry-session',
+      JSON.stringify({
+        venueId: 8,
+        warehouse: 2,
+        buyDate: todayJst(),
+        purchasePrice: 1500,
+        todayCount: 3,
+        today: todayJst(),
+      }),
+    )
+    const wrapper = mountForm()
+    const inputs = wrapper.findAll('input')
+
+    // 字段清空（不是留个空壳却内部仍压着停用 id）+ 白话说明，别让用户猜为什么选过还要再选
+    expect(inputs[0]!.element.value).toBe('')
+    expect(wrapper.text()).toContain('前回の会場は今は使えないため')
+
+    // 选回一个启用会场：提示消失，沿用成功
+    await pickFirstVenue(wrapper)
+    expect(wrapper.text()).not.toContain('前回の会場は今は使えないため')
+    expect(inputs[0]!.element.value).toBe('飛騨古民具市')
+  })
+
+  it('keeps a still-enabled carried-over venue and shows no warning', async () => {
+    localStorage.setItem(
+      'kcgl-entry-session',
+      JSON.stringify({
+        venueId: 7,
+        warehouse: 2,
+        buyDate: todayJst(),
+        purchasePrice: 1500,
+        todayCount: 3,
+        today: todayJst(),
+      }),
+    )
+    const wrapper = mountForm()
+
+    expect(wrapper.findAll('input')[0]!.element.value).toBe('飛騨古民具市')
+    expect(wrapper.text()).not.toContain('前回の会場は今は使えないため')
+  })
 })
 
 describe('two-level item code preview (preview ≠ reservation)', () => {

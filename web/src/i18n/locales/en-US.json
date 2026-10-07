@@ -97,6 +97,7 @@
     "title": "Item Entry",
     "venue": "Venue",
     "venuePlaceholder": "Select a venue",
+    "venueUnavailable": "The venue from last time is no longer available. Please select a venue again.",
     "buyDate": "Purchase date",
     "purchasePrice": "Purchase price",
     "purchasePriceUnit": "JPY",

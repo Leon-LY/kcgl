@@ -132,6 +132,13 @@ onBeforeUnmount(() => {
   flex-direction: column;
 }
 
+/* 底栏净高（Vant 默认 --van-tabbar-height: 50px）提升为壳级变量：
+   页面自带的固定底条（如 ArrivalView 的操作条）要按同一数字让开底栏，
+   否则会盖住导航、把用户困在页内。安全区由底栏自己吃，页面不必重复加。 */
+.shell-mobile {
+  --kcgl-tabbar-height: 50px;
+}
+
 /* 顶栏=chrome 层（深墨底），与桌面侧栏同一层：移动端顶部一条深色带在
    仓库强光下也稳得住边界，且与内容面（白卡/浅底）拉开层次。 */
 .shell-header {
@@ -197,6 +204,6 @@ onBeforeUnmount(() => {
 
 /* 底栏固定悬浮：内容区让出 tabbar 高度 + 安全区，防最后一屏被遮 */
 .shell-main.has-tabbar {
-  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  padding-bottom: calc(var(--kcgl-tabbar-height) + 22px + env(safe-area-inset-bottom));
 }
 </style>
