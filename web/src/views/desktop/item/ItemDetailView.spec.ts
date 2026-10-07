@@ -14,6 +14,7 @@ const apiMocks = vi.hoisted(() => ({
   deleteItem: vi.fn(),
   deleteItemImage: vi.fn(),
   reorderItemImages: vi.fn(),
+  adjustItem: vi.fn(),
 }))
 
 // ApiError 保持真实实现（404001/409000 分支依赖 instanceof+code）；仅替换网络端点
@@ -31,10 +32,12 @@ vi.mock('@/utils/api', async (importOriginal) => {
     deleteItem: apiMocks.deleteItem,
     deleteItemImage: apiMocks.deleteItemImage,
     reorderItemImages: apiMocks.reorderItemImages,
+    adjustItem: apiMocks.adjustItem,
   }
 })
 
 import ItemDetailView from './ItemDetailView.vue'
+import ItemAdjustDialog from './ItemAdjustDialog.vue'
 import { i18n } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
 import { ApiError } from '@/utils/api'
@@ -428,6 +431,35 @@ describe('item detail view (M5-1)', () => {
     expect(viewer.wrapper.findAll('button').filter((b) => b.text() === '取り消して再登録')).toHaveLength(0)
     expect(viewer.wrapper.findAll('button').filter((b) => b.text() === '削除する')).toHaveLength(0)
     expect(viewer.wrapper.find('.itemd-code').text()).toBe('HT9-A1X')
+  })
+
+  it('admin corrects status via the adjust dialog; editor and viewer get no button (D4)', async () => {
+    const { wrapper } = await mountView(1, { stockStatus: 1, saleStatus: 0 })
+    expect(apiMocks.fetchItem).toHaveBeenCalledTimes(1)
+
+    await button(wrapper, '状態を修正する').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.el-dialog').text()).toContain('在庫状態・販売状態の修正')
+
+    // 弹层内改一轴并提交：本用例要证的是父组件的接线——成功后 @adjusted 触发详情重载
+    const dialog = wrapper.findComponent(ItemAdjustDialog)
+    dialog.findAllComponents('.el-select')[0]!.vm.$emit('update:modelValue', 2)
+    await wrapper.find('.el-dialog textarea').setValue('実物は出庫済み')
+    await wrapper.findAll('.el-dialog button').find((b) => b.text() === '修正する')!.trigger('click')
+    await flushPromises()
+
+    expect(apiMocks.adjustItem).toHaveBeenCalledWith(1, {
+      clientReqId: expect.any(String),
+      reason: '実物は出庫済み',
+      stockStatus: 2,
+    })
+    expect(apiMocks.fetchItem).toHaveBeenCalledTimes(2)
+
+    // 手工修正是 A-only：编辑者与閲覧者都不该看到入口
+    const editor = await mountView(2)
+    expect(editor.wrapper.findAll('button').filter((b) => b.text() === '状態を修正する')).toHaveLength(0)
+    const viewer = await mountView(3)
+    expect(viewer.wrapper.findAll('button').filter((b) => b.text() === '状態を修正する')).toHaveLength(0)
   })
 
   it('renders the voided banner and hides actions for a voided item', async () => {

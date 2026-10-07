@@ -724,7 +724,19 @@
       "deleteTitle": "删除商品",
       "deleteNote": "将该商品置为已删除。已删除的商品可在「已删除商品」中恢复。",
       "deleteReasonLabel": "理由（选填）",
-      "deleteConfirm": "删除"
+      "deleteConfirm": "删除",
+      "adjust": "修正状态",
+      "adjustTitle": "修正库存状态/销售状态",
+      "adjustNote": "按钮操作改不过来的错误状态，由管理员在这里直接改正。改了什么、为什么改，都会记入台账。",
+      "adjustWarehouseHint": "本页不能改仓库。改仓请走扫码页的「移动」。",
+      "adjustReasonLabel": "理由（必填）",
+      "adjustStockLabel": "库存状态",
+      "adjustSaleLabel": "销售状态",
+      "adjustCurrent": "当前：{value}",
+      "adjustUnchanged": "保持不变",
+      "adjustConfirm": "确认修正",
+      "adjustReasonRequired": "请填写理由。",
+      "adjustNoChange": "所选状态和现在一样。请把库存状态或销售状态改成与现在不同的内容。"
     },
     "edit": {
       "title": "编辑商品",

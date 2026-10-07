@@ -724,7 +724,19 @@
       "deleteTitle": "商品の削除",
       "deleteNote": "この商品を削除済みにします。削除済みの商品は「削除済み商品」から復元できます。",
       "deleteReasonLabel": "理由（任意）",
-      "deleteConfirm": "削除する"
+      "deleteConfirm": "削除する",
+      "adjust": "状態を修正する",
+      "adjustTitle": "在庫状態・販売状態の修正",
+      "adjustNote": "ボタン操作では直せない誤った状態を、管理者が直接直します。直した内容は理由とともに記録に残ります。",
+      "adjustWarehouseHint": "倉庫はこの画面では変更できません。移動はスキャン画面の「移動」で行ってください。",
+      "adjustReasonLabel": "理由（必須）",
+      "adjustStockLabel": "在庫状態",
+      "adjustSaleLabel": "販売状態",
+      "adjustCurrent": "現在：{value}",
+      "adjustUnchanged": "変更しない",
+      "adjustConfirm": "修正する",
+      "adjustReasonRequired": "理由を入力してください。",
+      "adjustNoChange": "選んだ状態が今と同じです。在庫状態か販売状態を、今と違う内容にしてください。"
     },
     "edit": {
       "title": "商品の編集",

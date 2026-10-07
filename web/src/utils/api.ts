@@ -335,6 +335,22 @@ export function voidItem(id: number, clientReqId: string, reason: string): Promi
   return request(`/api/items/${id}/void`, jsonInit('POST', { clientReqId, reason }))
 }
 
+/**
+ * 手工修正（D4，A-only）：任意态覆盖库存/销售两轴，用于纠正状态机走不到的错误现态。
+ * 两轴可选，**省略即保持不变**（不是传 null）；服务端要求至少给一轴且与现态不同。
+ * 不改仓库——改仓仍走 transferItem（保住「改仓必走台账」的对账不变量）。
+ */
+export interface AdjustItemPayload {
+  clientReqId: string
+  reason: string
+  stockStatus?: number
+  saleStatus?: number
+}
+
+export function adjustItem(id: number, payload: AdjustItemPayload): Promise<ItemResponse> {
+  return request(`/api/items/${id}/adjust`, jsonInit('POST', payload))
+}
+
 // ------------------------------------------------- 搜索/编辑/回收站/历史（M5-①）
 
 /** 搜索行（D-061）：作废/软删件已被服务端排除；slowMoveLevel 0 无/1 黄/2 红（D-065）。 */

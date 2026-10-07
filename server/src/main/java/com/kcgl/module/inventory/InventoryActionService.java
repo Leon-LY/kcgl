@@ -8,6 +8,7 @@ import com.kcgl.common.sse.SyncEvent;
 import com.kcgl.common.web.BizException;
 import com.kcgl.common.web.ErrorCode;
 import com.kcgl.module.inventory.dto.ActionResult;
+import com.kcgl.module.inventory.dto.AdjustRequest;
 import com.kcgl.module.inventory.dto.MarkCanceledRequest;
 import com.kcgl.module.inventory.dto.MarkListedRequest;
 import com.kcgl.module.inventory.dto.ReturnRequest;
@@ -22,6 +23,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -290,6 +292,137 @@ public class InventoryActionService {
                     return resultOf(item, outcome, item.getWarehouse());
                 });
         return broadcastFresh(done, operatorId);
+    }
+
+    // ------------------------------------------------------------------ 手工修正（D4）
+
+    /** 手工修正的执行结果：fresh=false 为重放（读回原结果，不再广播）。 */
+    private record Adjusted(ItemEntity item, boolean fresh) {
+    }
+
+    /**
+     * 手工修正（D4）：管理员任意态覆盖，只改库存/销售两轴
+     * （docs/01 7.2 矩阵「手工修正（A，须 reason）」——两轴 任意→任意）。
+     *
+     * <p><b>为什么不走边表</b>：这正是它与其余动作的区别。销售态的「单调只前进」
+     * 是自动标记动作（SOLD_MARK/LIST_UP/CANCEL_MARK 防陈旧受注重传回退）的性质，
+     * 而矩阵明确授予本动作「任意→任意」（含成交→在售这类回退）用于纠正
+     * 状态机走不到的错误现态。代价是它绕开了全部业务前提，故 A-only + reason 必填
+     * + before/after 全量审计；作废/软删件仍按 requireActionable 挡住——「误作废」
+     * 走重录、「误软删」走恢复，不从这里开后门绕过那两条审计链。
+     *
+     * <p><b>不改仓库</b>：改仓仍归 /inventory/transfer（保住「改仓必走台账」的对账
+     * 不变量）。流水 qty 按边推导：在库↔非在库才占/腾仓账（∓1 记该仓），其余记 0。
+     */
+    public ItemEntity adjust(long itemId, AdjustRequest req, long operatorId, String operatorName) {
+        requireAdjustTarget(req);
+        Adjusted done = null;
+        for (int attempt = 0; attempt < 2 && done == null; attempt++) {
+            done = txTemplate.execute(status -> adjustOnce(itemId, req, operatorId, operatorName));
+        }
+        if (done == null) {
+            ItemEntity replay = findReplayed(req.clientReqId(), TxnType.ADJUST, itemId);
+            if (replay == null) {
+                throw new BizException(ErrorCode.CONFLICT);
+            }
+            return replay; // 终局读回=重放，原作已广播过
+        }
+        if (done.fresh()) {
+            sseHub.broadcast(SyncEvent.TYPE_INVENTORY, done.item().getItemCode(), operatorId);
+        }
+        return done.item();
+    }
+
+    /**
+     * 单轮（事务内）：幂等读回 → requireActionable → 目标态与当前态比对 → 条件更新
+     * →流水+审计。target 与现值全同则 400（修正必然有变化）——注意这一步必须在事务内
+     * 读到 item 之后判定，循环外读是陈旧快照。version 冲突返回 null 由外层换事务重试。
+     */
+    private Adjusted adjustOnce(long itemId, AdjustRequest req, long operatorId, String operatorName) {
+        ItemEntity replayed = findReplayed(req.clientReqId(), TxnType.ADJUST, itemId);
+        if (replayed != null) {
+            return new Adjusted(replayed, false);
+        }
+        ItemEntity item = requireActionable(itemId);
+        int targetStock = req.stockStatus() != null ? req.stockStatus() : item.getStockStatus();
+        int targetSale = req.saleStatus() != null ? req.saleStatus() : item.getSaleStatus();
+        if (targetStock == item.getStockStatus() && targetSale == item.getSaleStatus()) {
+            // 全同=误点或前端漏传轴：不写流水（防「零变化修正」污染台账）
+            // 文案面向一线使用者：说清「哪里不对 + 该怎么办」，不用「差分なし」这类内部说法
+            throw new BizException(ErrorCode.VALIDATION,
+                    "今と同じ状態です。在庫状態か販売状態を変更してください。");
+        }
+        LocalDateTime now = LocalDateTime.now(clock);
+        int rows = itemMapper.update(null, new LambdaUpdateWrapper<ItemEntity>()
+                .eq(ItemEntity::getId, itemId)
+                .eq(ItemEntity::getVersion, item.getVersion())
+                .set(ItemEntity::getStockStatus, targetStock)
+                .set(ItemEntity::getSaleStatus, targetSale)
+                .set(ItemEntity::getUpdatedBy, operatorId)
+                .set(ItemEntity::getUpdatedAt, now)
+                .set(ItemEntity::getVersion, item.getVersion() + 1));
+        if (rows == 0) {
+            return null; // 版本冲突：外层换新事务重读
+        }
+        ledgerMapper.insert(buildAdjustLedger(item, req, targetStock, targetSale, operatorId, operatorName, now));
+        auditRecorder.record("ITEM_ADJUST", "item", itemId, adjustDetail(item, req, targetStock, targetSale));
+        return new Adjusted(itemMapper.selectById(itemId), true);
+    }
+
+    /**
+     * 请求形校验（静态、确定性）：至少一轴 + 值域（reason 由 DTO @NotBlank 兜）。
+     * 值域两条 UI 到不了（下拉只有合法值），只挡手工构造的请求，故文案取最简白话。
+     */
+    private static void requireAdjustTarget(AdjustRequest req) {
+        if (req.stockStatus() == null && req.saleStatus() == null) {
+            throw new BizException(ErrorCode.VALIDATION,
+                    "変更する状態（在庫状態・販売状態）を選んでください。");
+        }
+        if (req.stockStatus() != null && (req.stockStatus() < 0 || req.stockStatus() > 2)) {
+            throw new BizException(ErrorCode.VALIDATION, "在庫状態の値が正しくありません。");
+        }
+        if (req.saleStatus() != null && (req.saleStatus() < 0 || req.saleStatus() > 3)) {
+            throw new BizException(ErrorCode.VALIDATION, "販売状態の値が正しくありません。");
+        }
+    }
+
+    /**
+     * ADJUST 行：qty 按边推导（对账不变量 wh_to +1 / wh_from −1，NULL 不入账）——
+     * 在库→非在库记 (原仓,−1)、非在库→在库记 (原仓,+1)、其余（含仅改销售态）记 0。
+     */
+    private StockLedgerEntity buildAdjustLedger(ItemEntity item, AdjustRequest req,
+            int targetStock, int targetSale, long operatorId, String operatorName, LocalDateTime now) {
+        StockLedgerEntity ledger = baseLedger(TxnType.ADJUST, req.clientReqId(), item,
+                operatorId, operatorName, now);
+        int fromStock = item.getStockStatus();
+        ledger.setStockFrom(fromStock);
+        ledger.setStockTo(targetStock);
+        ledger.setSaleFrom(item.getSaleStatus());
+        ledger.setSaleTo(targetSale);
+        if (fromStock == 1 && targetStock != 1) {
+            ledger.setWhFrom(item.getWarehouse());
+            ledger.setQtyChange(-1);
+        } else if (fromStock != 1 && targetStock == 1) {
+            ledger.setWhTo(item.getWarehouse());
+            ledger.setQtyChange(1);
+        } else {
+            ledger.setQtyChange(0);
+        }
+        ledger.setReason(req.reason());
+        return ledger;
+    }
+
+    /** 审计明细：before/after 双快照 + reason（任意态覆盖必须能事后还原「改了什么」）。 */
+    private Map<String, Object> adjustDetail(ItemEntity item, AdjustRequest req,
+            int targetStock, int targetSale) {
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("itemCode", item.getItemCode());
+        detail.put("stockFrom", item.getStockStatus());
+        detail.put("stockTo", targetStock);
+        detail.put("saleFrom", item.getSaleStatus());
+        detail.put("saleTo", targetSale);
+        detail.put("reason", req.reason());
+        return detail;
     }
 
     // ------------------------------------------------------------------ 内部

@@ -724,7 +724,19 @@
       "deleteTitle": "Delete item",
       "deleteNote": "This item will be marked as deleted. Deleted items can be restored from \"Deleted items\".",
       "deleteReasonLabel": "Reason (optional)",
-      "deleteConfirm": "Delete"
+      "deleteConfirm": "Delete",
+      "adjust": "Correct status",
+      "adjustTitle": "Correct stock / sale status",
+      "adjustNote": "Lets an administrator fix a wrong status that the normal buttons cannot correct. What was changed and why is kept in the record.",
+      "adjustWarehouseHint": "The warehouse cannot be changed here. Use Move on the scan screen.",
+      "adjustReasonLabel": "Reason (required)",
+      "adjustStockLabel": "Stock status",
+      "adjustSaleLabel": "Sale status",
+      "adjustCurrent": "Current: {value}",
+      "adjustUnchanged": "Leave unchanged",
+      "adjustConfirm": "Apply correction",
+      "adjustReasonRequired": "Enter a reason.",
+      "adjustNoChange": "The status you picked is the same as now. Set the stock or sale status to something different."
     },
     "edit": {
       "title": "Edit item",

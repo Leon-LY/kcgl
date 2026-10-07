@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  adjustItem,
   api,
   ApiError,
   cancelStocktake,
@@ -393,6 +394,31 @@ describe('item search, edit, recycle bin, and history endpoint contracts (M5-1)'
     expect(lastCall(fetchMock)[0]).toBe('/api/items/5/ledgers')
     await fetchItemYahooListings(5)
     expect(fetchMock.mock.calls[1]![0]).toBe('/api/items/5/yahoo-listings')
+  })
+
+  it('adjustItem → POSTs only the axes given, omitting the untouched one (D4)', async () => {
+    const fetchMock = stubOk({ id: 7 })
+    await adjustItem(7, { clientReqId: 'req-adj', reason: '棚卸差異', stockStatus: 2 })
+    const [path, init] = lastCall(fetchMock)
+    expect(path).toBe('/api/items/7/adjust')
+    expect(init.method).toBe('POST')
+    // 键缺失=保持不变：不能补 saleStatus: undefined/null，否则等于声明「改成空值」
+    expect(JSON.parse(init.body as string)).toEqual({
+      clientReqId: 'req-adj',
+      reason: '棚卸差異',
+      stockStatus: 2,
+    })
+  })
+
+  it('adjustItem carries both axes when both are corrected', async () => {
+    const fetchMock = stubOk({ id: 7 })
+    await adjustItem(7, { clientReqId: 'req-adj2', reason: '誤登録', stockStatus: 1, saleStatus: 0 })
+    expect(JSON.parse(lastCall(fetchMock)[1].body as string)).toEqual({
+      clientReqId: 'req-adj2',
+      reason: '誤登録',
+      stockStatus: 1,
+      saleStatus: 0,
+    })
   })
 })
 

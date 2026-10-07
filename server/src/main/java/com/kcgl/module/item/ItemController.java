@@ -16,6 +16,8 @@ import com.kcgl.module.item.dto.TodaySessionResponse;
 import com.kcgl.module.item.dto.UpdateItemRequest;
 import com.kcgl.module.item.dto.VoidItemRequest;
 import com.kcgl.module.item.dto.YahooListingListResponse;
+import com.kcgl.module.inventory.InventoryActionService;
+import com.kcgl.module.inventory.dto.AdjustRequest;
 import com.kcgl.module.itemcode.CreateItemCommand;
 import com.kcgl.module.itemcode.ItemCodeService;
 import jakarta.validation.Valid;
@@ -50,17 +52,20 @@ public class ItemController {
     private final ItemEditService itemEditService;
     private final RecycleService recycleService;
     private final ItemHistoryService itemHistoryService;
+    private final InventoryActionService actionService;
     private final Clock clock;
 
     public ItemController(ItemCodeService itemCodeService, ItemService itemService,
             ItemSearchService itemSearchService, ItemEditService itemEditService,
-            RecycleService recycleService, ItemHistoryService itemHistoryService, Clock clock) {
+            RecycleService recycleService, ItemHistoryService itemHistoryService,
+            InventoryActionService actionService, Clock clock) {
         this.itemCodeService = itemCodeService;
         this.itemService = itemService;
         this.itemSearchService = itemSearchService;
         this.itemEditService = itemEditService;
         this.recycleService = recycleService;
         this.itemHistoryService = itemHistoryService;
+        this.actionService = actionService;
         this.clock = clock;
     }
 
@@ -163,6 +168,20 @@ public class ItemController {
         }
         return ApiResponse.ok(ItemResponse.from(
                 itemEditService.update(id, req, operator.getUserId(), operator.getDisplayName())));
+    }
+
+    /**
+     * 手工修正（D4，A-only，docs/01 7.2 矩阵「手工修正（A，须 reason）」）：管理员任意态
+     * 覆盖库存/销售两轴，用于纠正状态机走不到的错误现态。绕开全部业务前提，故限管理员、
+     * reason 必填、before/after 全量审计；不改仓库（改仓仍走 /inventory/transfer）。
+     */
+    @PostMapping("/{id}/adjust")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<ItemResponse> adjust(@PathVariable long id,
+            @Valid @RequestBody AdjustRequest req,
+            @AuthenticationPrincipal KcglUserDetails operator) {
+        return ApiResponse.ok(ItemResponse.from(
+                actionService.adjust(id, req, operator.getUserId(), operator.getDisplayName())));
     }
 
     /** 回收站软删（M5-①，D-064，A-only）：治理终态出口，作废件亦可入站。 */

@@ -22,6 +22,7 @@ import type {
   YahooListingRow,
 } from '@/utils/api'
 import ItemPhotos from './ItemPhotos.vue'
+import ItemAdjustDialog from './ItemAdjustDialog.vue'
 
 /**
  * 商品详情（M5-①）：全字段四段式详情 + 取引履歴/ヤフー出品两历史表。
@@ -429,6 +430,11 @@ async function onDeleteSubmit(): Promise<void> {
   }
 }
 
+// ------------------------------------------------------------- 手工修正弹层（D4，仅管理员）
+
+/** 弹层自持表单与提交（ItemAdjustDialog），父组件只开合它并在成功后重载详情。 */
+const adjustOpen = ref(false)
+
 // ------------------------------------------------------------- 装配
 
 function reloadAll(): void {
@@ -508,6 +514,12 @@ watch(() => route.params.id, (next, prev) => {
           @click="openVoid"
         >
           {{ t('entry.voidButton') }}
+        </el-button>
+        <el-button
+          v-if="isAdmin"
+          @click="adjustOpen = true"
+        >
+          {{ t('items.detail.adjust') }}
         </el-button>
         <el-button
           v-if="isAdmin"
@@ -1196,6 +1208,13 @@ watch(() => route.params.id, (next, prev) => {
         </el-button>
       </template>
     </el-dialog>
+
+    <ItemAdjustDialog
+      v-if="item"
+      v-model="adjustOpen"
+      :item="item"
+      @adjusted="reloadAll()"
+    />
   </section>
 </template>
 
