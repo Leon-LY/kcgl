@@ -1,6 +1,7 @@
 package com.kcgl.common.obs;
 
 import com.kcgl.common.i18n.Msg;
+import com.kcgl.common.i18n.MsgJson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -40,17 +41,12 @@ public class AlertService {
 
     /** 同 dedupKey 告警只留最新一条开启态（先 upsert 覆盖，已读状态一并复位）。 */
     public void record(String type, int level, Msg msg, String dedupKey, String payloadJson) {
-        mapper.upsertOpen(type, dedupKey, level, msg.text(), msg.code(), paramsJson(msg),
-                payloadJson, LocalDateTime.now(clock));
+        mapper.upsertOpen(type, dedupKey, level, msg.text(), msg.code(),
+                MsgJson.paramsOf(msg, objectMapper), payloadJson, LocalDateTime.now(clock));
         if (level >= LEVEL_ERROR) {
             log.error("系统告警 [{}] {}: {}", type, dedupKey, msg.text());
         } else {
             log.warn("系统告警 [{}] {}: {}", type, dedupKey, msg.text());
         }
-    }
-
-    /** 无参消息存 NULL 而非 "{}"：空对象与「无结构化键」在列上应当可区分。 */
-    private String paramsJson(Msg msg) {
-        return msg.params().isEmpty() ? null : objectMapper.writeValueAsString(msg.params());
     }
 }

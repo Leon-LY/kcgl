@@ -776,7 +776,9 @@
         "createdAt": "登録日時",
         "seq": "発番情報",
         "stockStatus": "在庫状態",
-        "saleStatus": "販売状態"
+        "saleStatus": "販売状態",
+        "reEntryOf": "再登録元",
+        "voidReEntry": "再登録先"
       },
       "seqValue": "{venue} {month}月 {seq} 価格帯 {band}",
       "edit": "編集する",
@@ -915,6 +917,9 @@
       "sale": "販売",
       "reason": "理由",
       "operator": "操作者"
+    },
+    "reason": {
+      "stocktakeAdjust": "棚卸調整 {no}"
     },
     "empty": "該当する取引はありません"
   },

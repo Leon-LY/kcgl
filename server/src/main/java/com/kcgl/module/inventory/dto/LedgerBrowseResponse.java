@@ -30,6 +30,8 @@ public record LedgerBrowseResponse(
             String refType,
             Long refId,
             String reason,
+            String reasonCode,
+            String reasonParams,
             String clientReqId,
             String operatorName,
             LocalDateTime createdAt) {

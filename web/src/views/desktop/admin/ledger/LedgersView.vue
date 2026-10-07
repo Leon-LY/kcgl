@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import AppPageHeader from '@/components/AppPageHeader.vue'
 import { formatJstDateTime } from '@/utils/format'
-import { toDisplayMessage } from '@/utils/errors'
+import { renderMessageJson, toDisplayMessage } from '@/utils/errors'
 import { fetchLedgers } from '@/utils/api'
 import type { LedgerRow } from '@/utils/api'
 
@@ -105,6 +105,14 @@ function txnText(type: number | null | undefined): string {
 
 function warehouseText(value: number | null | undefined): string {
   return value == null ? '—' : t(`common.warehouse.${value}`)
+}
+
+/**
+ * 理由列（V7，D-130）：系统生成的理由按当前语言渲染，人工理由（无键）原样显示，
+ * 历史行回退日文原文——三态统一在 renderMessageJson 里，这里只兜空。
+ */
+function reasonText(row: LedgerRow): string {
+  return renderMessageJson(row.reasonCode, row.reasonParams, t, row.reason) || '—'
 }
 </script>
 
@@ -293,7 +301,7 @@ function warehouseText(value: number | null | undefined): string {
             show-overflow-tooltip
           >
             <template #default="{ row }">
-              {{ (row as LedgerRow).reason ?? '—' }}
+              {{ reasonText(row as LedgerRow) }}
             </template>
           </el-table-column>
           <el-table-column

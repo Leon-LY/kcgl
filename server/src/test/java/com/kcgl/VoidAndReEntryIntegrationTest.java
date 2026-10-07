@@ -252,14 +252,27 @@ class VoidAndReEntryIntegrationTest {
         assertThat(newRow).containsEntry("shelf_no", "S-3");
         assertThat(newRow).containsEntry("group_no", "G7");
         assertThat(newRow).containsEntry("item_name", "伊万里染付壺");
-        assertThat(newRow.get("remark").toString()).contains("金額修正済").contains(oldCode);
+        // remark 是用户数据，不掺互链标记（D-131）：原请求值原样落库
+        assertThat(newRow.get("remark")).isEqualTo("金額修正済");
         assertThat(newRow).containsEntry("stock_status", 0);   // 新件重新从在途开始
 
-        // 旧件反链 + remark 互写
+        // 旧件反链只走列；原备注原样保留（此前会被追加「再登録先: xxx」且超列宽时截尾巴）
         var oldRow = jdbcTemplate.queryForMap(
                 "SELECT void_re_entry, remark FROM item WHERE id=?", oldId);
         assertThat(((Number) oldRow.get("void_re_entry")).longValue()).isEqualTo(newId);
-        assertThat(oldRow.get("remark").toString()).contains("骨董品の壺").contains(newCode);
+        assertThat(oldRow.get("remark")).isEqualTo("骨董品の壺");
+
+        // 互链展示改由详情端点补对端管理号（D-131）：新件给源号、旧件给新号
+        mockMvc.perform(get("/api/items/" + newId).session(editor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.reEntryOf").value(oldId))
+                .andExpect(jsonPath("$.data.reEntryOfCode").value(oldCode))
+                .andExpect(jsonPath("$.data.voidReEntryCode").value(org.hamcrest.Matchers.nullValue()));
+        mockMvc.perform(get("/api/items/" + oldId).session(editor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.voidReEntry").value(newId))
+                .andExpect(jsonPath("$.data.voidReEntryCode").value(newCode))
+                .andExpect(jsonPath("$.data.reEntryOfCode").value(org.hamcrest.Matchers.nullValue()));
 
         // 图片行复制：新件 2 行、路径与顺序保留、client_uuid 换新（幂等键不复用）
         assertThat(jdbcTemplate.queryForObject(

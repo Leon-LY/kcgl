@@ -8,6 +8,7 @@ import com.kcgl.common.audit.AuditRecorder;
 import com.kcgl.common.sse.SseHub;
 import com.kcgl.common.sse.SyncEvent;
 import com.kcgl.common.i18n.Msg;
+import com.kcgl.common.i18n.MsgJson;
 import com.kcgl.common.obs.AlertService;
 import com.kcgl.common.web.BizException;
 import com.kcgl.common.web.ErrorCode;
@@ -38,6 +39,7 @@ import org.springframework.dao.DeadlockLoserDataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.databind.ObjectMapper;
 
 import java.text.Normalizer;
 import java.time.Clock;
@@ -110,11 +112,13 @@ public class StocktakeService {
     private final Clock clock;
     private final SseHub sseHub;
     private final AlertService alertService;
+    private final ObjectMapper objectMapper;
 
     public StocktakeService(StocktakeMapper stocktakeMapper, StocktakeScanMapper scanMapper,
             StocktakeDiffMapper diffMapper, ItemMapper itemMapper, StockLedgerMapper ledgerMapper,
             SysUserMapper userMapper, FirstThumbReader firstThumbReader, AuditRecorder auditRecorder,
-            TransactionTemplate txTemplate, Clock clock, SseHub sseHub, AlertService alertService) {
+            TransactionTemplate txTemplate, Clock clock, SseHub sseHub, AlertService alertService,
+            ObjectMapper objectMapper) {
         this.stocktakeMapper = stocktakeMapper;
         this.scanMapper = scanMapper;
         this.diffMapper = diffMapper;
@@ -127,6 +131,7 @@ public class StocktakeService {
         this.clock = clock;
         this.sseHub = sseHub;
         this.alertService = alertService;
+        this.objectMapper = objectMapper;
     }
 
     // ------------------------------------------------------------------ 发起
@@ -553,7 +558,10 @@ public class StocktakeService {
                 ledger.setWhFrom(item.getWarehouse());
             }
         }
-        ledger.setReason("棚卸調整 " + st.getStocktakeNo());
+        Msg reason = stocktakeAdjustReason(st);
+        ledger.setReason(reason.text());
+        ledger.setReasonCode(reason.code());
+        ledger.setReasonParams(MsgJson.paramsOf(reason, objectMapper));
         ledger.setRefType("stocktake_diff");
         ledger.setRefId(diff.getId());
         ledger.setOperatorId(operatorId);
@@ -631,6 +639,17 @@ public class StocktakeService {
     }
 
     // ------------------------------------------------------------------ 内部
+
+    /**
+     * 盘点差异入账流水的理由（V7，D-130）：日文原文继续落 reason（历史行兜底、
+     * server log、导出按语言无关的原文消费），另落 i18n 键+单号参数供前端按语言渲染
+     * ——此前只落日文整句，切到中文/英文在取引履歴与台帳里仍是日文。
+     */
+    private static Msg stocktakeAdjustReason(StocktakeEntity stocktake) {
+        return Msg.of("ledgers.reason.stocktakeAdjust",
+                Map.of("no", stocktake.getStocktakeNo()),
+                "棚卸調整 " + stocktake.getStocktakeNo());
+    }
 
     /** 幂等读回：按全局唯一键查（uk_client_req）；类型/差异不符=键被挪用→400 防脏读。 */
     private StockLedgerEntity findReplayedLedger(String clientReqId, long diffId) {

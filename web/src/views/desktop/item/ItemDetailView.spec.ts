@@ -342,6 +342,76 @@ describe('item detail view (M5-1)', () => {
     expect(warnings.filter((message) => message.includes('items.ledger'))).toHaveLength(0)
   })
 
+  it('renders the ledger reason in the active language, falling back for manual reasons', async () => {
+    const { wrapper } = await mountView()
+    apiMocks.fetchItemLedgers.mockResolvedValue({
+      rows: [
+        // 系统生成理由（V7，D-130）：后端同时落了键+参数，按当前语言渲染
+        ledgerRow({
+          id: 11,
+          txnType: 7,
+          reason: '棚卸調整 PD2026100101',
+          reasonCode: 'ledgers.reason.stocktakeAdjust',
+          reasonParams: '{"no":"PD2026100101"}',
+        }),
+        // 人工理由（报废/调拨备注）：无键，原样显示
+        ledgerRow({ id: 12, txnType: 4, reason: '割れのため' }),
+        // 历史行（V7 之前）：无键，回退日文原文
+        ledgerRow({ id: 13, txnType: 7, reason: '棚卸調整 PD2026090101' }),
+      ],
+    })
+    await wrapper.findAll('.el-tabs__item').find((n) => n.text() === '取引履歴')!.trigger('click')
+    await flushPromises()
+
+    const rows = wrapper.findAll('#pane-ledger .el-table__row')
+    expect(rows[0].text()).toContain('棚卸調整 PD2026100101')
+    expect(rows[1].text()).toContain('割れのため')
+    expect(rows[2].text()).toContain('棚卸調整 PD2026090101')
+
+    // 切语言后系统理由跟着走，人工理由与历史行不动
+    i18n.global.locale.value = 'zh-CN'
+    await flushPromises()
+    const switched = wrapper.findAll('#pane-ledger .el-table__row')
+    expect(switched[0].text()).toContain('盘点调整 PD2026100101')
+    expect(switched[1].text()).toContain('割れのため')
+    expect(switched[2].text()).toContain('棚卸調整 PD2026090101')
+    i18n.global.locale.value = 'ja-JP'
+  })
+
+  it('shows re-entry links from structured columns instead of the remark marker', async () => {
+    const { wrapper, router } = await mountView(2, {
+      remark: '客からの預かり品',
+      reEntryOf: 9,
+      reEntryOfCode: 'HT9-Z9X',
+      voidReEntry: 30,
+      voidReEntryCode: 'HT9-Z30X',
+    })
+
+    // 备注是用户数据，不再被后端塞进「再登録元/先」日文标记
+    expect(wrapper.text()).toContain('客からの預かり品')
+    const items = wrapper.findAll('.el-descriptions__label')
+    const labels = items.map((n) => n.text())
+    expect(labels).toContain('再登録元')
+    expect(labels).toContain('再登録先')
+
+    const links = wrapper.findAll('.itemd-link')
+    expect(links).toHaveLength(2)
+    expect(links[0].text()).toBe('HT9-Z9X')
+    expect(links[1].text()).toBe('HT9-Z30X')
+
+    // 互链跳转：对端 id 进详情（同组件复用，参数变化触发重载）
+    await links[1].trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/items/30')
+  })
+
+  it('hides the re-entry rows when the structured columns are absent', async () => {
+    const { wrapper } = await mountView()
+
+    expect(wrapper.findAll('.el-descriptions__label').map((n) => n.text())).not.toContain('再登録元')
+    expect(wrapper.findAll('.itemd-link')).toHaveLength(0)
+  })
+
   it('submits a full-payload edit with null-clearing and reloads in place', async () => {
     const { wrapper } = await mountView(2, { shelfNo: 'A-01', remark: '元の備考' })
 

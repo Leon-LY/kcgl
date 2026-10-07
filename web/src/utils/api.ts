@@ -312,6 +312,14 @@ export interface ItemResponse {
   voidReason: string | null
   /** 作废重录互链：本件为 {reEntryOf} 的再登録件。 */
   reEntryOf: number | null
+  /**
+   * 作废重录互链（D-131）：本件的再登録件 id 与两侧对端管理号。
+   * 三个字段**仅详情端点装配**（列表/批量端点不查，避免 N+1），故可选：
+   * undefined/null 即不渲染互链行。
+   */
+  voidReEntry?: number | null
+  reEntryOfCode?: string | null
+  voidReEntryCode?: string | null
   deleted: boolean
   /** 乐观锁版本号（编辑弹层 PUT 时原样携带；409000 后重读取新值）。 */
   version: number
@@ -536,6 +544,12 @@ export interface ItemLedgerRow {
   saleFrom: number | null
   saleTo: number | null
   reason: string | null
+  /**
+   * 系统生成理由的结构化形态（V7，D-130）：reasonCode 非空即按当前语言渲染
+   * （reasonParams 是 JSON 文本，走 renderMessageJson），为空＝人工理由，直接显示 reason。
+   */
+  reasonCode?: string | null
+  reasonParams?: string | null
   operatorName: string | null
   createdAt: string
 }
@@ -1286,6 +1300,9 @@ export interface LedgerRow {
   refType: string | null
   refId: number | null
   reason: string | null
+  /** 系统生成理由的结构化形态（V7，D-130），同 ItemLedgerRow。 */
+  reasonCode?: string | null
+  reasonParams?: string | null
   clientReqId: string | null
   operatorName: string | null
   createdAt: string

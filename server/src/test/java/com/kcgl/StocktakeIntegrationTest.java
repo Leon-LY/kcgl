@@ -169,7 +169,8 @@ class StocktakeIntegrationTest {
 
     private Map<String, Object> adjustLedger(long itemId) {
         return jdbcTemplate.queryForMap("""
-                SELECT stock_from, stock_to, wh_from, wh_to, qty_change, reason, ref_type, ref_id, client_req_id
+                SELECT stock_from, stock_to, wh_from, wh_to, qty_change, reason, reason_code,
+                       reason_params, ref_type, ref_id, client_req_id
                 FROM stock_ledger WHERE item_id = ? AND txn_type = 7
                 """, itemId);
     }
@@ -305,6 +306,16 @@ class StocktakeIntegrationTest {
         assertThat(bLedger.get("ref_type")).isEqualTo("stocktake_diff");
         assertThat(((Number) bLedger.get("ref_id")).longValue()).isEqualTo(bDiff);
         assertThat(bLedger.get("reason").toString()).contains("棚卸調整");
+        // 理由结构化（V7，D-130）：日文原文照旧兜底，另落 i18n 键 + 单号参数供前端按语言渲染
+        assertThat(bLedger.get("reason_code")).isEqualTo("ledgers.reason.stocktakeAdjust");
+        assertThat(bLedger.get("reason_params").toString()).contains("\"no\"");
+        // 单件流水端点把它带回前端（详情取引履歴与管理端台帳两处同一口径）
+        mockMvc.perform(get("/api/items/" + b + "/ledgers").session(editor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.rows[0].reasonCode")
+                        .value("ledgers.reason.stocktakeAdjust"))
+                .andExpect(jsonPath("$.data.rows[0].reasonParams").value(
+                        org.hamcrest.Matchers.containsString("PD")));
         assertThat(jdbcTemplate.queryForMap(
                 "SELECT confirm_status, adjust_ledger_id, confirmed_by FROM stocktake_diff WHERE id = ?",
                 bDiff).get("confirm_status")).isEqualTo(1);

@@ -95,7 +95,7 @@ public class ItemController {
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','EDITOR','VIEWER')")
     public ApiResponse<ItemResponse> get(@PathVariable long id) {
-        return ApiResponse.ok(ItemResponse.from(itemService.getById(id)));
+        return ApiResponse.ok(itemService.detailOf(id));
     }
 
     /** 扫码定位（M3-⑤）：管理号命中即返回（含作废/软删件，标志驱动前端禁操作）；404=号不存在。 */

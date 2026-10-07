@@ -254,9 +254,6 @@ public class ItemCodeTxService {
 
     // ------------------------------------------------------------------ 内部
 
-    /** remark 列宽（V1 DDL item.remark VARCHAR(500)）。 */
-    static final int REMARK_MAX = 500;
-
     /** 重录原件须存在且已作废（软删件按不存在处理；未作废件走 409007 引导先作废）。 */
     private ItemEntity requireVoidedSource(long id) {
         ItemEntity source = itemMapper.selectById(id);
@@ -287,7 +284,7 @@ public class ItemCodeTxService {
                 cmd.shelfNo() != null ? cmd.shelfNo() : source.getShelfNo(),
                 cmd.warehouseInDate() != null ? cmd.warehouseInDate() : source.getWarehouseInDate(),
                 cmd.groupNo() != null ? cmd.groupNo() : source.getGroupNo(),
-                appendMarker(remark, "再登録元: " + source.getItemCode()),
+                remark,
                 cmd.itemName() != null ? cmd.itemName() : source.getItemName(),
                 cmd.category() != null ? cmd.category() : source.getCategory(),
                 cmd.authorKiln() != null ? cmd.authorKiln() : source.getAuthorKiln(),
@@ -299,8 +296,13 @@ public class ItemCodeTxService {
 
     /**
      * 互链落库（同事务）：新件 re_entry_of 已随 INSERT 写入；此处补旧件冗余反链
-     * void_re_entry（主链在新件，反链供扫旧码快速定位新号）、remark 双向互写、
-     * 图片行复制（同 stored_path/thumb_path 零重传，新 client_uuid——幂等键不复用）。
+     * void_re_entry（主链在新件，反链供扫旧码快速定位新号）、图片行复制
+     * （同 stored_path/thumb_path 零重传，新 client_uuid——幂等键不复用）。
+     *
+     * <p>互链不再往 remark 写「再登録元/先」标记（D-131）：那是把渲染好的文案塞进
+     * 用户数据——切语言纹丝不动，还会被 Excel 导入导出与编辑弹层原样搬运，且标记
+     * 超列宽时按「标记优先」截掉用户自己的备注尾巴。展示改由详情端点补对端管理号
+     * （ItemResponse.reEntryOfCode / voidReEntryCode），链路仍由上面两列独立承载。
      */
     private void linkReEntry(ItemEntity source, ItemEntity reEntered, Long operatorId) {
         List<ImageEntity> images = imageMapper.selectList(new LambdaQueryWrapper<ImageEntity>()
@@ -320,7 +322,6 @@ public class ItemCodeTxService {
             imageMapper.insert(copy);
         }
         source.setVoidReEntry(reEntered.getId());
-        source.setRemark(appendMarker(source.getRemark(), "再登録先: " + reEntered.getItemCode()));
         source.setUpdatedBy(operatorId);
         source.setUpdatedAt(now);
         itemMapper.updateById(source);
@@ -328,18 +329,6 @@ public class ItemCodeTxService {
                 "sourceItemId", source.getId(),
                 "sourceItemCode", source.getItemCode(),
                 "inheritedImages", images.size()));
-    }
-
-    /** 互链标记追加；超列宽时标记优先保留（互链是审计链路，比原备注尾巴重要）。 */
-    private String appendMarker(String base, String marker) {
-        String keep = base == null ? "" : base;
-        String joined = keep.isBlank() ? marker : keep + "／" + marker;
-        if (joined.length() <= REMARK_MAX) {
-            return joined;
-        }
-        int room = REMARK_MAX - marker.length() - 1;
-        return room <= 0 ? marker.substring(0, REMARK_MAX)
-                : marker + "／" + keep.substring(0, Math.min(keep.length(), room));
     }
 
     /**

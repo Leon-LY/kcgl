@@ -776,7 +776,9 @@
         "createdAt": "Created at",
         "seq": "Code issuance",
         "stockStatus": "Stock status",
-        "saleStatus": "Sale status"
+        "saleStatus": "Sale status",
+        "reEntryOf": "Re-entered from",
+        "voidReEntry": "Re-entered as"
       },
       "seqValue": "{venue} {month} {seq} Band {band}",
       "edit": "Edit",
@@ -915,6 +917,9 @@
       "sale": "Sale",
       "reason": "Reason",
       "operator": "Operator"
+    },
+    "reason": {
+      "stocktakeAdjust": "Stocktake adjustment {no}"
     },
     "empty": "No matching records"
   },

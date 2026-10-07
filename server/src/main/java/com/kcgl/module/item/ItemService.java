@@ -78,6 +78,26 @@ public class ItemService {
     }
 
     /**
+     * 详情响应装配（D-131）：作废重录互链两列（re_entry_of / void_re_entry）存的都是
+     * id，这里补对端管理号——前端要显示号才能把新旧件对上（此前只能从备注里的日文
+     * 标记读，见 ItemCodeTxService）。仅互链非空才各查一次，普通件零额外查询；对端
+     * 已不存在（异常数据）留 null，前端据此不渲染该行。
+     */
+    public ItemResponse detailOf(long id) {
+        ItemEntity item = getById(id);
+        return ItemResponse.from(item)
+                .withReEntryCodes(codeOf(item.getReEntryOf()), codeOf(item.getVoidReEntry()));
+    }
+
+    private String codeOf(Long itemId) {
+        if (itemId == null) {
+            return null;
+        }
+        ItemEntity item = itemMapper.selectById(itemId);
+        return item == null ? null : item.getItemCode();
+    }
+
+    /**
      * 扫码定位（M3-⑤，docs/01 六节 by-code 行）：管理号 NFKC+大文字化容错
      * （全角/小写手输兜底，与打印页単票再印刷同一归一规则）。
      * 作废/软删件同样返回（404 仅限「号不存在」）——deleted/voided 标志由前端按角色

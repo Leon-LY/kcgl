@@ -776,7 +776,9 @@
         "createdAt": "登记时间",
         "seq": "发号信息",
         "stockStatus": "库存状态",
-        "saleStatus": "销售状态"
+        "saleStatus": "销售状态",
+        "reEntryOf": "重录自",
+        "voidReEntry": "重录为"
       },
       "seqValue": "{venue} {month}月 {seq} 价格档 {band}",
       "edit": "编辑",
@@ -915,6 +917,9 @@
       "sale": "销售",
       "reason": "理由",
       "operator": "操作人"
+    },
+    "reason": {
+      "stocktakeAdjust": "盘点调整 {no}"
     },
     "empty": "没有符合条件的流水"
   },

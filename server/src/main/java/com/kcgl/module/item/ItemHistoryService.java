@@ -40,7 +40,8 @@ public class ItemHistoryService {
                 .map(l -> new ItemLedgerListResponse.Row(
                         l.getId(), l.getTxnType(), l.getWhFrom(), l.getWhTo(), l.getQtyChange(),
                         l.getStockFrom(), l.getStockTo(), l.getSaleFrom(), l.getSaleTo(),
-                        l.getReason(), l.getOperatorName(), l.getCreatedAt()))
+                        l.getReason(), l.getReasonCode(), l.getReasonParams(),
+                        l.getOperatorName(), l.getCreatedAt()))
                 .toList();
         return new ItemLedgerListResponse(rows);
     }

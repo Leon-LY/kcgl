@@ -5,7 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import AppPageHeader from '@/components/AppPageHeader.vue'
 import { formatJstDate, formatJstDateTime, formatYen } from '@/utils/format'
-import { toDisplayMessage } from '@/utils/errors'
+import { renderMessageJson, toDisplayMessage } from '@/utils/errors'
 import { ApiError } from '@/utils/api'
 import {
   fetchItem,
@@ -208,6 +208,26 @@ function saleText(status: number | null | undefined): string {
 
 function ledgerTypeText(type: number | null | undefined): string {
   return type == null ? '' : t(`items.ledger.type.${type}`)
+}
+
+/**
+ * 流水理由（V7，D-130）：系统生成的理由（目前只有盘点差异入账的「棚卸調整 PD…」）
+ * 后端同时落了 i18n 键+参数，按当前语言渲染；人工填写的理由没有键，原样显示。
+ * 历史行也没有键，回退日文原文。
+ */
+function ledgerReasonText(row: ItemLedgerRow): string {
+  return renderMessageJson(row.reasonCode, row.reasonParams, t, row.reason) || '—'
+}
+
+/**
+ * 互链跳转（D-131）：原路是列表里点行、这里是详情里点号，都走 item-detail
+ * （同组件复用，路由参数变化时整体重载）。对端已不在（异常数据）时按钮不渲染。
+ */
+function goToItem(id: number | null | undefined): void {
+  if (id == null) {
+    return
+  }
+  void router.push({ name: 'item-detail', params: { id } })
 }
 
 function stockTagClass(status: number | null | undefined): string {
@@ -531,6 +551,35 @@ watch(() => route.params.id, (next, prev) => {
             <el-descriptions-item :label="t('items.detail.field.createdAt')">
               {{ formatJstDateTime(item.createdAt) }}
             </el-descriptions-item>
+            <!-- 作废重录互链（D-131）：改从结构化列（re_entry_of/void_re_entry）渲染，
+                 不再由后端把「再登録元/先」日文标记写进备注——那串日文切语言也不变，
+                 还会被 Excel 导入导出与编辑弹层原样搬运。 -->
+            <el-descriptions-item
+              v-if="item.reEntryOfCode"
+              :label="t('items.detail.field.reEntryOf')"
+            >
+              <el-button
+                link
+                type="primary"
+                class="itemd-link"
+                @click="goToItem(item.reEntryOf)"
+              >
+                {{ item.reEntryOfCode }}
+              </el-button>
+            </el-descriptions-item>
+            <el-descriptions-item
+              v-if="item.voidReEntryCode"
+              :label="t('items.detail.field.voidReEntry')"
+            >
+              <el-button
+                link
+                type="primary"
+                class="itemd-link"
+                @click="goToItem(item.voidReEntry)"
+              >
+                {{ item.voidReEntryCode }}
+              </el-button>
+            </el-descriptions-item>
           </el-descriptions>
         </el-tab-pane>
 
@@ -613,7 +662,7 @@ watch(() => route.params.id, (next, prev) => {
               show-overflow-tooltip
             >
               <template #default="{ row }">
-                {{ (row as ItemLedgerRow).reason ?? '—' }}
+                {{ ledgerReasonText(row as ItemLedgerRow) }}
               </template>
             </el-table-column>
             <el-table-column

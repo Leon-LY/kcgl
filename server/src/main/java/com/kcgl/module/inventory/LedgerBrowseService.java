@@ -63,6 +63,8 @@ public class LedgerBrowseService {
                 ledger.getRefType(),
                 ledger.getRefId(),
                 ledger.getReason(),
+                ledger.getReasonCode(),
+                ledger.getReasonParams(),
                 ledger.getClientReqId(),
                 ledger.getOperatorName(),
                 ledger.getCreatedAt());

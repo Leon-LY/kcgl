@@ -126,6 +126,38 @@ describe('ledgers view (M5-4)', () => {
     expect(rows[1]!.text()).toContain('編集者')
   })
 
+  it('renders system-generated reasons in the active language, keeping manual ones as-is', async () => {
+    apiMocks.fetchLedgers.mockResolvedValue(
+      result({
+        total: 2,
+        rows: [
+          // 盘点差异入账（V7，D-130）：键+参数齐备，按当前语言渲染
+          row({
+            id: 2,
+            txnType: 7,
+            reason: '棚卸調整 PD2026100101',
+            reasonCode: 'ledgers.reason.stocktakeAdjust',
+            reasonParams: '{"no":"PD2026100101"}',
+          }),
+          // 人工理由：无键，原样显示（后端不翻译操作人写的话）
+          row({ id: 1 }),
+        ],
+      }),
+    )
+    const { wrapper } = await mountView()
+
+    const rows = wrapper.findAll('.el-table__row')
+    expect(rows[0]!.text()).toContain('棚卸調整 PD2026100101')
+    expect(rows[1]!.text()).toContain('整理のため')
+
+    i18n.global.locale.value = 'en-US'
+    await flushPromises()
+    const switched = wrapper.findAll('.el-table__row')
+    expect(switched[0]!.text()).toContain('Stocktake adjustment PD2026100101')
+    expect(switched[1]!.text()).toContain('整理のため')
+    i18n.global.locale.value = 'ja-JP'
+  })
+
   it('narrows by txn type and warehouse via the select emits', async () => {
     const { wrapper } = await mountView()
 

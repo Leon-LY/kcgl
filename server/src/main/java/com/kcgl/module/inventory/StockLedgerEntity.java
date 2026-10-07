@@ -24,6 +24,9 @@ public class StockLedgerEntity {
     private Integer whTo;
     private Integer qtyChange;
     private String reason;
+    /** 系统生成理由的结构化形态（V7，D-130）：reason 是日文原文兜底，此处是 i18n 键+参数。 */
+    private String reasonCode;
+    private String reasonParams;
     private Integer returnDirection;
     private String refType;
     private Long refId;
@@ -57,6 +60,10 @@ public class StockLedgerEntity {
     public void setQtyChange(Integer qtyChange) { this.qtyChange = qtyChange; }
     public String getReason() { return reason; }
     public void setReason(String reason) { this.reason = reason; }
+    public String getReasonCode() { return reasonCode; }
+    public void setReasonCode(String reasonCode) { this.reasonCode = reasonCode; }
+    public String getReasonParams() { return reasonParams; }
+    public void setReasonParams(String reasonParams) { this.reasonParams = reasonParams; }
     public Integer getReturnDirection() { return returnDirection; }
     public void setReturnDirection(Integer returnDirection) { this.returnDirection = returnDirection; }
     public String getRefType() { return refType; }
