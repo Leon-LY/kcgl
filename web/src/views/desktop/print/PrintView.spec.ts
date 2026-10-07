@@ -222,7 +222,8 @@ describe('empty state and errors', () => {
     await flushPromises()
 
     const error = wrapper.find('.print-error')
-    expect(error.text()).toContain('システムエラーが発生しました')
+    // 服务端原文（サーバーエラー…）被 errors.500000 的本地化文案覆盖：断言键而非原文
+    expect(error.text()).toContain(i18n.global.t('errors.500000'))
     expect(error.text()).toContain('ID: err-7777')
   })
 })

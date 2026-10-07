@@ -28,7 +28,11 @@ public enum ErrorCode {
     IMAGE_PIXEL_LIMIT(400007, "画像の解像度が上限（8000×8000）を超えています"),
     IMAGE_COUNT_LIMIT(400008, "商品画像は1件につき9枚までです"),
 
-    YAHOO_FILE_TOO_LARGE(400009, "受注ファイルは50MB以内にしてください"),
+    /**
+     * 数字须与 kcgl.yahoo.max-file-bytes 的默认值一致（D-069 自 50MB 收紧为 5MB，
+     * 本行是当时漏改的残留——前端 errors.400009 与配置都已按 5MB 走）。
+     */
+    YAHOO_FILE_TOO_LARGE(400009, "受注ファイルは5MB以内にしてください。"),
     YAHOO_FILE_EMPTY(400010, "受注ファイルが空です"),
     YAHOO_ROW_LIMIT(400011, "受注ファイルの行数が上限（10万行）を超えています"),
     /** 受注导入=xlsx 单格式（D-069）：非 zip 容器/表头契约不符（.xls・CSV 引导转存）。 */

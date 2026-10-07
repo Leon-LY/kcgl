@@ -3,8 +3,8 @@
     "appTitle": "库存管理系统",
     "titleWithPage": "{page}｜{app}",
     "loading": "加载中…",
-    "error": "发生错误",
-    "errorWithId": "发生错误（ID: {id}），请联系管理员",
+    "error": "发生错误，请重试。",
+    "errorIdSuffix": "（ID: {id}）",
     "logout": "退出登录",
     "language": "语言",
     "shellSwitch": "切换视图",
@@ -475,7 +475,7 @@
     "401002": "用户名或密码不正确",
     "401003": "该账号已被停用",
     "403001": "没有执行此操作的权限",
-    "403002": "不允许的访问来源",
+    "403002": "无法从当前地址使用，请联系管理员。",
     "404001": "对象不存在",
     "404002": "没有匹配该价格的价格档位，请先在管理后台配置价格档位",
     "404003": "所选会场不存在",
@@ -496,9 +496,9 @@
     "409015": "该商品未被删除，无法恢复。",
     "423001": "账号已被锁定，请稍后重试",
     "429001": "提交次数超过上限，请稍后重试",
-    "500000": "系统发生错误",
+    "500000": "发生了临时性问题，请重试。若反复出现，请联系管理员。",
     "NETWORK_ERROR": "无法连接服务器，请检查网络",
-    "INVALID_RESPONSE": "服务器返回了无效响应"
+    "INVALID_RESPONSE": "通信未能正常完成，请重试。"
   },
   "yahoo": {
     "title": "雅虎联动",
@@ -858,13 +858,13 @@
   },
   "oplogs": {
     "title": "操作日志",
-    "actionPlaceholder": "动作（前缀匹配）",
+    "actionPlaceholder": "动作（按开头匹配）",
     "entityPlaceholder": "对象类型",
-    "hint": "日志只增不改不删；展开行查看详情 JSON。",
+    "hint": "日志只增不改不删；展开行查看详细内容。",
     "column": {
       "action": "动作",
       "entity": "对象",
-      "ip": "IP"
+      "ip": "IP 地址"
     },
     "empty": "没有符合条件的日志"
   },
@@ -880,23 +880,23 @@
     "uptimeDays": "{d} 天 {h} 小时",
     "uptimeHours": "{h} 小时 {m} 分",
     "uptimeMinutes": "{m} 分",
-    "sseConnections": "SSE 连接数",
+    "sseConnections": "实时通知连接数",
     "openAlerts": "未读告警",
     "resourceTitle": "资源",
-    "heap": "JVM 堆",
-    "pool": "连接池",
-    "poolValue": "{active} 使用 / {idle} 空闲（共 {total}·等待 {waiting}）",
-    "disk": "磁盘（图片卷）",
+    "heap": "内存使用量",
+    "pool": "数据库连接",
+    "poolValue": "使用中 {active}／空闲 {idle}（共 {total}·排队 {waiting}）",
+    "disk": "磁盘（照片存储区）",
     "diskValue": "{used} / {total}（{percent}%）",
     "unavailable": "不可用",
     "volumeTitle": "数据量·号码引擎",
     "volumeItems": "商品数",
     "volumeLedgers": "流水数",
     "volumeOperationLogs": "操作日志数",
-    "volumeClientErrors": "前端错误数",
+    "volumeClientErrors": "界面错误数",
     "codeIssued": "发号数",
     "codeSkipped": "跳号数",
-    "clientErrorsTitle": "近 7 日前端错误",
+    "clientErrorsTitle": "近 7 天界面错误",
     "batchTitle": "Excel 导入（共 {total}·完成 {done}·失败 {failed}）",
     "batchFile": "文件",
     "batchStatus": "状态",
@@ -935,7 +935,7 @@
       "volumesValue": "商品 {items}／流水 {ledgers}／日志 {logs}",
       "disk": "磁盘",
       "imageAudit": "图片文件",
-      "imageValue": "缺失 {missing}·孤立 {orphan}"
+      "imageValue": "图片缺失 {missing}·未使用的图片 {orphan}"
     },
     "export": {
       "run": "导出诊断信息",

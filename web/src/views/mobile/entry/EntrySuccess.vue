@@ -203,8 +203,7 @@ async function confirmVoid(): Promise<void> {
           v-if="voidError"
           class="entry-void-error"
         >
-          {{ voidError }}
-          <span v-if="voidErrorId">（ID: {{ voidErrorId }}）</span>
+          {{ voidError }}<span v-if="voidErrorId">{{ t('common.errorIdSuffix', { id: voidErrorId }) }}</span>
         </p>
         <div class="entry-void-actions">
           <van-button

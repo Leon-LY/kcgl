@@ -271,7 +271,7 @@ onMounted(() => {
           v-if="loadError"
           class="print-error"
         >
-          {{ loadError }}<span v-if="loadErrorId">（ID: {{ loadErrorId }}）</span>
+          {{ loadError }}<span v-if="loadErrorId">{{ t('common.errorIdSuffix', { id: loadErrorId }) }}</span>
         </p>
         <p
           v-else-if="entries.length > 0"

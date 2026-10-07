@@ -148,10 +148,11 @@ describe('system view (M5-4)', () => {
     expect(overview.text()).toContain('1.2.0')
     expect(wrapper.find('.system-stat.is-sse').text()).toContain('2')
     expect(wrapper.find('.system-stat.is-openAlerts').text()).toContain('1')
-    // 堆 256MB/4GB；池 1 使用 / 2 待機；磁盘目录不可用 → 利用不可（不视为故障）
+    // 堆 256MB/4GB；池取 i18n 键连同实参比（断言映射而非文案，改词不误伤）；磁盘目录不可用 → 利用不可（不视为故障）
     expect(wrapper.find('.system-stat.is-heap').text()).toContain('256.0 MB')
     expect(wrapper.find('.system-stat.is-heap').text()).toContain('4.0 GB')
-    expect(wrapper.find('.system-stat.is-pool').text()).toContain('1 使用 / 2 待機')
+    expect(wrapper.find('.system-stat.is-pool').text())
+      .toContain(i18n.global.t('system.poolValue', { active: 1, idle: 2, total: 3, waiting: 0 }))
     expect(wrapper.find('.system-stat.is-disk').text()).toContain('利用不可')
     expect(wrapper.find('.system-stat.is-items').text()).toContain('1,200')
     expect(wrapper.find('.system-stat.is-codeSkipped').text()).toContain('12')

@@ -213,7 +213,8 @@ describe('dashboard loading states', () => {
     apiMocks.fetchWarehouseStats.mockResolvedValue(warehouses())
     const wrapper = await mountView()
 
-    expect(wrapper.find('.dashboard-error-message').text()).toContain('システムエラーが発生しました')
+    // 服务端原文与 errors.500000 文案不同：断言命中的是本地化键（映射生效），不是原样回显
+    expect(wrapper.find('.dashboard-error-message').text()).toContain(i18n.global.t('errors.500000'))
     expect(wrapper.find('.dashboard-grid').exists()).toBe(false)
 
     apiMocks.fetchDashboardStats.mockResolvedValue(dashboard())
