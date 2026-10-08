@@ -6,30 +6,17 @@ import { useAuthStore } from '@/stores/auth'
 import { useSyncInvalidation } from '@/composables/useSyncInvalidation'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppPageHeader from '@/components/AppPageHeader.vue'
-import { formatJstDate, formatJstDateTime, formatYen } from '@/utils/format'
+import { formatJstDate, formatYen } from '@/utils/format'
 import { toDisplayMessage } from '@/utils/errors'
-import {
-  deleteItemsBatch,
-  fetchRecycleBin,
-  fetchVenues,
-  restoreItem,
-  restoreItemsBatch,
-  searchItems,
-} from '@/utils/api'
-import type {
-  ActionResult,
-  ItemSearchParams,
-  ItemSearchRow,
-  RecycleBatchEntry,
-  RecycleBinRow,
-  Venue,
-} from '@/utils/api'
-import { newClientId } from '@/utils/id'
+import { deleteItemsBatch, fetchVenues, searchItems } from '@/utils/api'
+import type { ActionResult, ItemSearchParams, ItemSearchRow, Venue } from '@/utils/api'
 import { availableActions } from '@/utils/inventoryActions'
 import type { ScanAction } from '@/utils/inventoryActions'
+import { ITEM_LIST_PAGE_SIZE, batchEntriesOf, errorText, itemListDisplay } from './itemListShared'
 import ItemActionDialog from './ItemActionDialog.vue'
 import ItemAdjustDialog from './ItemAdjustDialog.vue'
 import ItemBatchDeleteDialog from './ItemBatchDeleteDialog.vue'
+import ItemRecycleTab from './ItemRecycleTab.vue'
 
 /**
  * 商品一覧（M5-①，D-061）：kw 搜索（管理号＞日期＞模糊 LIKE 优先级链）+
@@ -38,7 +25,8 @@ import ItemBatchDeleteDialog from './ItemBatchDeleteDialog.vue'
  * 作废/软删件已被服务端排除；他人操作经 SSE 失效自动整页重取。
  */
 
-const PAGE_SIZE = 20
+/** 分页大小：与回收站页签同一档（那份在 itemListShared，两处只此一个来源）。 */
+const PAGE_SIZE = ITEM_LIST_PAGE_SIZE
 
 const { t, te } = useI18n()
 const auth = useAuthStore()
@@ -243,91 +231,7 @@ function goDetail(row: ItemSearchRow): void {
   void router.push({ name: 'item-detail', params: { id: row.id } })
 }
 
-// el-table-column 渲染列时以 {row:{}} 探测嵌套列（TableColumnRenderer），
-// 动态 i18n key 必须空值兜底——否则空数据页也刷 missing-key 告警（D-056）
-function warehouseOf(target: number | null | undefined): string {
-  return target == null ? '—' : t(`common.warehouse.${target}`)
-}
-
-function stockText(status: number | null | undefined): string {
-  return status == null ? '' : t(`scan.stock.${status}`)
-}
-
-function saleText(status: number | null | undefined): string {
-  return status == null ? '' : t(`scan.sale.${status}`)
-}
-
-function slowBadge(level: number | null | undefined): string {
-  return level === 2 ? t('items.slowRedBadge') : level === 1 ? t('items.slowYellowBadge') : ''
-}
-
-function stockTagClass(status: number | null | undefined): string {
-  return status === 1 ? 'is-success' : 'is-neutral'
-}
-
-function saleTagClass(status: number | null | undefined): string {
-  return status === 1 ? 'is-warning' : status === 2 ? 'is-success' : 'is-neutral'
-}
-
-// ------------------------------------------------------------- 削除済み商品（仅管理员）
-
-const recycleRows = ref<RecycleBinRow[]>([])
-const recycleTotal = ref(0)
-const recyclePage = ref(1)
-const recycleLoading = ref(false)
-const recycleError = ref('')
-const restoringIds = ref<number[]>([])
-let recycleSeq = 0
-
-async function loadRecycle(): Promise<void> {
-  const seq = ++recycleSeq
-  recycleLoading.value = true
-  recycleError.value = ''
-  try {
-    const data = await fetchRecycleBin(recyclePage.value, PAGE_SIZE)
-    if (seq !== recycleSeq) {
-      return
-    }
-    recycleRows.value = data.rows
-    recycleTotal.value = data.total
-  } catch (error) {
-    if (seq !== recycleSeq) {
-      return
-    }
-    recycleError.value = toDisplayMessage(error, t)
-  } finally {
-    if (seq === recycleSeq) {
-      recycleLoading.value = false
-    }
-  }
-}
-
-function onRecyclePageChange(next: number): void {
-  recyclePage.value = next
-  void loadRecycle()
-}
-
-function isRestoring(id: number): boolean {
-  return restoringIds.value.includes(id)
-}
-
-async function onRestore(row: RecycleBinRow): Promise<void> {
-  if (isRestoring(row.id)) {
-    return
-  }
-  restoringIds.value = [...restoringIds.value, row.id]
-  recycleError.value = ''
-  try {
-    // 同 ItemDeleteDialog：crypto.randomUUID 仅安全上下文可用，http 部署下必抛 TypeError
-    await restoreItem(row.id, newClientId())
-    // 与批删同理：復元把件送回列表那一侧，列表不刷就会一直显示"这件已经不在了"
-    await Promise.all([loadRecycle(), loadList()])
-  } catch (error) {
-    recycleError.value = toDisplayMessage(error, t)
-  } finally {
-    restoringIds.value = restoringIds.value.filter((x) => x !== row.id)
-  }
-}
+const { warehouseOf, stockText, saleText, slowBadge, stockTagClass, saleTagClass } = itemListDisplay(t)
 
 // ------------------------------------------------------------- 行内状态动作（D-129）
 
@@ -420,29 +324,20 @@ async function onAdjusted(): Promise<void> {
 // ------------------------------------------------------------- 選択と一括操作（D-126）
 
 const selectedRows = ref<ItemSearchRow[]>([])
-const recycleSelectedRows = ref<RecycleBinRow[]>([])
 const batchBusy = ref(false)
 const batchDeleteVisible = ref(false)
-
-type BatchKind = 'delete' | 'restore'
 
 /**
  * 批量结果只存**数据**不存文案：全站切语言是运行时行为（D-029），此刻把
  * 「N 件を削除しました」渲染成字符串存下，切到中文后这条提示会留在日文。
+ *
+ * 这里只装削除。回收站的復元回执自持在 ItemRecycleTab 里——拆分前两者共用一个
+ * batchResult 再各自按 kind 过滤，拆开后那份"共享再过滤"就没了。
  */
 const batchResult = ref<{
-  kind: BatchKind
   ok: number
   failures: { itemId: number; code: number }[]
 } | null>(null)
-
-/** 结果归属标签页：削除的结果只在主列表显示、復元的只在回收站显示，跨页张冠李戴最误导。 */
-const deleteResult = computed(() =>
-  batchResult.value?.kind === 'delete' ? batchResult.value : null,
-)
-const restoreResult = computed(() =>
-  batchResult.value?.kind === 'restore' ? batchResult.value : null,
-)
 
 const batchMessage = computed(() => {
   const result = batchResult.value
@@ -450,39 +345,26 @@ const batchMessage = computed(() => {
     return ''
   }
   return result.failures.length === 0
-    ? t(`items.batch.${result.kind}Done`, { n: result.ok })
-    : t(`items.batch.${result.kind}Partial`, { ok: result.ok, ng: result.failures.length })
+    ? t('items.batch.deleteDone', { n: result.ok })
+    : t('items.batch.deletePartial', { ok: result.ok, ng: result.failures.length })
 })
 
 const batchFailLines = computed(() =>
   (batchResult.value?.failures ?? []).map((failure) =>
     t('items.batch.failLine', {
       code: itemCodeOf(failure.itemId) ?? `#${failure.itemId}`,
-      message: errorText(failure.code),
+      message: errorText(t, te, failure.code),
     }),
   ),
 )
 
-/** 失败行要报管理番号而非内部 id——管理番号才是现场认得出的东西。两个标签页都可能是来源。 */
+/** 失败行要报管理番号而非内部 id——管理番号才是现场认得出的东西。 */
 function itemCodeOf(id: number): string | undefined {
-  return (
-    rows.value.find((row) => row.id === id)?.itemCode ??
-    recycleRows.value.find((row) => row.id === id)?.itemCode
-  )
-}
-
-/** 服务端逐件回的是错误码；先探键再取，避免 missing-key 告警刷屏（D-056）。 */
-function errorText(code: number): string {
-  const key = `errors.${code}`
-  return te(key) ? t(key) : String(code)
+  return rows.value.find((row) => row.id === id)?.itemCode
 }
 
 function onSelectionChange(selection: ItemSearchRow[]): void {
   selectedRows.value = selection
-}
-
-function onRecycleSelectionChange(selection: RecycleBinRow[]): void {
-  recycleSelectedRows.value = selection
 }
 
 /**
@@ -498,15 +380,6 @@ function onRowClick(row: ItemSearchRow, column: unknown, event?: Event): void {
     return
   }
   goDetail(row)
-}
-
-/**
- * 逐件各自成键：`stock_ledger.client_req_id` 是 CHAR(36) 且带唯一索引，批次级单键
- * 无法派生出各件子键（UUID 已占满 36 位），故由前端按件生成（D-126）。
- * 必须走 newClientId——crypto.randomUUID 仅安全上下文存在，http 部署下必抛 TypeError。
- */
-function entriesOf(targets: readonly { id: number }[]): RecycleBatchEntry[] {
-  return targets.map((target) => ({ id: target.id, clientReqId: newClientId() }))
 }
 
 /**
@@ -537,14 +410,14 @@ async function onBatchDeleteSubmit(reason: string): Promise<void> {
   batchBusy.value = true
   try {
     const result = await deleteItemsBatch(
-      entriesOf(deleteTargets.value),
+      batchEntriesOf(deleteTargets.value),
       reason === '' ? undefined : reason,
     )
     batchDeleteVisible.value = false
-    batchResult.value = { kind: 'delete', ok: result.succeeded, failures: result.failures }
+    batchResult.value = { ok: result.succeeded, failures: result.failures }
     // 两个页签都刷：删掉的件进了回收站那一侧，只刷列表会让"切过去看刚删的件"落空
     // （E2E 实测踩到：回收站仍停在进页时的旧数据，新删的件根本不出现）
-    await Promise.all([loadList(), loadRecycle()])
+    await Promise.all([loadList(), reloadRecycle()])
   } catch (error) {
     batchDeleteVisible.value = false
     listError.value = toDisplayMessage(error, t)
@@ -553,30 +426,30 @@ async function onBatchDeleteSubmit(reason: string): Promise<void> {
   }
 }
 
-async function onBatchRestore(): Promise<void> {
-  if (batchBusy.value || recycleSelectedRows.value.length === 0) {
-    return
-  }
-  batchBusy.value = true
-  try {
-    const result = await restoreItemsBatch(entriesOf(recycleSelectedRows.value))
-    batchResult.value = { kind: 'restore', ok: result.succeeded, failures: result.failures }
-    await Promise.all([loadRecycle(), loadList()])
-  } catch (error) {
-    recycleError.value = toDisplayMessage(error, t)
-  } finally {
-    batchBusy.value = false
-  }
+// ------------------------------------------------------------- 装配
+
+/**
+ * 回收站页签的实例。它与主列表之间只有**一条**真依赖：件在两边的去留是同一件事
+ * ——削除后那一侧得重取（否则切过去看不到刚删的件），復元后这一侧得重取（否则
+ * 一直显示"这件已经不在了"）。前者调它的 reload，后者由它 emit('changed') 回来。
+ */
+const recycleTab = ref<InstanceType<typeof ItemRecycleTab> | null>(null)
+
+/** 回收站復元了件：主列表重取。 */
+function onRecycleChanged(): void {
+  void loadList()
 }
 
-// ------------------------------------------------------------- 装配
+/** 回收站重取（回首页）。页签还没挂上时（非管理员）什么都不做。 */
+function reloadRecycle(): Promise<void> {
+  return recycleTab.value?.reload() ?? Promise.resolve()
+}
 
 function reload(): void {
   page.value = 1
   void loadList()
   if (isAdmin.value) {
-    recyclePage.value = 1
-    void loadRecycle()
+    void reloadRecycle()
   }
 }
 
@@ -593,7 +466,7 @@ onMounted(() => {
     .catch(() => undefined) // 会场下拉加载失败不阻断列表（仅筛选项暂缺）
   void loadList()
   if (isAdmin.value) {
-    void loadRecycle()
+    void reloadRecycle()
   }
 })
 </script>
@@ -829,9 +702,9 @@ onMounted(() => {
             <!-- 批量结果就地留在列表上：逐件语义意味着「成功 N 件、失败 M 件」，
                  失败的那几件还等着用户重试，这条信息不能跟着弹层一起消失 -->
             <div
-              v-if="deleteResult"
+              v-if="batchResult"
               class="kcgl-batch-result"
-              :class="deleteResult.failures.length === 0 ? 'is-ok' : 'is-warn'"
+              :class="batchResult.failures.length === 0 ? 'is-ok' : 'is-warn'"
               role="status"
             >
               <p class="kcgl-batch-result-line">
@@ -1086,201 +959,10 @@ onMounted(() => {
           :label="t('items.recycle.tabTitle')"
           name="recycle"
         >
-          <p class="items-note">
-            {{ t('items.recycle.note') }}
-          </p>
-          <p
-            v-if="recycleError"
-            class="kcgl-error-box"
-            role="alert"
-          >
-            {{ recycleError }}
-            <el-button
-              link
-              type="primary"
-              @click="loadRecycle"
-            >
-              {{ t('common.reload') }}
-            </el-button>
-          </p>
-          <template v-else>
-            <div
-              v-if="recycleRows.length > 0"
-              class="items-recycle-actions"
-            >
-              <el-button
-                :disabled="recycleSelectedRows.length === 0"
-                :loading="batchBusy"
-                @click="onBatchRestore"
-              >
-                {{ t('items.batch.restore') }}
-              </el-button>
-            </div>
-            <div class="kcgl-list-count-row">
-              <p class="kcgl-list-count">
-                {{ t('items.totalCount', { n: recycleTotal }) }}
-              </p>
-              <p
-                v-if="recycleSelectedRows.length > 0"
-                class="kcgl-list-count is-selected"
-              >
-                {{ t('items.batch.selected', { n: recycleSelectedRows.length }) }}
-              </p>
-            </div>
-            <div
-              v-if="restoreResult"
-              class="kcgl-batch-result"
-              :class="restoreResult.failures.length === 0 ? 'is-ok' : 'is-warn'"
-              role="status"
-            >
-              <p class="kcgl-batch-result-line">
-                {{ batchMessage }}
-              </p>
-              <ul
-                v-if="batchFailLines.length > 0"
-                class="kcgl-batch-result-list"
-              >
-                <li
-                  v-for="line in batchFailLines"
-                  :key="line"
-                >
-                  {{ line }}
-                </li>
-              </ul>
-              <el-button
-                link
-                type="primary"
-                @click="batchResult = null"
-              >
-                {{ t('common.close') }}
-              </el-button>
-            </div>
-            <el-table
-              v-loading="recycleLoading"
-              :data="recycleRows"
-              row-key="id"
-              class="kcgl-list-table"
-              @selection-change="onRecycleSelectionChange"
-            >
-              <el-table-column
-                type="selection"
-                width="44"
-                fixed="left"
-              />
-              <el-table-column
-                :label="t('items.recycle.column.item')"
-                min-width="168"
-                fixed="left"
-              >
-                <template #default="{ row }">
-                  <div class="kcgl-list-item">
-                    <span class="kcgl-thumb">
-                      <img
-                        v-if="(row as RecycleBinRow).thumbUrl"
-                        :src="(row as RecycleBinRow).thumbUrl ?? undefined"
-                        alt=""
-                        loading="lazy"
-                      >
-                    </span>
-                    <span class="kcgl-list-code">{{ (row as RecycleBinRow).itemCode }}</span>
-                  </div>
-                </template>
-              </el-table-column>
-              <el-table-column
-                :label="t('items.recycle.column.itemName')"
-                min-width="130"
-                show-overflow-tooltip
-              >
-                <template #default="{ row }">
-                  {{ (row as RecycleBinRow).itemName ?? '—' }}
-                </template>
-              </el-table-column>
-              <el-table-column
-                :label="t('items.recycle.column.venue')"
-                min-width="116"
-                show-overflow-tooltip
-              >
-                <template #default="{ row }">
-                  {{ (row as RecycleBinRow).venueName ?? '—' }}
-                </template>
-              </el-table-column>
-              <el-table-column
-                :label="t('items.recycle.column.warehouse')"
-                width="100"
-              >
-                <template #default="{ row }">
-                  {{ warehouseOf((row as RecycleBinRow).warehouse) }}
-                </template>
-              </el-table-column>
-              <el-table-column
-                :label="t('items.recycle.column.status')"
-                width="164"
-              >
-                <template #default="{ row }">
-                  <div class="kcgl-tags">
-                    <span
-                      class="kcgl-tag"
-                      :class="stockTagClass((row as RecycleBinRow).stockStatus)"
-                    >{{ stockText((row as RecycleBinRow).stockStatus) }}</span>
-                    <span
-                      class="kcgl-tag"
-                      :class="saleTagClass((row as RecycleBinRow).saleStatus)"
-                    >{{ saleText((row as RecycleBinRow).saleStatus) }}</span>
-                  </div>
-                </template>
-              </el-table-column>
-              <el-table-column
-                :label="t('items.recycle.column.deletedAt')"
-                width="150"
-              >
-                <template #default="{ row }">
-                  {{ formatJstDateTime((row as RecycleBinRow).deletedAt) }}
-                </template>
-              </el-table-column>
-              <el-table-column
-                :label="t('items.recycle.column.reason')"
-                min-width="140"
-                show-overflow-tooltip
-              >
-                <template #default="{ row }">
-                  {{ (row as RecycleBinRow).reason ?? '—' }}
-                </template>
-              </el-table-column>
-              <!-- 右钉「操作」；回收站的「状態」不钉——它与本列之间还隔着削除日時与
-                   削除理由，钉在中间会被截成孤立的一条（详见文件头列宽注释） -->
-              <el-table-column
-                :label="t('admin.actions')"
-                width="110"
-                fixed="right"
-              >
-                <template #default="{ row }">
-                  <el-button
-                    link
-                    type="primary"
-                    :loading="isRestoring((row as RecycleBinRow).id)"
-                    @click="onRestore(row as RecycleBinRow)"
-                  >
-                    {{ t('items.recycle.restore') }}
-                  </el-button>
-                </template>
-              </el-table-column>
-              <template #empty>
-                <AppEmptyState
-                  compact
-                  :title="t('items.recycle.empty')"
-                />
-              </template>
-            </el-table>
-            <el-pagination
-              v-if="recycleTotal > PAGE_SIZE"
-              layout="prev, pager, next"
-              :total="recycleTotal"
-              :page-size="PAGE_SIZE"
-              :current-page="recyclePage"
-              class="kcgl-list-pagination"
-              @current-change="onRecyclePageChange"
-            />
-          </template>
+          <ItemRecycleTab
+            ref="recycleTab"
+            @changed="onRecycleChanged"
+          />
         </el-tab-pane>
       </el-tabs>
     </div>
