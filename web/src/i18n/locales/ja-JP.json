@@ -45,11 +45,6 @@
   },
   "home": {
     "welcome": "ようこそ、{name} さん",
-    "accountInfo": "アカウント情報",
-    "username": "ユーザー名",
-    "displayName": "表示名",
-    "role": "権限",
-    "locale": "言語設定",
     "quickActions": "よく使う操作",
     "goEntry": "商品の登録",
     "goArrival": "入庫確認",
@@ -57,7 +52,6 @@
     "goToday": "本日の登録",
     "goPrint": "ラベル印刷",
     "goStocktake": "棚卸",
-    "preparing": "この領域は今後のマイルストーンで実装されます",
     "setup": {
       "title": "初期セットアップ",
       "note": "運用開始前に以下を順に完了してください。すべて完了するとこの案内は非表示になります。",

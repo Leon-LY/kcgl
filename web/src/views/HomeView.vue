@@ -93,51 +93,11 @@ function onSwitchShell(target: 'mobile' | 'desktop'): void {
 
     <SetupChecklistCard />
 
+    <!-- 作业入口排在首启引导之后、设置之前：手机上进首页就是为了点一个页面钻进去，
+         入口不该排在「看的东西」下面。原先它排第三（账号信息、表示切替之后），
+         首屏给的是两个不可点的信息块 -->
     <div class="kcgl-card home-card">
-      <h2 class="home-card-title">
-        {{ t('home.accountInfo') }}
-      </h2>
-      <dl class="home-info">
-        <div class="home-info-row">
-          <dt>{{ t('home.username') }}</dt>
-          <dd>{{ auth.me.username }}</dd>
-        </div>
-        <div class="home-info-row">
-          <dt>{{ t('home.displayName') }}</dt>
-          <dd>{{ auth.me.displayName }}</dd>
-        </div>
-        <div class="home-info-row">
-          <dt>{{ t('home.role') }}</dt>
-          <dd>{{ t(`auth.role.${auth.me.role}`) }}</dd>
-        </div>
-        <div class="home-info-row">
-          <dt>{{ t('home.locale') }}</dt>
-          <dd>{{ auth.me.locale }}</dd>
-        </div>
-      </dl>
-    </div>
-
-    <div class="kcgl-card home-card">
-      <h2 class="home-card-title">
-        {{ t('common.shellSwitch') }}
-      </h2>
-      <div class="home-shell-options">
-        <button
-          v-for="option in shellOptions"
-          :key="option.value"
-          type="button"
-          class="home-shell-option"
-          :class="{ 'is-active': shell === option.value }"
-          :aria-pressed="shell === option.value"
-          @click="onSwitchShell(option.value)"
-        >
-          {{ t(option.labelKey) }}
-        </button>
-      </div>
-    </div>
-
-    <div class="kcgl-card home-card home-card-wide">
-      <h2 class="home-card-title">
+      <h2 class="kcgl-section-title">
         {{ t('home.quickActions') }}
       </h2>
       <div class="home-actions">
@@ -197,64 +157,57 @@ function onSwitchShell(target: 'mobile' | 'desktop'): void {
       </div>
     </div>
 
-    <p class="home-preparing">
-      {{ t('home.preparing') }}
-    </p>
+    <!-- 表示切替：整台设备的显示方式，选一次长期不动，属「设置」不属「作业」。
+         故沉到页尾、去掉卡片与标题，只留一个分段控件。
+         形状与磁贴刻意拉开（一个外框 + 等宽两段 + 选中片填色，宽度只占内容宽）
+         ——页面底部若并排两颗和磁贴同形的白按钮，会被读成「另外两个入口」。
+         aria 分组名沿用已有的 common.shellSwitch：标题从视觉上撤掉，语义不撤。 -->
+    <div
+      class="home-shell-options"
+      role="group"
+      :aria-label="t('common.shellSwitch')"
+    >
+      <button
+        v-for="option in shellOptions"
+        :key="option.value"
+        type="button"
+        class="home-shell-option"
+        :class="{ 'is-active': shell === option.value }"
+        :aria-pressed="shell === option.value"
+        @click="onSwitchShell(option.value)"
+      >
+        {{ t(option.labelKey) }}
+      </button>
+    </div>
   </section>
 </template>
 
 <style scoped>
 .home {
   display: grid;
-  gap: 16px;
-}
-
-/* 平板档（≥768，docs/07 §1 三档表）：首页铺成两列。否则 880 宽的列里每张卡都被
-   拉成横贯一整条，卡内文字只占左边一小截，右半张卡全是空白——用户报的「所有
-   元素上下排、右侧大量空白」在宽屏上最刺眼。两列只给「短卡片」并排（账号信息 /
-   表示切替），宽内容（欢迎语、禁行说明、引导清单、快捷入口、页脚）各占整行。 */
-@media (min-width: 768px) {
-  .home {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    /* 卡片各按自身内容收高。默认的 stretch 会把「表示切替」拉成和隔壁
-       「アカウント情報」一样高——那个高度差就变成卡片底部的空白。 */
-    align-items: start;
-  }
-
-  .home-welcome,
-  .home-notice,
-  .home > .setup-card,
-  .home-card-wide,
-  .home-preparing {
-    grid-column: 1 / -1;
-  }
+  gap: var(--kcgl-space-4);
 }
 
 .home-welcome {
   margin: 0;
-  font-size: 1.2rem;
+  /* docs/07 §3 字号档：页面标题 1.25rem/600 */
+  font-size: 1.25rem;
   font-weight: 600;
 }
 
-.home-card {
-  display: grid;
-  align-content: start;
-  gap: 12px;
-  padding: 20px;
-}
-
 /* 门禁回跳说明卡：主色描边标出「你刚才那一下的结果在这里」，形状仍是整框
-   （侧边彩色竖条是 docs/07 §1 硬禁用），与同页其他卡同构。 */
+   （侧边彩色竖条是 docs/07 §1 硬禁用），与同页卡片同构。
+   内边距走 .kcgl-card 的常规档（--kcgl-space-5），不另写任意值。 */
 .home-notice {
   display: grid;
-  gap: 12px;
-  padding: 20px;
+  gap: var(--kcgl-space-3);
   border-color: var(--kcgl-color-primary);
 }
 
+/* 一句话的说明，按 docs/07 §3「纯阅读正文 1rem」 */
 .home-notice-text {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 1rem;
   line-height: 1.6;
 }
 
@@ -262,73 +215,16 @@ function onSwitchShell(target: 'mobile' | 'desktop'): void {
   width: 100%;
 }
 
-.home-card-title {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--kcgl-color-text-sub);
-}
-
-.home-info {
-  margin: 0;
+.home-card {
   display: grid;
   gap: var(--kcgl-space-3);
 }
 
-/* 一字段一行：标签定宽在左、值紧随其后，三档同一套。原先手机档把标签压在值
-   上方（四行摊成八行），而这里的值都很短（「管理者」「ja-JP」），右半张卡全空
-   ——是「右侧大量空白」的另一处来源。标签列 7em（0.9rem ≈ 101px）装得下三语
-   最长标签（en「Display name」约 86px）。 */
-.home-info-row {
-  display: grid;
-  grid-template-columns: 7em 1fr;
-  gap: var(--kcgl-space-2);
-  align-items: baseline;
-}
-
-.home-info-row dt {
-  font-size: 0.9rem;
-  color: var(--kcgl-color-text-sub);
-}
-
-.home-info-row dd {
-  margin: 0;
-}
-
-.home-shell-options {
-  display: flex;
-  gap: 8px;
-}
-
-.home-shell-option {
-  flex: 1;
-  height: 44px;
-  border: 1px solid var(--kcgl-color-border);
-  border-radius: 4px;
-  background: #fff;
-  color: var(--kcgl-color-text);
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition:
-    border-color var(--kcgl-dur-fast) var(--kcgl-ease-out),
-    color var(--kcgl-dur-fast) var(--kcgl-ease-out);
-}
-
-.home-shell-option.is-active {
-  border-color: var(--kcgl-color-primary);
-  color: var(--kcgl-color-primary);
-  font-weight: 600;
-}
-
-/* 触屏无 hover，按压态是唯一反馈 */
-.home-shell-option:active {
-  border-color: var(--kcgl-color-primary);
-  color: var(--kcgl-color-primary);
-}
-
 /* 快捷入口：两列磁贴（600px 起三列）。原先是七行横贯整宽的行，每行只有十来个
    字符，右半行全空，七行还要滚掉大半屏——首页因此有 1800px 高。磁贴 64px 高
-   （触控下限 44px 有余），宽屏三列正好把一行填满。
+   （触控下限 44px 有余），宽屏三列正好把一行填满；不铺第四列，是因为英文最长
+   标签「Pending shipments」在 880 宽的四列里放不下会折成两行，同排磁贴被撑高
+   就参差不齐。
    flex-wrap 是给「ラベル印刷 + パソコン用 小标」那条留的：窄磁贴里小标换到第二
    行，不会把标签挤扁。 */
 .home-actions {
@@ -413,9 +309,58 @@ function onSwitchShell(target: 'mobile' | 'desktop'): void {
   transform: translateY(1px);
 }
 
-.home-preparing {
-  margin: 0;
-  font-size: 0.9rem;
+/* 分段控件：一个外框 + 两段。
+   width: fit-content + 子项 flex:1（basis 0）= 两段等宽、整体只占内容宽：
+   铺满的话平板档 880px 上会变成左右各 440px 的两条长按钮，比上面的卡片还宽。
+   不写 overflow: hidden 收圆角——那会把 :focus-visible 的焦点环一并裁掉
+   （docs/07 §6：焦点环始终可见），改用分段各自只圆外侧两角。 */
+.home-shell-options {
+  display: flex;
+  justify-self: start;
+  width: fit-content;
+  /* 与上方作业卡拉开一档：它不属于「作业」那一组 */
+  margin-top: var(--kcgl-space-2);
+  border: 1px solid var(--kcgl-color-border);
+  border-radius: var(--kcgl-radius-s);
+}
+
+.home-shell-option {
+  flex: 1;
+  min-height: 44px;
+  padding: 0 var(--kcgl-space-5);
+  /* 外框已有描边，分段自己不再画框；两段之间 1px 是控件内部的分段界线，
+     不是 docs/07 §1 禁的「侧边彩色强调条」 */
+  border: 0;
+  background: var(--kcgl-color-card);
   color: var(--kcgl-color-text-sub);
+  font: inherit;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    color var(--kcgl-dur-fast) var(--kcgl-ease-out);
+}
+
+.home-shell-option:first-child {
+  border-top-left-radius: calc(var(--kcgl-radius-s) - 1px);
+  border-bottom-left-radius: calc(var(--kcgl-radius-s) - 1px);
+}
+
+.home-shell-option:last-child {
+  border-top-right-radius: calc(var(--kcgl-radius-s) - 1px);
+  border-bottom-right-radius: calc(var(--kcgl-radius-s) - 1px);
+  border-left: 1px solid var(--kcgl-color-border);
+}
+
+.home-shell-option.is-active {
+  background: var(--kcgl-color-primary-soft);
+  color: var(--kcgl-color-primary);
+  font-weight: 600;
+}
+
+/* 触屏无 hover，按压态是唯一反馈 */
+.home-shell-option:active {
+  color: var(--kcgl-color-primary);
 }
 </style>

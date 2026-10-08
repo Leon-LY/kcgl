@@ -45,11 +45,6 @@
   },
   "home": {
     "welcome": "Welcome, {name}",
-    "accountInfo": "Account",
-    "username": "Username",
-    "displayName": "Display name",
-    "role": "Role",
-    "locale": "Language",
     "quickActions": "Quick actions",
     "goEntry": "Register an item",
     "goArrival": "Arrival check",
@@ -57,7 +52,6 @@
     "goToday": "Today's entries",
     "goPrint": "Label printing",
     "goStocktake": "Stocktake",
-    "preparing": "This area will be implemented in upcoming milestones",
     "setup": {
       "title": "Initial setup",
       "note": "Complete these steps in order before going live. This guide hides itself once everything is done.",

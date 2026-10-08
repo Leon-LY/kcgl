@@ -198,7 +198,13 @@ onMounted(async () => {
   color: var(--kcgl-color-text-sub);
 }
 
+/* flex-grow 吸收行内余量：字号/文案挤满一行时（手机档五步几乎都贴着边）行为与
+   flex: 0 1 auto 完全一致；有富余时（平板档一行空出四百多像素）把行尾小标推到
+   右边界，五行行尾元素对齐成一条竖线。不给 grow 的话小标紧贴文字浮在行中间，
+   而末行「印刷できた」被 margin-left:auto 顶到最右——同一张卡里两种对齐。 */
 .setup-link {
+  flex: 1 1 auto;
+  min-width: 0;
   border: none;
   background: none;
   padding: 0;

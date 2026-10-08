@@ -38,8 +38,8 @@ import { useAuthStore } from '@/stores/auth'
 import type { MeResponse } from '@/utils/api'
 
 /**
- * 移动首页（M5-③ 后）：欢迎语/账号信息/切壳/快捷入口 +
- * 共享首启引导卡（详见 SetupChecklistCard.spec）。桌面切壳跳大盘（D-072）。
+ * 移动首页（D-155 后）：欢迎语 + 共享首启引导卡 + 作业入口磁贴 + 表示切替分段。
+ * 桌面切壳跳大盘（D-072）。
  */
 
 const meAdmin: MeResponse = {
@@ -88,12 +88,25 @@ afterEach(() => {
 })
 
 describe('home view', () => {
-  it('renders the welcome and account info from the session', async () => {
+  it('renders the welcome from the session and carries no account card', async () => {
     const wrapper = await mountView()
 
     expect(wrapper.find('.home-welcome').text()).toContain('管理者')
-    expect(wrapper.text()).toContain('アカウント情報')
-    expect(wrapper.text()).toContain('boss')
+    // 账号信息卡已整块删除（D-155，用户判定「没有任何意义」）：四项里显示名在欢迎语里、
+    // 语言在顶栏切换器里，用户名与权限对本人无用。文案 + 结构双锁，残留任一项都拦得住。
+    expect(wrapper.text()).not.toContain('アカウント情報')
+    expect(wrapper.text()).not.toContain('boss')
+    expect(wrapper.find('.home-info').exists()).toBe(false)
+  })
+
+  it('keeps the display switch a labelled group after its visible heading was dropped', async () => {
+    const wrapper = await mountView()
+
+    const group = wrapper.find('.home-shell-options')
+    expect(group.attributes('role')).toBe('group')
+    // 标题从视觉上撤掉（它与两颗按钮自述的内容重复），语义不能跟着撤
+    expect(group.attributes('aria-label')).toBe('表示切替')
+    expect(group.findAll('.home-shell-option')).toHaveLength(2)
   })
 
   it('embeds the shared setup checklist card for admins', async () => {

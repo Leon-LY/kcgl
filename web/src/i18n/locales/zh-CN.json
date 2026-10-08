@@ -45,11 +45,6 @@
   },
   "home": {
     "welcome": "欢迎，{name}",
-    "accountInfo": "账号信息",
-    "username": "用户名",
-    "displayName": "显示名",
-    "role": "权限",
-    "locale": "语言设置",
     "quickActions": "常用操作",
     "goEntry": "商品录入",
     "goArrival": "到货核对",
@@ -57,7 +52,6 @@
     "goToday": "本日录入",
     "goPrint": "标签打印",
     "goStocktake": "盘点",
-    "preparing": "此区域将在后续里程碑中实现",
     "setup": {
       "title": "初始设置",
       "note": "开始使用前请按顺序完成以下步骤，全部完成后此引导自动隐藏。",
