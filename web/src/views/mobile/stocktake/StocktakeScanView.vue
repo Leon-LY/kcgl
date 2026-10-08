@@ -3,9 +3,10 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { QrcodeStream } from 'vue-qrcode-reader'
-import type { BarcodeFormat, DetectedBarcode } from 'vue-qrcode-reader'
+import type { DetectedBarcode } from 'vue-qrcode-reader'
 import { useAuthStore } from '@/stores/auth'
 import { beep, createScanGate, vibrate } from '@/composables/useScan'
+import { CAMERA_CONSTRAINTS, FORMATS, useQrCamera } from '@/composables/useQrCamera'
 import { useScanQueue } from '@/composables/useScanQueue'
 import { useSyncInvalidation } from '@/composables/useSyncInvalidation'
 import { formatJstDate } from '@/utils/format'
@@ -23,9 +24,6 @@ import { ApiError } from '@/utils/api'
  * M6-②：网络失败照记本地小队列（离线卡只显码）——恢复 online 自动回放
  * （服务端同单同件幂等），close 在队列清空前拦截（期望集合冻结不可漏记）。
  */
-
-const CAMERA_CONSTRAINTS = { facingMode: 'environment' }
-const FORMATS: BarcodeFormat[] = ['qr_code']
 
 const { t } = useI18n()
 const route = useRoute()
@@ -91,44 +89,18 @@ useSyncInvalidation(['STOCKTAKE', 'INVENTORY'], () => {
   requestSummaryRefresh()
 })
 
-// ------------------------------------------------------------- 摄像头（QR 连续取流，同 ScanView）
+// ------------------------------------------------------------- 摄像头（QR 连续取流）
 
-const cameraReady = ref(false)
-const torchOn = ref(false)
-const torchSupported = ref(false)
-const cameraErrorName = ref('')
-
-/** camera-on 载荷结构化收窄（torch 非标准能力位，DOM lib 未收录；见 ScanView 同型注释）。 */
-function onCameraOn(capabilities: object): void {
-  cameraReady.value = true
-  torchSupported.value = (capabilities as { torch?: boolean }).torch === true
-  cameraErrorName.value = ''
-}
-
-function onCameraOff(): void {
-  cameraReady.value = false
-  torchSupported.value = false
-  torchOn.value = false
-}
-
-function onCameraError(error: Error): void {
-  cameraReady.value = false
-  cameraErrorName.value = error.name
-}
-
-const cameraErrorMessage = computed(() => {
-  switch (cameraErrorName.value) {
-    case '':
-      return ''
-    case 'NotAllowedError':
-    case 'PermissionDeniedError':
-      return t('scan.cameraDenied')
-    case 'InsecureContextError':
-      return t('scan.cameraInsecure')
-    default:
-      return t('scan.cameraFailed')
-  }
-})
+/** 取流状态与回调走共用件（与扫码页同一套，D-149）；暂停的诱因留在本页（见 cameraPaused）。 */
+const {
+  torchOn,
+  torchSupported,
+  cameraErrorMessage,
+  onCameraOn,
+  onCameraOff,
+  onCameraError,
+  toggleTorch,
+} = useQrCamera()
 
 // ------------------------------------------------------------- 扫码记录
 
@@ -392,7 +364,7 @@ onBeforeUnmount(() => {
           class="session-torch"
           :class="{ 'is-on': torchOn }"
           :aria-pressed="torchOn"
-          @click="torchOn = !torchOn"
+          @click="toggleTorch"
         >
           {{ t('scan.torch') }}
         </button>
