@@ -7,9 +7,9 @@
     "errorIdSuffix": "（ID: {id}）",
     "logout": "退出登录",
     "language": "语言",
-    "shellSwitch": "切换视图",
-    "shellMobile": "移动版视图",
-    "shellDesktop": "桌面版视图",
+    "shellSwitch": "显示方式",
+    "shellMobile": "手机版",
+    "shellDesktop": "电脑版",
     "cancel": "取消",
     "save": "保存",
     "reload": "重新加载",
@@ -68,7 +68,13 @@
       "stepPrint": "试打一张标签",
       "printDone": "已打印"
     },
-    "goPendingShipments": "待发货"
+    "goPendingShipments": "待发货",
+    "desktopOnly": {
+      "tag": "电脑版",
+      "title": "「{name}」只能在电脑版里打开",
+      "titlePlain": "这个页面只能在电脑版里打开",
+      "action": "切到电脑版并打开"
+    }
   },
   "nav": {
     "label": "导航",

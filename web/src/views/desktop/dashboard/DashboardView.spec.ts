@@ -28,11 +28,13 @@ vi.mock('vue-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-router')>()
   return {
     ...actual,
-    useRouter: () => ({ push: pushMock }),
+    // resolve 走真实路由表：内嵌的首启引导卡按 meta.shell 判「电脑版专属步骤」
+    useRouter: () => ({ push: pushMock, resolve: (to: string) => realRouter.resolve(to) }),
   }
 })
 
 import DashboardView from './DashboardView.vue'
+import realRouter from '@/router'
 import { i18n } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
 import { ApiError, type DashboardStats, type MeResponse, type WarehouseStats } from '@/utils/api'

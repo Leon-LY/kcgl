@@ -8,8 +8,8 @@
     "logout": "ログアウト",
     "language": "言語",
     "shellSwitch": "表示切替",
-    "shellMobile": "モバイル表示",
-    "shellDesktop": "デスクトップ表示",
+    "shellMobile": "スマホ表示",
+    "shellDesktop": "パソコン表示",
     "cancel": "キャンセル",
     "save": "保存",
     "reload": "再読み込み",
@@ -68,7 +68,13 @@
       "stepPrint": "ラベルを1枚印刷してみる",
       "printDone": "印刷できた"
     },
-    "goPendingShipments": "出荷待ち"
+    "goPendingShipments": "出荷待ち",
+    "desktopOnly": {
+      "tag": "パソコン用",
+      "title": "「{name}」はパソコン表示でのみ開けます",
+      "titlePlain": "この画面はパソコン表示でのみ開けます",
+      "action": "パソコン表示に切り替えて開く"
+    }
   },
   "nav": {
     "label": "ナビゲーション",

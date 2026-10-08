@@ -18,13 +18,17 @@ vi.mock('@/utils/api', async (importOriginal) => {
 })
 
 const pushMock = vi.hoisted(() => vi.fn())
+const resolveMock = vi.hoisted(() => vi.fn())
+const routeMock = vi.hoisted(() => ({ query: {} as Record<string, unknown> }))
 
-// HomeView 仅用 useRouter；提供最小 push 桩以便断言导航目标
+// HomeView 用 useRouter（导航 + 按原路径解析页面标题）与 useRoute（读守卫回跳带的
+// ?desktopOnly）；提供最小桩以便断言导航目标与提示文案
 vi.mock('vue-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-router')>()
   return {
     ...actual,
-    useRouter: () => ({ push: pushMock }),
+    useRouter: () => ({ push: pushMock, resolve: resolveMock }),
+    useRoute: () => routeMock,
   }
 })
 
@@ -74,6 +78,9 @@ beforeEach(() => {
   setActivePinia(createPinia())
   localStorage.clear()
   i18n.global.locale.value = 'ja-JP'
+  // 默认：不是被守卫拦回来的普通访问（query 空、解析不出标题）
+  routeMock.query = {}
+  resolveMock.mockReturnValue({ meta: {} })
 })
 
 afterEach(() => {
@@ -108,7 +115,7 @@ describe('home view', () => {
 
     const desktopOption = wrapper
       .findAll('.home-shell-option')
-      .find((b) => b.text() === 'デスクトップ表示')
+      .find((b) => b.text() === 'パソコン表示')
     expect(desktopOption).toBeDefined()
     await desktopOption!.trigger('click')
 
@@ -120,9 +127,42 @@ describe('home view', () => {
 
     const mobileOption = wrapper
       .findAll('.home-shell-option')
-      .find((b) => b.text() === 'モバイル表示')
+      .find((b) => b.text() === 'スマホ表示')
     await mobileOption!.trigger('click')
 
     expect(pushMock).not.toHaveBeenCalled()
+  })
+
+  it('shows no notice on a normal visit', async () => {
+    const wrapper = await mountView()
+
+    expect(wrapper.find('.home-notice').exists()).toBe(false)
+  })
+
+  it('explains a desktop-only bounce-back and opens it in the desktop shell', async () => {
+    // 守卫把 /print 拦回 { home, ?desktopOnly=/print }（router.spec 覆盖守卫本身）
+    routeMock.query = { desktopOnly: '/print' }
+    resolveMock.mockReturnValue({ meta: { titleKey: 'print.title' } })
+    const wrapper = await mountView()
+
+    const notice = wrapper.find('.home-notice')
+    expect(notice.exists()).toBe(true)
+    // 说清用户点的是哪个页面，再给一条出路
+    expect(notice.text()).toContain('ラベル印刷')
+    expect(notice.text()).toContain('パソコン表示')
+
+    await wrapper.find('.home-notice-action').trigger('click')
+
+    expect(localStorage.getItem('kcgl-shell')).toBe('desktop')
+    expect(pushMock).toHaveBeenCalledWith('/print')
+  })
+
+  it('falls back to a plain sentence when the bounced path has no title', async () => {
+    routeMock.query = { desktopOnly: '/gone' }
+    const wrapper = await mountView()
+
+    expect(wrapper.find('.home-notice').text()).toContain(
+      'この画面はパソコン表示でのみ開けます',
+    )
   })
 })

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 
 /**
- * 移动壳版面回归（docs/07 §1 三档表、§6 触控）：三条断言各锁一类缺陷。
+ * 移动壳版面回归（docs/07 §1 三档表、§6 触控）：每条断言各锁一类缺陷。
  *
  * 1) 到货核对页的批量操作条写成 `position: fixed; bottom: 0; z-index: 20`，
  *    而壳的 van-tabbar 也在 bottom: 0 且 z-index 只有 1——操作条整条盖在导航上，
@@ -9,9 +9,12 @@ import { expect, test, type Page } from '@playwright/test'
  * 2) 触控目标：移动端可点元素 <44px 在手机上落在拇指热区边缘，误触率高。
  * 3) 平板档：UA 带 iPad → detectShell 判 mobile，平板走移动壳但宽度到 768+。
  *    原先零 @media、9 个页面各写一份 560px → 平板下"居中一条窄柱 + 大片空白"。
+ * 4) 电脑版专属页（meta.shell='desktop'）在手机壳里不再原样渲染：守卫拦回首页
+ *    并带上来路，首页给一句白话说明 + 一键切到电脑版再打开。
  *
- * 为什么放在 e2e：全是真实几何（盒子位置/尺寸）与命中测试，jsdom 不做布局也不做
- * 命中判定，单测复现不了。三条用例都只读：登录、量盒子、点导航，不写业务数据，
+ * 为什么放在 e2e：全是真实几何（盒子位置/尺寸）、命中测试与整条导航链（守卫 →
+ * 地址栏 → 首页 → 切壳），jsdom 不做布局也不跑路由守卫，单测复现不了。
+ * 各用例只读：登录、量盒子、点导航、切壳偏好（localStorage），不写业务数据，
  * 故不加清理。项目守卫写在**每条用例内**（不是 beforeEach）——平板档要跑第 3 条。
  */
 const E2E_PASSWORD = 'e2e-pass-123456'
@@ -135,6 +138,27 @@ test.describe('mobile layout', () => {
           offenders.map((o) => `「${o.text}」${o.height}px (.${o.cls})`).join('、'),
       ).toEqual([])
     }
+  })
+
+  test('a desktop-only page bounces back home with a way out, not a dead end', async ({ page }) => {
+    test.skip(test.info().project.name !== 'mobile-chromium', '仅 mobile-chromium 项目执行')
+    await loginAsEditor(page)
+
+    // 直敲电脑版专属页（meta.shell='desktop'）：手机壳不渲染它，拦回首页并带上来路。
+    // 拦之前这里是"把 24 吋屏版面塞进手机渲染"——手机上的 PC 缩小版。
+    await page.goto('/print')
+    await expect(page).toHaveURL(/desktopOnly=/)
+
+    const notice = page.locator('.home-notice')
+    await expect(notice).toBeVisible()
+    await expect(notice).toContainText('ラベル印刷') // 说清用户点的是哪个页面
+    await expect(notice).toContainText('パソコン表示')
+
+    // 一键切到电脑版并直接打开目标页（壳切换可逆：桌面壳侧栏有切回入口）
+    await page.locator('.home-notice-action').click()
+    await expect(page).toHaveURL(/\/print$/)
+    await expect(page.locator('.shell-desktop')).toBeVisible()
+    await expect(notice).toBeHidden()
   })
 
   test('the tablet tier widens the content column instead of centring a narrow one', async ({

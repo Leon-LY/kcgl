@@ -19,18 +19,22 @@ vi.mock('@/utils/api', async (importOriginal) => {
 
 const pushMock = vi.hoisted(() => vi.fn())
 
-// 组件内步跳转用 useRouter；提供最小 push 桩以便断言导航目标
+// 组件内步跳转用 useRouter；提供最小 push 桩以便断言导航目标。
+// resolve 走真实路由表——组件按 meta.shell 判「电脑版专属步骤」，用桩复制一份
+// 判定表就只是自证，和真表走岔了也照绿。
 vi.mock('vue-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-router')>()
   return {
     ...actual,
-    useRouter: () => ({ push: pushMock }),
+    useRouter: () => ({ push: pushMock, resolve: (to: string) => realRouter.resolve(to) }),
   }
 })
 
 import SetupChecklistCard from './SetupChecklistCard.vue'
+import realRouter from '@/router'
 import { i18n } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
+import { useShell } from '@/composables/useShell'
 import type { Checklist, MeResponse } from '@/utils/api'
 
 /**
@@ -83,10 +87,14 @@ beforeEach(() => {
   vi.resetAllMocks()
   setActivePinia(createPinia())
   i18n.global.locale.value = 'ja-JP'
+  // 壳是模块级单例（jsdom 的 UA 不含手机关键字，默认解析成 desktop）；
+  // 断言移动壳行为前先把壳摆到 mobile
+  useShell().shell.value = 'desktop'
 })
 
 afterEach(() => {
   vi.restoreAllMocks()
+  useShell().shell.value = 'desktop'
 })
 
 describe('setup checklist card', () => {
@@ -110,6 +118,20 @@ describe('setup checklist card', () => {
 
     await wrapper.findAll('.setup-link')[0]!.trigger('click')
     expect(pushMock).toHaveBeenCalledWith('/admin/users')
+  })
+
+  it('tags the desktop-only steps in the mobile shell only', async () => {
+    apiMocks.fetchChecklist.mockResolvedValue(checklist({ hasItem: false, printDone: false }))
+
+    // 移动壳：五步里四步落在 /admin/** 与 /print（守卫会拦），各挂一个「电脑版」小标
+    useShell().shell.value = 'mobile'
+    const mobile = await mountView()
+    expect(mobile.findAll('.setup-tag')).toHaveLength(4)
+
+    // 桌面壳：这些步骤点开就是，标了反而多余
+    useShell().shell.value = 'desktop'
+    const desktop = await mountView()
+    expect(desktop.findAll('.setup-tag')).toHaveLength(0)
   })
 
   it('marks print done and re-renders the step state', async () => {

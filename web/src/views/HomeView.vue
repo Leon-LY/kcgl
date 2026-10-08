@@ -1,17 +1,46 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useShell } from '@/composables/useShell'
 import SetupChecklistCard from '@/components/SetupChecklistCard.vue'
 
 const { t } = useI18n()
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
 const { shell, switchShell } = useShell()
 
 const canEntry = computed(() => auth.me != null && auth.me.role <= 2)
+
+/**
+ * 门禁回跳的落地信息。路由守卫把电脑版专属页（ラベル印刷、/admin/** 等）在
+ * 手机壳里的访问拦成 { home, ?desktopOnly=<原路径> }——这里把原路径还原出来，
+ * 让用户看到「你点的是哪个页面」以及一条明确的出路，而不是撞一下墙回到原地。
+ */
+const desktopOnlyPath = computed(() => {
+  const raw = route.query.desktopOnly
+  const value = Array.isArray(raw) ? raw[0] : raw
+  return typeof value === 'string' && value.length > 0 ? value : null
+})
+
+/** 原路径的文档标题（读路由 meta，不另抄一份文案表）；解析不到就不带页面名。 */
+const desktopOnlyName = computed(() => {
+  const path = desktopOnlyPath.value
+  if (path === null) {
+    return ''
+  }
+  const titleKey = router.resolve(path).meta.titleKey
+  return typeof titleKey === 'string' ? t(titleKey) : ''
+})
+
+/** 切到电脑版并直接打开目标页：切换本身会落 localStorage，桌面壳侧栏可切回。 */
+function openInDesktop(): void {
+  const path = desktopOnlyPath.value
+  switchShell('desktop')
+  void router.push(path ?? { name: 'dashboard' })
+}
 
 const shellOptions = [
   { value: 'mobile', labelKey: 'common.shellMobile' },
@@ -38,6 +67,29 @@ function onSwitchShell(target: 'mobile' | 'desktop'): void {
     <h1 class="home-welcome">
       {{ t('home.welcome', { name: auth.me.displayName }) }}
     </h1>
+
+    <!-- 门禁回跳的说明卡：只在守卫拦回来时出现（?desktopOnly）。role=alert 是因为
+         它就是用户刚才那一下的反馈，出现即该被读出来 -->
+    <div
+      v-if="desktopOnlyPath"
+      class="kcgl-card home-notice"
+      role="alert"
+    >
+      <p class="home-notice-text">
+        {{
+          desktopOnlyName
+            ? t('home.desktopOnly.title', { name: desktopOnlyName })
+            : t('home.desktopOnly.titlePlain')
+        }}
+      </p>
+      <button
+        type="button"
+        class="kcgl-btn kcgl-btn-primary home-notice-action"
+        @click="openInDesktop"
+      >
+        {{ t('home.desktopOnly.action') }}
+      </button>
+    </div>
 
     <SetupChecklistCard />
 
@@ -117,12 +169,15 @@ function onSwitchShell(target: 'mobile' | 'desktop'): void {
       >
         {{ t('home.goToday') }}
       </button>
+      <!-- 标签印刷是电脑版页面（meta.shell）：先挂个小标，别让用户点进去才被
+           守卫拦回来。点仍然可点——拦回来会带一句白话说明和一条出路 -->
       <button
         type="button"
         class="home-entry-link"
         @click="router.push({ name: 'print' })"
       >
         {{ t('home.goPrint') }}
+        <span class="kcgl-mini-tag home-entry-tag">{{ t('home.desktopOnly.tag') }}</span>
       </button>
       <button
         type="button"
@@ -162,6 +217,25 @@ function onSwitchShell(target: 'mobile' | 'desktop'): void {
   display: grid;
   gap: 12px;
   padding: 20px;
+}
+
+/* 门禁回跳说明卡：主色描边标出「你刚才那一下的结果在这里」，形状仍是整框
+   （侧边彩色竖条是 docs/07 §1 硬禁用），与同页其他卡同构。 */
+.home-notice {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+  border-color: var(--kcgl-color-primary);
+}
+
+.home-notice-text {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.home-notice-action {
+  width: 100%;
 }
 
 .home-card-title {
@@ -262,6 +336,12 @@ function onSwitchShell(target: 'mobile' | 'desktop'): void {
   color: var(--kcgl-color-text-sub);
   font-size: 1.3rem;
   line-height: 1;
+}
+
+/* 「电脑版页面」小标：视觉由 .kcgl-mini-tag（brand.css ⑤）给，这里只补与前面
+   文字的间距——这条路是 flex 行且没设 gap，间距得自己带。 */
+.home-entry-tag {
+  margin-left: 8px;
 }
 
 /* 悬停高亮只在真有指针的设备生效（触屏 tap 会把 :hover 卡在最后点过的元素上） */

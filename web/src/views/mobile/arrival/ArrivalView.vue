@@ -359,13 +359,13 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <Transition name="arrival-fade">
+    <Transition name="kcgl-sheet">
       <div
         v-if="dialogOpen"
-        class="arrival-overlay"
+        class="kcgl-sheet-overlay arrival-overlay"
       >
         <div
-          class="kcgl-card arrival-dialog"
+          class="kcgl-card kcgl-sheet arrival-dialog"
           role="dialog"
           aria-modal="true"
           aria-labelledby="arrival-dialog-title"
@@ -715,24 +715,9 @@ onBeforeUnmount(() => {
   margin-inline: auto;
 }
 
-.arrival-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 30;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgba(31, 35, 41, 0.45);
-}
-
-.arrival-dialog {
-  display: grid;
-  gap: 12px;
-  width: 100%;
-  max-width: 360px;
-  padding: 20px;
-}
+/* 弹层的几何与升起动效由共用基元给（brand.css ⑨ .kcgl-sheet-overlay /
+   .kcgl-sheet）。.arrival-overlay / .arrival-dialog 这两个类名留在标签上只是给测试定位用
+   （e2e 与单测按它取弹层），本身不再压样式。 */
 
 .arrival-dialog-title {
   margin: 0;
@@ -752,9 +737,11 @@ onBeforeUnmount(() => {
   color: var(--kcgl-color-text-faint);
 }
 
-/* 到仓改仓（A7）：批量选中可能几十行，列表自身滚动，弹层不顶破视口 */
+/* 到仓改仓（A7）：批量选中可能几十行，列表自身滚动（面板整体已封顶 85dvh，
+   这里再封一层是为了让标题与"确定"按钮始终露在屏幕上，不跟着列表滚走）。
+   dvh 而非 vh：iOS 上 vh 含地址栏高度，40vh 能比真视口高出一截。 */
 .arrival-override-list {
-  max-height: 40vh;
+  max-height: 40dvh;
   margin: 0;
   padding: 0;
   overflow-y: auto;
@@ -853,16 +840,6 @@ onBeforeUnmount(() => {
 
 .arrival-dialog-ok {
   flex: 2;
-}
-
-.arrival-fade-enter-active,
-.arrival-fade-leave-active {
-  transition: opacity var(--kcgl-dur-fast) var(--kcgl-ease-out);
-}
-
-.arrival-fade-enter-from,
-.arrival-fade-leave-to {
-  opacity: 0;
 }
 
 /* 手机档（<600px）：改仓三项一行放不下——「予定どおり（名古屋倉庫）」是最长的

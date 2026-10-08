@@ -534,13 +534,13 @@ onBeforeUnmount(() => {
       </div>
     </template>
 
-    <Transition name="session-fade">
+    <Transition name="kcgl-sheet">
       <div
         v-if="dialog != null"
-        class="session-overlay"
+        class="kcgl-sheet-overlay session-overlay"
       >
         <div
-          class="kcgl-card session-dialog"
+          class="kcgl-card kcgl-sheet session-dialog"
           role="dialog"
           aria-modal="true"
           aria-labelledby="stocktake-dialog-title"
@@ -884,24 +884,9 @@ onBeforeUnmount(() => {
   flex: 2;
 }
 
-.session-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 30;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgba(31, 35, 41, 0.45);
-}
-
-.session-dialog {
-  display: grid;
-  gap: 12px;
-  width: 100%;
-  max-width: 360px;
-  padding: 20px;
-}
+/* 弹层的几何与升起动效由共用基元给（brand.css ⑨ .kcgl-sheet-overlay /
+   .kcgl-sheet）。.session-overlay / .session-dialog 这两个类名留在标签上只是给测试定位用
+   （e2e 与单测按它取弹层），本身不再压样式。 */
 
 .session-dialog-title {
   margin: 0;
@@ -947,15 +932,5 @@ onBeforeUnmount(() => {
 
 .session-dialog-actions .kcgl-btn-primary {
   flex: 2;
-}
-
-.session-fade-enter-active,
-.session-fade-leave-active {
-  transition: opacity var(--kcgl-dur-fast) var(--kcgl-ease-in-out);
-}
-
-.session-fade-enter-from,
-.session-fade-leave-to {
-  opacity: 0;
 }
 </style>

@@ -515,6 +515,20 @@ body {
   letter-spacing: 0.02em;
 }
 
+/* 微型标签：贴在一个文字标签后面说明它的归属（本轮用于「电脑版页面」小标）。
+   中性描边、不用主色——它不可点也不是选中态，主色留给「可点/已选」
+   （docs/07 §2）。字号走微型标签下限 0.8rem，不占用内容字档。 */
+.kcgl-mini-tag {
+  padding: 1px 6px;
+  border: 1px solid var(--kcgl-color-border);
+  border-radius: var(--kcgl-radius-s);
+  color: var(--kcgl-color-text-sub);
+  font-size: 0.8rem;
+  font-weight: 400;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
 /* ---------------------------------------------------------------- ⑥ 动效与可访问性 */
 
 /* 换页动效的挂载点（两壳共用）：Transition 的直接子节点必须是单个元素，否则
@@ -643,4 +657,64 @@ body {
 .shell-mobile .kcgl-warn-note,
 .shell-mobile .kcgl-form-error {
   font-size: 0.9rem;
+}
+
+/* ---------------------------------------------------------------- ⑨ 底部面板（v2.1，D-136） */
+
+/* 移动端弹层一律从底部升起。三处弹层（到货改仓、扫码选仓、盘点选仓）原先各自
+   手写一份居中弹层，是"手机上的 PC 缩小版"最后一个显性残留：面板钉在视口正中，
+   拇指要挪到屏幕中上部才够得着；360px 定宽在平板上表现为"居中偏小一块"。
+   抽成这两个基元后几何只有一处定义，各视图保留自己的弹层类名（e2e 用它们定位）。 */
+.kcgl-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: flex-end; /* 贴底：面板从屏幕下沿升起 */
+  justify-content: center;
+  background: rgba(31, 35, 41, 0.45);
+}
+
+/* 本节在文件末尾，且 .kcgl-sheet 与 ⑤ 节的 .kcgl-card 同为单类选择器——
+   下面的 padding / border-radius 靠**源序**覆盖 .kcgl-card 的同名声明。
+   本节若被上移，弹层的下内边距与圆角会静默失效。 */
+.kcgl-sheet {
+  display: grid;
+  gap: var(--kcgl-space-3);
+  width: 100%;
+  /* 与壳内容列同宽：平板上不拉成 834px 的长横条（无壳兜底 560px，见壳令牌） */
+  max-width: var(--kcgl-content-width, 560px);
+  /* dvh 才是真视口高度；vh 在 iOS 会被地址栏算进去，面板下沿会被推出屏幕 */
+  max-height: 85dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain; /* 内滚到底不把回弹传给背后页面 */
+  /* 只圆上沿：下沿贴屏幕边，圆角看不见，还会在遮罩上啃出两个缺口 */
+  border-radius: var(--kcgl-radius-m) var(--kcgl-radius-m) 0 0;
+  /* 下内边距让开 iPhone 的 Home 指示条，否则最下面那个按钮压在横条上 */
+  padding: var(--kcgl-space-5) var(--kcgl-space-5)
+    calc(var(--kcgl-space-5) + env(safe-area-inset-bottom));
+}
+
+/* 升起＝遮罩淡入 + 面板上滑，两条同长（--kcgl-dur）才算一体：一长一短会出现
+   「遮罩已经没了、面板还悬在半路」。只动 opacity/transform（合成层），
+   不动布局属性（docs/07 §6）。系统「减少动态效果」由第 ⑥ 节的全局兜底压成瞬时。 */
+.kcgl-sheet-enter-active,
+.kcgl-sheet-leave-active {
+  transition: opacity var(--kcgl-dur) var(--kcgl-ease-out);
+}
+
+.kcgl-sheet-enter-active .kcgl-sheet,
+.kcgl-sheet-leave-active .kcgl-sheet {
+  transition: transform var(--kcgl-dur) var(--kcgl-ease-out);
+}
+
+.kcgl-sheet-enter-from,
+.kcgl-sheet-leave-to {
+  opacity: 0;
+}
+
+.kcgl-sheet-enter-from .kcgl-sheet,
+.kcgl-sheet-leave-to .kcgl-sheet {
+  transform: translateY(100%);
 }

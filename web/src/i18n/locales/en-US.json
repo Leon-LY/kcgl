@@ -8,7 +8,7 @@
     "logout": "Sign out",
     "language": "Language",
     "shellSwitch": "Switch view",
-    "shellMobile": "Mobile view",
+    "shellMobile": "Phone view",
     "shellDesktop": "Desktop view",
     "cancel": "Cancel",
     "save": "Save",
@@ -68,7 +68,13 @@
       "stepPrint": "Print one label",
       "printDone": "Done printing"
     },
-    "goPendingShipments": "Pending shipments"
+    "goPendingShipments": "Pending shipments",
+    "desktopOnly": {
+      "tag": "Desktop",
+      "title": "\"{name}\" only opens in the desktop view",
+      "titlePlain": "This page only opens in the desktop view",
+      "action": "Switch to desktop view and open"
+    }
   },
   "nav": {
     "label": "Navigation",

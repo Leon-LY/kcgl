@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useShell } from '@/composables/useShell'
 import { fetchChecklist, markChecklistPrintDone } from '@/utils/api'
 import type { Checklist } from '@/utils/api'
 
@@ -15,10 +16,20 @@ import type { Checklist } from '@/utils/api'
 const { t } = useI18n()
 const router = useRouter()
 const auth = useAuthStore()
+const { shell } = useShell()
 
 const checklist = ref<Checklist | null>(null)
 
 const isAdmin = computed(() => auth.me != null && auth.me.role === 1)
+
+/**
+ * 该步骤的目标页是不是电脑版专属（读路由 meta.shell，不在这里另抄一份清单——
+ * 抄一份就会和路由表走岔）。五步里有四步落在 /admin/** 与 /print 上，手机上点了
+ * 会被守卫拦回首页；先挂个「电脑版」小标，用户就不用挨个撞一遍墙。
+ */
+function isDesktopOnly(to: string): boolean {
+  return router.resolve(to).meta.shell === 'desktop'
+}
 
 const setupSteps = computed(() => {
   const c = checklist.value
@@ -31,7 +42,7 @@ const setupSteps = computed(() => {
     { key: 'stepBand', done: c.hasPriceBand, to: '/admin/price-bands' },
     { key: 'stepItem', done: c.hasItem, to: '/entry' },
     { key: 'stepPrint', done: c.printDone, to: '/print' },
-  ]
+  ].map((step) => ({ ...step, desktopOnly: isDesktopOnly(step.to) }))
 })
 
 const setupDone = computed(
@@ -94,6 +105,11 @@ onMounted(async () => {
         >
           {{ t(`home.setup.${step.key}`) }}
         </button>
+        <!-- 只在移动壳里标：桌面壳里这些步骤本来就是"点开就是了"，标了反而多余 -->
+        <span
+          v-if="shell === 'mobile' && step.desktopOnly"
+          class="kcgl-mini-tag setup-tag"
+        >{{ t('home.desktopOnly.tag') }}</span>
         <button
           v-if="step.key === 'stepPrint' && !step.done"
           type="button"

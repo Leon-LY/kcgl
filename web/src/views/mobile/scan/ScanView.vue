@@ -401,13 +401,13 @@ onBeforeUnmount(() => {
       {{ t('scan.noActions') }}
     </p>
 
-    <Transition name="scan-fade">
+    <Transition name="kcgl-sheet">
       <div
         v-if="activeAction"
-        class="scan-overlay"
+        class="kcgl-sheet-overlay scan-overlay"
       >
         <div
-          class="kcgl-card scan-dialog"
+          class="kcgl-card kcgl-sheet scan-dialog"
           role="dialog"
           aria-modal="true"
           aria-labelledby="scan-dialog-title"
@@ -816,24 +816,9 @@ onBeforeUnmount(() => {
   text-align: center;
 }
 
-.scan-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 30;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgba(31, 35, 41, 0.45);
-}
-
-.scan-dialog {
-  display: grid;
-  gap: 12px;
-  width: 100%;
-  max-width: 360px;
-  padding: 20px;
-}
+/* 弹层的几何与升起动效由共用基元给（brand.css ⑨ .kcgl-sheet-overlay /
+   .kcgl-sheet）。.scan-overlay / .scan-dialog 这两个类名留在标签上只是给测试定位用
+   （e2e 与单测按它取弹层），本身不再压样式。 */
 
 .scan-dialog-title {
   margin: 0;
@@ -930,15 +915,5 @@ onBeforeUnmount(() => {
 
 .scan-dialog-ok {
   flex: 2;
-}
-
-.scan-fade-enter-active,
-.scan-fade-leave-active {
-  transition: opacity var(--kcgl-dur-fast) var(--kcgl-ease-in-out);
-}
-
-.scan-fade-enter-from,
-.scan-fade-leave-to {
-  opacity: 0;
 }
 </style>

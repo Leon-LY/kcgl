@@ -154,6 +154,22 @@ test.describe('arrival check (desktop-chromium)', () => {
     const dialog = page.locator('.arrival-dialog')
     await expect(dialog).toBeVisible()
     await expect(dialog).toContainText('対象 2 件')
+
+    // 面板是"从底部升起"的底部面板（brand.css ⑨ .kcgl-sheet）：下沿贴视口底、
+    // 宽度封在内容列内。上一版是居中弹层（上下各留 16px、定宽 360）——这条锁住
+    // 它不会退回去。
+    //
+    // 必须先等升起动效走完再量：动效期间面板还挂在 translateY(100%) 上，此时
+    // boundingBox 的下沿必然低过视口底——居中弹层也照样"通过"（实测踩过：
+    // 把 align-items 改回 center 这条断言仍然绿）。
+    await expect
+      .poll(() => dialog.evaluate((el) => getComputedStyle(el).transform))
+      .toBe('none')
+
+    const sheet = (await dialog.boundingBox())!
+    const viewport = page.viewportSize()!
+    expect(sheet.y + sheet.height).toBeGreaterThan(viewport.height - 2)
+    expect(sheet.width).toBeLessThanOrEqual(560)
     const inDate = jstDate(-3)
     await dialog.locator('#arrival-in-date').fill(inDate)
     await dialog.getByRole('button', { name: '入庫する' }).click()
