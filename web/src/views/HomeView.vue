@@ -136,63 +136,65 @@ function onSwitchShell(target: 'mobile' | 'desktop'): void {
       </div>
     </div>
 
-    <div class="kcgl-card home-card">
+    <div class="kcgl-card home-card home-card-wide">
       <h2 class="home-card-title">
         {{ t('home.quickActions') }}
       </h2>
-      <button
-        v-if="canEntry"
-        type="button"
-        class="home-entry-link"
-        @click="router.push({ name: 'entry' })"
-      >
-        {{ t('home.goEntry') }}
-      </button>
-      <button
-        type="button"
-        class="home-entry-link"
-        @click="router.push({ name: 'arrival' })"
-      >
-        {{ t('home.goArrival') }}
-      </button>
-      <button
-        type="button"
-        class="home-entry-link"
-        @click="router.push({ name: 'scan' })"
-      >
-        {{ t('home.goScan') }}
-      </button>
-      <button
-        type="button"
-        class="home-entry-link"
-        @click="router.push({ name: 'today' })"
-      >
-        {{ t('home.goToday') }}
-      </button>
-      <!-- 标签印刷是电脑版页面（meta.shell）：先挂个小标，别让用户点进去才被
-           守卫拦回来。点仍然可点——拦回来会带一句白话说明和一条出路 -->
-      <button
-        type="button"
-        class="home-entry-link"
-        @click="router.push({ name: 'print' })"
-      >
-        {{ t('home.goPrint') }}
-        <span class="kcgl-mini-tag home-entry-tag">{{ t('home.desktopOnly.tag') }}</span>
-      </button>
-      <button
-        type="button"
-        class="home-entry-link"
-        @click="router.push({ name: 'stocktake' })"
-      >
-        {{ t('home.goStocktake') }}
-      </button>
-      <button
-        type="button"
-        class="home-entry-link"
-        @click="router.push({ name: 'pending-shipments' })"
-      >
-        {{ t('home.goPendingShipments') }}
-      </button>
+      <div class="home-actions">
+        <button
+          v-if="canEntry"
+          type="button"
+          class="home-entry-link"
+          @click="router.push({ name: 'entry' })"
+        >
+          <span class="home-entry-label">{{ t('home.goEntry') }}</span>
+        </button>
+        <button
+          type="button"
+          class="home-entry-link"
+          @click="router.push({ name: 'arrival' })"
+        >
+          <span class="home-entry-label">{{ t('home.goArrival') }}</span>
+        </button>
+        <button
+          type="button"
+          class="home-entry-link"
+          @click="router.push({ name: 'scan' })"
+        >
+          <span class="home-entry-label">{{ t('home.goScan') }}</span>
+        </button>
+        <button
+          type="button"
+          class="home-entry-link"
+          @click="router.push({ name: 'today' })"
+        >
+          <span class="home-entry-label">{{ t('home.goToday') }}</span>
+        </button>
+        <!-- 标签印刷是电脑版页面（meta.shell）：先挂个小标，别让用户点进去才被
+             守卫拦回来。点仍然可点——拦回来会带一句白话说明和一条出路 -->
+        <button
+          type="button"
+          class="home-entry-link"
+          @click="router.push({ name: 'print' })"
+        >
+          <span class="home-entry-label">{{ t('home.goPrint') }}</span>
+          <span class="kcgl-mini-tag home-entry-tag">{{ t('home.desktopOnly.tag') }}</span>
+        </button>
+        <button
+          type="button"
+          class="home-entry-link"
+          @click="router.push({ name: 'stocktake' })"
+        >
+          <span class="home-entry-label">{{ t('home.goStocktake') }}</span>
+        </button>
+        <button
+          type="button"
+          class="home-entry-link"
+          @click="router.push({ name: 'pending-shipments' })"
+        >
+          <span class="home-entry-label">{{ t('home.goPendingShipments') }}</span>
+        </button>
+      </div>
     </div>
 
     <p class="home-preparing">
@@ -207,6 +209,27 @@ function onSwitchShell(target: 'mobile' | 'desktop'): void {
   gap: 16px;
 }
 
+/* 平板档（≥768，docs/07 §1 三档表）：首页铺成两列。否则 880 宽的列里每张卡都被
+   拉成横贯一整条，卡内文字只占左边一小截，右半张卡全是空白——用户报的「所有
+   元素上下排、右侧大量空白」在宽屏上最刺眼。两列只给「短卡片」并排（账号信息 /
+   表示切替），宽内容（欢迎语、禁行说明、引导清单、快捷入口、页脚）各占整行。 */
+@media (min-width: 768px) {
+  .home {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    /* 卡片各按自身内容收高。默认的 stretch 会把「表示切替」拉成和隔壁
+       「アカウント情報」一样高——那个高度差就变成卡片底部的空白。 */
+    align-items: start;
+  }
+
+  .home-welcome,
+  .home-notice,
+  .home > .setup-card,
+  .home-card-wide,
+  .home-preparing {
+    grid-column: 1 / -1;
+  }
+}
+
 .home-welcome {
   margin: 0;
   font-size: 1.2rem;
@@ -215,6 +238,7 @@ function onSwitchShell(target: 'mobile' | 'desktop'): void {
 
 .home-card {
   display: grid;
+  align-content: start;
   gap: 12px;
   padding: 20px;
 }
@@ -248,23 +272,18 @@ function onSwitchShell(target: 'mobile' | 'desktop'): void {
 .home-info {
   margin: 0;
   display: grid;
-  gap: 8px;
+  gap: var(--kcgl-space-3);
 }
 
-/* 手机档：账号字段改为「标签在上、值在下」的单列（原生移动版式）；
-   600px 起才恢复桌面两列定义表——移动端三档同源，见 docs/07 §1。 */
+/* 一字段一行：标签定宽在左、值紧随其后，三档同一套。原先手机档把标签压在值
+   上方（四行摊成八行），而这里的值都很短（「管理者」「ja-JP」），右半张卡全空
+   ——是「右侧大量空白」的另一处来源。标签列 7em（0.9rem ≈ 101px）装得下三语
+   最长标签（en「Display name」约 86px）。 */
 .home-info-row {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--kcgl-space-1);
+  grid-template-columns: 7em 1fr;
+  gap: var(--kcgl-space-2);
   align-items: baseline;
-}
-
-@media (min-width: 600px) {
-  .home-info-row {
-    grid-template-columns: 9em 1fr;
-    gap: var(--kcgl-space-2);
-  }
 }
 
 .home-info-row dt {
@@ -307,18 +326,42 @@ function onSwitchShell(target: 'mobile' | 'desktop'): void {
   color: var(--kcgl-color-primary);
 }
 
+/* 快捷入口：两列磁贴（600px 起三列）。原先是七行横贯整宽的行，每行只有十来个
+   字符，右半行全空，七行还要滚掉大半屏——首页因此有 1800px 高。磁贴 64px 高
+   （触控下限 44px 有余），宽屏三列正好把一行填满。
+   flex-wrap 是给「ラベル印刷 + パソコン用 小标」那条留的：窄磁贴里小标换到第二
+   行，不会把标签挤扁。 */
+.home-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--kcgl-space-2);
+}
+
+@media (min-width: 600px) {
+  .home-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 .home-entry-link {
+  position: relative;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  width: 100%;
-  height: 48px;
-  padding: 0 16px;
+  gap: var(--kcgl-space-2);
+  min-height: 64px;
+  /* 右侧留 24px 给绝对定位的行尾尖括号（尖括号在 8px 处，本身约 10px 宽），
+     别让它压在标签上 */
+  padding: var(--kcgl-space-3) var(--kcgl-space-5) var(--kcgl-space-3) var(--kcgl-space-3);
   border: 1px solid var(--kcgl-color-border);
-  border-radius: 4px;
-  background: #fff;
+  border-radius: var(--kcgl-radius-m);
+  background: var(--kcgl-color-card);
+  box-shadow: var(--kcgl-shadow-card);
   color: var(--kcgl-color-text);
   font: inherit;
   font-size: 0.95rem;
+  line-height: 1.5;
+  text-align: left;
   cursor: pointer;
   transition:
     border-color var(--kcgl-dur-fast) var(--kcgl-ease-out),
@@ -326,22 +369,33 @@ function onSwitchShell(target: 'mobile' | 'desktop'): void {
     transform var(--kcgl-dur-fast) var(--kcgl-ease-out);
 }
 
-/* 行尾尖括号 = 「点了会去另一个页面」的唯一提示。这排行只有文字和描边，
-   拿掉它整行看着就是个普通按钮，用户不下手点。
-   （原写法靠父容器 justify-content: space-between 把伪元素顶到右边——flex 里
-   裸文本会变成一个匿名盒，碰巧生效；改成 margin-left: auto 是同一效果但读得出意图。） */
+/* 标签占满剩余宽度：把行尾的尖括号顶到磁贴右边（原写法靠父容器
+   space-between 顶伪元素——flex 里裸文本成了匿名盒，碰巧生效；给标签一个
+   flex 项是同一效果，还顺手让换行行为可控）。 */
+.home-entry-label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* 行尾尖括号 = 「点了会去另一个页面」的唯一提示。磁贴只有文字和描边，
+   拿掉它看着就是个静态格子，用户不下手点。
+   绝对定位贴右边中线：标签换行时（en「Pending shipments」两行）它不会跟着
+   被挤到第三行去——留在 flex 流里就是那个下场。 */
 .home-entry-link::after {
   content: '›';
-  margin-left: auto;
+  position: absolute;
+  right: var(--kcgl-space-2);
+  top: 50%;
+  transform: translateY(-50%);
   color: var(--kcgl-color-text-sub);
   font-size: 1.3rem;
   line-height: 1;
 }
 
-/* 「电脑版页面」小标：视觉由 .kcgl-mini-tag（brand.css ⑤）给，这里只补与前面
-   文字的间距——这条路是 flex 行且没设 gap，间距得自己带。 */
+/* 「电脑版页面」小标：视觉由 .kcgl-mini-tag（brand.css ⑤）给。窄磁贴里它会
+   换到第二行——不缩（nowrap），缩了就是一行挤不下的糊字。 */
 .home-entry-tag {
-  margin-left: 8px;
+  flex: 0 0 auto;
 }
 
 /* 悬停高亮只在真有指针的设备生效（触屏 tap 会把 :hover 卡在最后点过的元素上） */
