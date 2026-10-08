@@ -22,7 +22,7 @@
 #   deploy/deploy-test.sh v-test-<短SHA>                       # 等 CI 绿了再跑本脚本
 #
 # 环境变量（均有默认值，一般不用改）：
-#   TEST_SSH_HOST / TEST_SSH_USER / DEPLOY_DIR / IMAGE_APP / IMAGE_WEB
+#   TEST_SSH_HOST / TEST_SSH_USER / DEPLOY_DIR / IMAGE_APP / IMAGE_WEB / IMAGE_TOOLS
 set -euo pipefail
 
 VERSION="${1:-}"
@@ -45,6 +45,7 @@ SSH_TARGET="${TEST_SSH_USER:-root}@${TEST_SSH_HOST:-49.232.49.175}"
 DEPLOY_DIR="${DEPLOY_DIR:-/opt/kcgl}"
 IMAGE_APP="${IMAGE_APP:-ghcr.io/leon-ly/kcgl-app}"
 IMAGE_WEB="${IMAGE_WEB:-ghcr.io/leon-ly/kcgl-web}"
+IMAGE_TOOLS="${IMAGE_TOOLS:-ghcr.io/leon-ly/kcgl-tools}"
 
 # BatchMode：不交互；ConnectTimeout：网络不通时快速失败而不是挂着
 ssh_do() { ssh -o BatchMode=yes -o ConnectTimeout=10 "$SSH_TARGET" "$@"; }
@@ -62,29 +63,52 @@ echo "    ✓ $env_line"
 echo "==> 1/5 本机拉取镜像（走本机网络，这是整个流程里最快的一段）"
 docker pull "$IMAGE_APP:$VERSION"
 docker pull "$IMAGE_WEB:$VERSION"
+docker pull "$IMAGE_TOOLS:$VERSION"
 
 echo "==> 2/5 直送服务器装载"
-# 不用「先 docker login」：这两个包在 ghcr 上是公开的，匿名可拉。
+# 不用「先 docker login」：这几个包在 ghcr 上是公开的，匿名可拉。
 # 注意 docker save/load **不保留 RepoDigests**，所以装载进来的层在 docker 眼里
 # 仍算「本地没有」——这也是为什么下一步必须配 --pull never 把 pull 这条路堵死。
-docker save "$IMAGE_APP:$VERSION" "$IMAGE_WEB:$VERSION" | ssh_do 'docker load'
+#
+# tools 必须一起装：backup.sh 按 `kcgl-tools:${KCGL_VERSION}` 找它做图片快照，
+# 而 .env 的版本每次部署都前进——漏装它，当版本一变备份就在凌晨静默失败，
+# 一直要到有人看巡检才暴露（2026-10-08 真出过一次，见 .github/workflows/deploy.yml
+# 里 IMAGE_TOOLS 的注释）。生产侧 pack-release.sh 一直是三个一起交付的。
+docker save "$IMAGE_APP:$VERSION" "$IMAGE_WEB:$VERSION" "$IMAGE_TOOLS:$VERSION" | ssh_do 'docker load'
 
 echo "==> 3/5 滚动更新"
 # --pull never 是有意的：镜像刚由上一步装载，若这里放开 pull，compose 会去
 # registry 核对并按 15 KB/s 重下，整个部署挂死在几小时的空转上。宁可因
 # 「本地没有该镜像」立刻失败（那说明上一步漏装了），也不要静默等待。
-# mysql:8.4 / flyway:11-alpine 是固定版本、服务器上长期存在，不在装载之列。
+# mysql:8.4 / flyway:11-alpine 是固定版本、服务器上长期存在，不在装载之列；
+# tools 不跑容器、只被 backup.sh 按需 run，故也不在 compose 里。
 ssh_do "cd $DEPLOY_DIR && KCGL_VERSION=$VERSION docker compose up -d --pull never --force-recreate --remove-orphans"
 
 echo "==> 4/5 核对结果（不信任 up 已生效，D-092/D-093）"
-running="$(ssh_do "cd $DEPLOY_DIR && docker compose ps -q app | xargs -r docker inspect -f '{{.Config.Image}}'")"
-case "$running" in
-  *":$VERSION") echo "    ✓ app 运行镜像 $running" ;;
-  *)
-    echo "    ✗ app 运行镜像为「${running:-<空>}」，与目标 $VERSION 不符" >&2
-    exit 1
-    ;;
-esac
+# app 与 web 都核。原先只核 app——「web 到底换没换成新镜像」当时没有任何断言，而这
+# 恰恰是最容易看走眼的一环：浏览器里是缓存还是新构建，肉眼分不出来，只有比对运行时
+# 镜像名才知道（2026-10-08 核验时就是靠事后手动补查才发现脚本没管这一项）。
+for svc in app web; do
+  running="$(ssh_do "cd $DEPLOY_DIR && docker compose ps -q $svc | xargs -r docker inspect -f '{{.Config.Image}}'")"
+  case "$running" in
+    *":$VERSION") echo "    ✓ $svc 运行镜像 $running" ;;
+    *)
+      echo "    ✗ $svc 运行镜像为「${running:-<空>}」，与目标 $VERSION 不符" >&2
+      exit 1
+      ;;
+  esac
+done
+
+# tools 不跑常驻容器（只被 backup.sh 按需 docker run），上面那圈 compose ps 查不到它，
+# 必须单独确认层已装载。漏了它不会当场报错，而是当晚 04:30 备份写一句「缺少备份工具
+# 镜像」进日志——2026-10-08 就是这么静默坏了整整一天。宁可这里立刻红。
+tools_image="$IMAGE_TOOLS:$VERSION"
+if ssh_do "docker image inspect $tools_image >/dev/null 2>&1"; then
+  echo "    ✓ 工具镜像已装载 $tools_image"
+else
+  echo "    ✗ 工具镜像 $tools_image 未装载：备份会在凌晨失败" >&2
+  exit 1
+fi
 
 migrate_rc="$(ssh_do "docker inspect -f '{{.State.ExitCode}}' kcgl-migrate")"
 if [ "$migrate_rc" != "0" ]; then

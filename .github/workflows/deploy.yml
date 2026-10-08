@@ -2,7 +2,7 @@ name: Deploy
 
 # 测试环境部署 —— **前半程**（docs/01 九节）。
 # 一次完整部署 = 本流水线 + 本机脚本，按**网络位置**切：
-#   1. 本流水线（构建推送 ghcr + 同步制品，小文件、不挑链路）：构建 app+web 双镜像
+#   1. 本流水线（构建推送 ghcr + 同步制品，小文件、不挑链路）：构建 app+web+tools 三镜像
 #      推到 ghcr.io，按精确 commit 同步 migrations/ 与 deploy/ 工件到 /opt/kcgl，
 #      并把 .env 的 KCGL_VERSION 回写成目标版本。
 #   2. 本机脚本 deploy/deploy-test.sh <版本>：拉镜像、直送服务器装载、滚动更新、核对。
@@ -36,11 +36,16 @@ env:
   REGISTRY: ghcr.io
   IMAGE_APP: ghcr.io/leon-ly/kcgl-app
   IMAGE_WEB: ghcr.io/leon-ly/kcgl-web
+  # 运维工具镜像（rsync，备份的图片快照用它执行）。测试链路曾漏交付它：backup.sh 按
+  # `kcgl-tools:${KCGL_VERSION}` 找镜像，而 .env 每次部署都随 CI 前进，于是版本一往前走
+  # 就找不到对应 tag，每晚 04:30 的备份直接失败（2026-10-08 实测：报「缺少备份工具镜像
+  # .../kcgl-tools:v-test-904c0d1」）。生产侧 pack-release.sh 一直随包交付它，这里补齐同构。
+  IMAGE_TOOLS: ghcr.io/leon-ly/kcgl-tools
   DEPLOY_DIR: /opt/kcgl
 
 jobs:
   build-push:
-    name: 构建并推送双镜像（ghcr.io）
+    name: 构建并推送三镜像（ghcr.io）
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -88,6 +93,17 @@ jobs:
           tags: |
             ${{ env.IMAGE_WEB }}:${{ steps.meta.outputs.version }}
             ${{ env.IMAGE_WEB }}:latest
+
+      - name: 构建并推送 kcgl-tools（运维工具）
+        # 构建参数与生产侧 pack-release.sh 那一步逐字同源（context 都是 deploy/tools），
+        # 免得两条链路各自漂出一份不同的 rsync 镜像。
+        uses: docker/build-push-action@v6
+        with:
+          context: ./deploy/tools
+          push: true
+          tags: |
+            ${{ env.IMAGE_TOOLS }}:${{ steps.meta.outputs.version }}
+            ${{ env.IMAGE_TOOLS }}:latest
 
   deploy-test:
     name: 同步部署制品到测试环境（49.232.49.175）
