@@ -7,11 +7,19 @@ import { expect, test, type APIResponse, type Locator, type Page } from '@playwr
  * 作废→?reEntry= 深链转录入重录横幅+作废件从搜索消失；
  * 管理员回收站削除→理由留痕→復元→列表回归；viewer 只读（无回收站标签/无操作按钮）；
  * 管理员在列表页行内削除单行 + 勾选多行一括削除/一括復元（D-126：入口从详情页扩到列表页）。
- * 共库隔离：本 spec 造的件（editor 两件其一作废留库、admin 一件恢复留库、D-126 三件复原留库、
- * D-129 一件已出品留库），后续 spec 均为相对断言（print 按当日区间、today 按个人会话口径），无污染。
+ * 共库隔离：夹具件一律在 afterEach 作废出清（与 arrival/stocktake/scan 同纪律）。
+ * 原先这里写的是「造的件留库，后续 spec 均为相对断言，无污染」——那句话只核了
+ * print（当日区间）与 today（个人会话）两支，漏了按**仓库快照**算差异的
+ * stocktake/sync：它们断的是「未確認 N 件」这种绝对值，名古屋仓里多一件没扫到的
+ * 在库件就多一条 在庫不足。实测全量跑必红（stocktake 期望 4 件得 5 件、
+ * sync 期望 1 件）、单跑该 spec 却绿——正是「单测绿≠全绿」那类跨 spec 污染。
+ * StocktakeService 取期望集合的条件是 stock_status=1 且 voided=0，故作废即出清。
  */
 const E2E_PASSWORD = 'e2e-pass-123456'
 const FIXTURE_BUY_DATE = '2026-01-15'
+
+/** 本 spec 造出的夹具件（afterEach 统一作废出清）。 */
+let fixtureItemIds: number[] = []
 
 interface VenueRow {
   id: number
@@ -53,7 +61,7 @@ async function seededVenueId(page: Page): Promise<number> {
 }
 
 async function createItem(page: Page, price: number, warehouse: number): Promise<ItemRow> {
-  return unwrap<ItemRow>(
+  const item = await unwrap<ItemRow>(
     await page.request.post('/api/items', {
       data: {
         clientReqId: crypto.randomUUID(),
@@ -64,6 +72,8 @@ async function createItem(page: Page, price: number, warehouse: number): Promise
       },
     }),
   )
+  fixtureItemIds.push(item.id)
+  return item
 }
 
 // intlify 缺 key 告警（动态 i18n key 未兜底）在真实浏览器控制台可闻——
@@ -78,9 +88,24 @@ test.beforeEach(({ page }) => {
   })
 })
 
-test.afterEach(() => {
+test.afterEach(async ({ request }) => {
   expect(intlifyWarnings, `intlify 缺 key 告警：${intlifyWarnings.join(' / ')}`).toEqual([])
   intlifyWarnings.length = 0
+  if (fixtureItemIds.length === 0) {
+    return
+  }
+  await request.post('/api/auth/login', {
+    form: { username: 'editor', password: E2E_PASSWORD },
+  })
+  for (const id of fixtureItemIds) {
+    // 已作废件再作废 409、已进回收站的件 404，都忽略（清理是幂等的）
+    await request
+      .post(`/api/items/${id}/void`, {
+        data: { clientReqId: crypto.randomUUID(), reason: 'e2e items spec cleanup' },
+      })
+      .catch(() => undefined)
+  }
+  fixtureItemIds = []
 })
 
 test.describe('item list and detail (desktop-chromium)', () => {

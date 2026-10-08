@@ -26,6 +26,29 @@ async function login(page: Page): Promise<void> {
 }
 
 /**
+ * 等换页动效归位，再判"内容区是否为空"。
+ *
+ * 为什么非等不可：换页是 <Transition mode="out-in"> 的 opacity + translateY 过渡
+ * （--kcgl-dur-fast 120ms），入场首帧 opacity 恰为 0——而 Playwright 的 toBeVisible
+ * 只看有没有盒子、不看透明度，opacity:0 也算"可见"。于是 `.settings-view` 一挂上
+ * 就往下走，paneHasContent 正好抓到那一帧，读到 opacity === '0' 判成"内容区空了"，
+ * 报的却是 D-104 那个早已修好的旧缺陷。表现是单跑必绿、全量跑偶发红（机器负载不同，
+ * 抓到首帧的概率就不同），最容易被当成"偶发抖动"放过去。
+ * transform 与 opacity 同一条过渡，读到 transform: none 即过渡已走完。
+ */
+async function awaitViewSettled(page: Page): Promise<void> {
+  await expect
+    .poll(async () => {
+      const slot = page.locator('.kcgl-view-slot')
+      if ((await slot.count()) === 0) {
+        return 'no-slot' // out-in 的空档期：还没有新页可判，继续等
+      }
+      return slot.evaluate((el) => getComputedStyle(el).transform)
+    })
+    .toBe('none')
+}
+
+/**
  * 内容区是否有"可见且有字"的子元素。判定要求三件同时成立：占位高度 > 0、
  * opacity ≠ 0、有文本——过渡中途（opacity:0）不算空，那是动效本身。
  */
@@ -59,6 +82,7 @@ test.describe('shell navigation (desktop-chromium)', () => {
 
     await expect(page).toHaveURL(/\/admin\/settings$/)
     await expect(page.locator('.settings-view')).toBeVisible()
+    await awaitViewSettled(page)
     expect(await paneHasContent(page)).toBe(true)
   })
 
@@ -79,6 +103,7 @@ test.describe('shell navigation (desktop-chromium)', () => {
 
     // 动效收尾后，内容区必须仍然有内容（旧实现会永久空白，刷新才恢复）
     await page.waitForTimeout(600)
+    await awaitViewSettled(page)
     expect(await paneHasContent(page)).toBe(true)
   })
 })
