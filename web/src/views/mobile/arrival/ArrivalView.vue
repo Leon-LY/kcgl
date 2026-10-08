@@ -1,19 +1,20 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useSyncInvalidation } from '@/composables/useSyncInvalidation'
-import { dayjs, formatJstDate, JST_TZ } from '@/utils/format'
-import { toDisplayMessage } from '@/utils/errors'
-import { newClientId } from '@/utils/id'
-import { confirmArrivals, fetchPendingArrivals } from '@/utils/api'
-import type { ConfirmArrivalLine, PendingArrival } from '@/utils/api'
+import { formatJstDate } from '@/utils/format'
+import { fetchPendingArrivals } from '@/utils/api'
+import type { PendingArrival } from '@/utils/api'
+import ArrivalConfirmDialog from './ArrivalConfirmDialog.vue'
 
 /**
  * 到货核对页（/arrival，M2-8a）：按预计仓库筛选在途件，卡片点选 → 底部
  * 操作条批量确认入库（同批全成全败）。清单全员可看（viewer 只读+提示条），
- * 确认仅编辑者以上（服务端 403 兜底）。幂等契约（docs/01 7.0）：每件一个
- * clientReqId，失败重试复用同键（服务端读回原结果 200 出清），成功后清除。
+ * 确认仅编辑者以上（服务端 403 兜底）。确认弹层（入库日、行级改仓/货架、
+ * 幂等键与提交差错处理）在 ArrivalConfirmDialog 里（D-153）。幂等契约
+ * （docs/01 7.0）：每件一个 clientReqId，失败重试复用同键（服务端读回原结果
+ * 200 出清），成功后清除——键跟请求走，故随弹层。
  */
 
 const PAGE_SIZE = 20
@@ -85,7 +86,7 @@ function onFilterChange(value: number | null): void {
   resetList()
 }
 
-// ------------------------------------------------------------- 选择与确认
+// ------------------------------------------------------------- 选择（确认弹层另件）
 
 const selectedIds = ref<number[]>([])
 const selectedCount = computed(() => selectedIds.value.length)
@@ -101,111 +102,42 @@ function toggle(id: number): void {
     : [...selectedIds.value, id]
 }
 
-/** 行级幂等键：itemId → clientReqId。生成后保留到该件成功为止（失败重试复用同键）。 */
-const idempotencyKeys = new Map<number, string>()
+/** 确认弹层（ArrivalConfirmDialog）：本页只留「谁开它」与它回报的两种收尾。 */
+const dialogRef = ref<InstanceType<typeof ArrivalConfirmDialog> | null>(null)
 
-function clientKeyFor(id: number): string {
-  const existing = idempotencyKeys.get(id)
-  if (existing != null) {
-    return existing
-  }
-  const key = newClientId()
-  idempotencyKeys.set(id, key)
-  return key
+/** 底部操作条按钮：交给弹层自己开（选区为空时按钮本就 disabled）。 */
+function openConfirmDialog(): void {
+  dialogRef.value?.open()
 }
 
-const dialogOpen = ref(false)
-const inDate = ref('')
-const confirming = ref(false)
-const confirmError = ref('')
-/** 入库日上限=今天 JST（未来日服务端 400 拒绝，前端先行钳制）。 */
-const todayInput = dayjs().tz(JST_TZ).format('YYYY-MM-DD')
-
 /**
- * 到仓改仓/上架货架（A7）：按 itemId 记行级覆盖，**只加不隐**——没记的行沿用
- * 录入时的预计仓库（服务端 warehouse 缺省即原值、shelfNo 缺省即不改）。
- * 货直送仓库、标签还在办公室的路径靠这里一次落对仓，省掉入库后再调拨一趟。
+ * 请求在途（弹层回报）：本页只在 SSE 失效重取时读它——在途时不打断
+ * （响应后弹层本就报 confirmed / dismissed，届时才清选择重取）。
  */
-const warehouseOverrides = ref<Record<number, number>>({})
-const shelfOverrides = ref<Record<number, string>>({})
+const confirming = ref(false)
 
-/** 已选商品行（弹层逐行给改仓/货架输入；选中顺序即清单顺序）。 */
+/** 已选商品行（选区在页面；弹层只拿这份清单渲染改仓/货架）。 */
 const selectedRows = computed(() =>
   selectedIds.value
     .map((id) => items.value.find((row) => row.id === id))
     .filter((row): row is PendingArrival => row != null),
 )
 
-function setWarehouse(itemId: number, warehouse: number | null): void {
-  const next = { ...warehouseOverrides.value }
-  if (warehouse == null) {
-    // 点回「予定どおり」= 删键而非写回原值：只有「没记过的行」才不上报仓库，
-    // 写回原值会让服务端分不清「用户确认过」与「用户没看」（见 D-116）
-    delete next[itemId]
-  } else {
-    next[itemId] = warehouse
-  }
-  warehouseOverrides.value = next
+/** 确认成功（弹层回报入库件数）：清选择、亮横幅、重取清单。 */
+function onArrivalConfirmed(count: number): void {
+  selectedIds.value = []
+  showDoneBanner(count)
+  resetList()
 }
 
-function setShelf(itemId: number, shelfNo: string): void {
-  shelfOverrides.value = { ...shelfOverrides.value, [itemId]: shelfNo }
-}
-
-function openDialog(): void {
-  if (selectedCount.value === 0) return
-  inDate.value = ''
-  confirmError.value = ''
-  warehouseOverrides.value = {}
-  shelfOverrides.value = {}
-  dialogOpen.value = true
-}
-
-function closeDialog(): void {
-  if (confirming.value) return
-  dialogOpen.value = false
-  if (confirmError.value !== '') {
-    // 失败后关闭：可能存在「请求已提交但响应丢失」的超时场景 → 清选择并
-    // 重载清单反映真实状态（已入库件从在途清单消失；再确认由同键重放兜底）
-    selectedIds.value = []
-    resetList()
-  }
-}
-
-async function onConfirm(): Promise<void> {
-  if (confirming.value) return
-  confirming.value = true
-  confirmError.value = ''
-  const lines = selectedIds.value.map((itemId) => {
-    const line: ConfirmArrivalLine = { itemId, clientReqId: clientKeyFor(itemId) }
-    const warehouse = warehouseOverrides.value[itemId]
-    if (warehouse != null) {
-      line.warehouse = warehouse
-    }
-    const shelfNo = shelfOverrides.value[itemId]?.trim()
-    if (shelfNo != null && shelfNo !== '') {
-      line.shelfNo = shelfNo
-    }
-    return line
-  })
-  try {
-    const result = await confirmArrivals(
-      lines,
-      inDate.value === '' ? undefined : inDate.value,
-    )
-    for (const line of lines) {
-      idempotencyKeys.delete(line.itemId)
-    }
-    selectedIds.value = []
-    dialogOpen.value = false
-    showDoneBanner(result.arrivedCount)
-    resetList()
-  } catch (error) {
-    // 弹层保持打开显示错误：直接重试同键即可安全重放（7.0），无需重选
-    confirmError.value = toDisplayMessage(error, t)
-  } finally {
-    confirming.value = false
-  }
+/**
+ * 弹层在「出错后关闭」时回报（取消或 Esc）：可能存在「请求已提交但响应丢失」的
+ * 超时场景 → 清选择并重载清单反映真实状态（已入库件从在途清单消失；再确认由
+ * 同键重放兜底）。
+ */
+function onArrivalDismissed(): void {
+  selectedIds.value = []
+  resetList()
 }
 
 /**
@@ -220,7 +152,7 @@ useSyncInvalidation(['ITEM', 'INVENTORY', 'IMAGE'], () => {
   resetList()
 })
 
-// ------------------------------------------------------------- 成功横幅与键盘收尾
+// ------------------------------------------------------------- 成功横幅
 
 const doneBanner = ref('')
 let doneTimer = 0
@@ -233,19 +165,7 @@ function showDoneBanner(count: number): void {
   }, DONE_BANNER_MS)
 }
 
-/** Esc 关闭确认弹层（桌面键盘友好；确认中不响应）。 */
-function onKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape' && dialogOpen.value) {
-    closeDialog()
-  }
-}
-
-onMounted(() => {
-  window.addEventListener('keydown', onKeydown)
-})
-
 onBeforeUnmount(() => {
-  window.removeEventListener('keydown', onKeydown)
   if (doneTimer !== 0) window.clearTimeout(doneTimer)
 })
 </script>
@@ -352,136 +272,20 @@ onBeforeUnmount(() => {
           type="button"
           class="kcgl-btn kcgl-btn-primary kcgl-btn-block"
           :disabled="selectedCount === 0"
-          @click="openDialog"
+          @click="openConfirmDialog"
         >
           {{ t('arrival.confirmButton', { n: selectedCount }) }}
         </button>
       </div>
     </div>
 
-    <Transition name="kcgl-sheet">
-      <div
-        v-if="dialogOpen"
-        class="kcgl-sheet-overlay arrival-overlay"
-      >
-        <div
-          class="kcgl-card kcgl-sheet arrival-dialog"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="arrival-dialog-title"
-        >
-          <h2
-            id="arrival-dialog-title"
-            class="arrival-dialog-title"
-          >
-            {{ t('arrival.confirmTitle') }}
-          </h2>
-          <p class="arrival-dialog-count">
-            {{ t('arrival.confirmCount', { n: selectedCount }) }}
-          </p>
-          <div class="kcgl-field">
-            <label
-              class="kcgl-label"
-              for="arrival-in-date"
-            >
-              {{ t('arrival.warehouseInDate') }}
-            </label>
-            <input
-              id="arrival-in-date"
-              v-model="inDate"
-              class="kcgl-input"
-              type="date"
-              :max="todayInput"
-              :disabled="confirming"
-            >
-            <p class="arrival-dialog-hint">
-              {{ t('arrival.warehouseInDateHint') }}
-            </p>
-          </div>
-
-          <div class="kcgl-field">
-            <p class="kcgl-label">
-              {{ t('arrival.overrideTitle') }}
-            </p>
-            <ul class="arrival-override-list">
-              <li
-                v-for="row in selectedRows"
-                :key="row.id"
-                class="arrival-override-row"
-              >
-                <span class="arrival-override-code">{{ row.itemCode }}</span>
-                <div
-                  class="arrival-override-wh"
-                  role="group"
-                  :aria-label="t('arrival.changeWarehouse')"
-                >
-                  <button
-                    type="button"
-                    class="arrival-override-wh-option"
-                    :class="{ 'is-active': warehouseOverrides[row.id] == null }"
-                    :aria-pressed="warehouseOverrides[row.id] == null"
-                    :disabled="confirming"
-                    @click="setWarehouse(row.id, null)"
-                  >
-                    {{ t('arrival.keepPlanned', { wh: t(`common.warehouse.${row.warehouse}`) }) }}
-                  </button>
-                  <button
-                    v-for="wh in [1, 2]"
-                    :key="wh"
-                    type="button"
-                    class="arrival-override-wh-option"
-                    :class="{ 'is-active': warehouseOverrides[row.id] === wh }"
-                    :aria-pressed="warehouseOverrides[row.id] === wh"
-                    :disabled="confirming"
-                    @click="setWarehouse(row.id, wh)"
-                  >
-                    {{ t(`common.warehouse.${wh}`) }}
-                  </button>
-                </div>
-                <input
-                  class="kcgl-input arrival-override-shelf"
-                  type="text"
-                  maxlength="20"
-                  :value="shelfOverrides[row.id] ?? ''"
-                  :placeholder="t('arrival.shelfNo')"
-                  :aria-label="t('arrival.shelfNo')"
-                  :disabled="confirming"
-                  @input="setShelf(row.id, ($event.target as HTMLInputElement).value)"
-                >
-              </li>
-            </ul>
-            <p class="arrival-dialog-hint">
-              {{ t('arrival.overrideHint') }}
-            </p>
-          </div>
-          <p
-            v-if="confirmError"
-            class="arrival-dialog-error"
-            role="alert"
-          >
-            {{ confirmError }}
-          </p>
-          <div class="arrival-dialog-actions">
-            <button
-              type="button"
-              class="kcgl-btn arrival-dialog-cancel"
-              :disabled="confirming"
-              @click="closeDialog"
-            >
-              {{ t('common.cancel') }}
-            </button>
-            <button
-              type="button"
-              class="kcgl-btn kcgl-btn-primary arrival-dialog-ok"
-              :disabled="confirming"
-              @click="onConfirm"
-            >
-              {{ confirming ? t('arrival.confirming') : t('arrival.confirm') }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Transition>
+    <ArrivalConfirmDialog
+      ref="dialogRef"
+      :selected-rows="selectedRows"
+      @update:busy="confirming = $event"
+      @confirmed="onArrivalConfirmed"
+      @dismissed="onArrivalDismissed"
+    />
   </section>
 </template>
 
@@ -715,150 +519,4 @@ onBeforeUnmount(() => {
   margin-inline: auto;
 }
 
-/* 弹层的几何与升起动效由共用基元给（brand.css ⑨ .kcgl-sheet-overlay /
-   .kcgl-sheet）。.arrival-overlay / .arrival-dialog 这两个类名留在标签上只是给测试定位用
-   （e2e 与单测按它取弹层），本身不再压样式。 */
-
-.arrival-dialog-title {
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 600;
-}
-
-.arrival-dialog-count {
-  margin: 0;
-  font-size: 0.95rem;
-  color: var(--kcgl-color-text-sub);
-}
-
-.arrival-dialog-hint {
-  margin: 0;
-  font-size: 0.9rem;
-  color: var(--kcgl-color-text-faint);
-}
-
-/* 到仓改仓（A7）：批量选中可能几十行，列表自身滚动（面板整体已封顶 85dvh，
-   这里再封一层是为了让标题与"确定"按钮始终露在屏幕上，不跟着列表滚走）。
-   dvh 而非 vh：iOS 上 vh 含地址栏高度，40vh 能比真视口高出一截。 */
-.arrival-override-list {
-  max-height: 40dvh;
-  margin: 0;
-  padding: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch; /* iOS 保持惯性滚动 */
-  overscroll-behavior: contain; /* 内滚到底不回弹传染给背后的页面 */
-  list-style: none;
-  display: grid;
-  gap: 10px;
-}
-
-.arrival-override-row {
-  display: grid;
-  gap: 6px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--kcgl-color-border);
-}
-
-.arrival-override-row:last-child {
-  padding-bottom: 0;
-  border-bottom: none;
-}
-
-.arrival-override-code {
-  font-size: 0.9rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.arrival-override-wh {
-  display: flex;
-  gap: 6px;
-}
-
-/* 改仓选项承载日文最长文案「予定どおり（第１倉庫）」：0.75→0.9rem、行高
-   1.3→1.5，min-height 34→44px 直接抬高视觉盒。这里不做不可见热区——三片
-   同排、行间仅 6px，外扩热区会互相盖住导致误点；弹层清单本就自滚，加高不挤 */
-.arrival-override-wh-option {
-  flex: 1;
-  min-height: 44px;
-  padding: 4px 6px;
-  border: 1px solid var(--kcgl-color-border);
-  border-radius: var(--kcgl-radius-s);
-  background: var(--kcgl-color-card);
-  color: var(--kcgl-color-text-sub);
-  font: inherit;
-  font-size: 0.9rem;
-  line-height: 1.5;
-  cursor: pointer;
-  transition:
-    background-color var(--kcgl-dur-fast) var(--kcgl-ease-out),
-    border-color var(--kcgl-dur-fast) var(--kcgl-ease-out);
-}
-
-.arrival-override-wh-option.is-active {
-  border-color: var(--kcgl-color-primary);
-  background: var(--kcgl-color-primary-bg);
-  color: var(--kcgl-color-primary);
-  font-weight: 600;
-}
-
-/* 同筛选片：按下态置于 .is-active 之后，选中项再按也有反馈 */
-.arrival-override-wh-option:active:not(:disabled) {
-  background: var(--kcgl-color-fill);
-  border-color: var(--kcgl-color-border-strong);
-}
-
-/* 货架输入：输入值是内容，0.85→0.9rem；min-height 补到 44px 与触控下限一致
-   （.kcgl-input 基元本就有 height:44px，此前的 36px 是个不起作用的旧值） */
-.arrival-override-shelf {
-  min-height: 44px;
-  font-size: 0.9rem;
-}
-
-.arrival-dialog-error {
-  margin: 0;
-  padding: 10px 12px;
-  border: 1px solid var(--kcgl-color-danger-border);
-  border-radius: var(--kcgl-radius-s);
-  background: var(--kcgl-color-danger-bg);
-  color: var(--kcgl-color-danger);
-  font-size: 0.9rem;
-}
-
-.arrival-dialog-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.arrival-dialog-cancel {
-  flex: 1;
-  border: 1px solid var(--kcgl-color-border);
-  background: var(--kcgl-color-card);
-  color: var(--kcgl-color-text-sub);
-  font-weight: 500;
-}
-
-.arrival-dialog-ok {
-  flex: 2;
-}
-
-/* 手机档（<600px）：改仓三项一行放不下——「予定どおり（名古屋倉庫）」是最长的
-   一片（12 字 ≈ 190px），挤在一行里三片各自折行反而更乱。改仓这一组本来就是
-   「沿用默认」+「两个具体仓库」的语义，按语义分组竖排：
-   第一片（沿用）独占一行，后两片两两并排。
-   （仓库筛选那三片是「すべて／名古屋／福岡」，最窄机型 320px 下也只需 272px，
-   一行放得下，保持单行不折。） */
-@media (max-width: 599px) {
-  .arrival-override-wh {
-    flex-wrap: wrap;
-  }
-
-  .arrival-override-wh-option:first-child {
-    flex: 1 1 100%;
-  }
-
-  .arrival-override-wh-option:not(:first-child) {
-    flex: 1 1 calc(50% - 3px);
-  }
-}
 </style>
