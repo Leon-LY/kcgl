@@ -815,13 +815,13 @@ onMounted(() => {
             </el-button>
           </p>
           <template v-else>
-            <div class="items-count-row">
-              <p class="items-count">
+            <div class="kcgl-list-count-row">
+              <p class="kcgl-list-count">
                 {{ t('items.totalCount', { n: total }) }}
               </p>
               <p
                 v-if="selectedRows.length > 0"
-                class="items-count is-selected"
+                class="kcgl-list-count is-selected"
               >
                 {{ t('items.batch.selected', { n: selectedRows.length }) }}
               </p>
@@ -830,16 +830,16 @@ onMounted(() => {
                  失败的那几件还等着用户重试，这条信息不能跟着弹层一起消失 -->
             <div
               v-if="deleteResult"
-              class="items-batch-result"
+              class="kcgl-batch-result"
               :class="deleteResult.failures.length === 0 ? 'is-ok' : 'is-warn'"
               role="status"
             >
-              <p class="items-batch-result-line">
+              <p class="kcgl-batch-result-line">
                 {{ batchMessage }}
               </p>
               <ul
                 v-if="batchFailLines.length > 0"
-                class="items-batch-result-list"
+                class="kcgl-batch-result-list"
               >
                 <li
                   v-for="line in batchFailLines"
@@ -860,11 +860,11 @@ onMounted(() => {
                  筛选里做売却），没有这条回执就等于点了按钮什么都没发生 -->
             <div
               v-if="statusNotice"
-              class="items-batch-result is-ok"
+              class="kcgl-batch-result is-ok"
               role="status"
             >
-              <p class="items-batch-result-line">
-                <span class="items-batch-result-code">{{ statusNotice.itemCode }}</span>
+              <p class="kcgl-batch-result-line">
+                <span class="kcgl-batch-result-code">{{ statusNotice.itemCode }}</span>
                 {{ t(`scan.done.${statusNotice.action}`) }}
               </p>
               <el-button
@@ -879,7 +879,7 @@ onMounted(() => {
               v-loading="listLoading"
               :data="rows"
               row-key="id"
-              class="items-table"
+              class="kcgl-list-table"
               @row-click="onRowClick"
               @selection-change="onSelectionChange"
             >
@@ -898,8 +898,8 @@ onMounted(() => {
                 fixed="left"
               >
                 <template #default="{ row }">
-                  <div class="items-item">
-                    <span class="items-thumb">
+                  <div class="kcgl-list-item">
+                    <span class="kcgl-thumb">
                       <img
                         v-if="(row as ItemSearchRow).thumbUrl"
                         :src="(row as ItemSearchRow).thumbUrl ?? undefined"
@@ -907,7 +907,7 @@ onMounted(() => {
                         loading="lazy"
                       >
                     </span>
-                    <span class="items-code">{{ (row as ItemSearchRow).itemCode }}</span>
+                    <span class="kcgl-list-code">{{ (row as ItemSearchRow).itemCode }}</span>
                   </div>
                 </template>
               </el-table-column>
@@ -987,13 +987,13 @@ onMounted(() => {
                 fixed="right"
               >
                 <template #default="{ row }">
-                  <div class="items-tags">
+                  <div class="kcgl-tags">
                     <span
-                      class="items-tag"
+                      class="kcgl-tag"
                       :class="stockTagClass((row as ItemSearchRow).stockStatus)"
                     >{{ stockText((row as ItemSearchRow).stockStatus) }}</span>
                     <span
-                      class="items-tag"
+                      class="kcgl-tag"
                       :class="saleTagClass((row as ItemSearchRow).saleStatus)"
                     >{{ saleText((row as ItemSearchRow).saleStatus) }}</span>
                   </div>
@@ -1006,11 +1006,11 @@ onMounted(() => {
                 <template #default="{ row }">
                   <span
                     v-if="(row as ItemSearchRow).slowMoveLevel === 2"
-                    class="items-tag is-danger"
+                    class="kcgl-tag is-danger"
                   >{{ slowBadge((row as ItemSearchRow).slowMoveLevel) }}</span>
                   <span
                     v-else-if="(row as ItemSearchRow).slowMoveLevel === 1"
-                    class="items-tag is-warning"
+                    class="kcgl-tag is-warning"
                   >{{ slowBadge((row as ItemSearchRow).slowMoveLevel) }}</span>
                 </template>
               </el-table-column>
@@ -1075,7 +1075,7 @@ onMounted(() => {
               :total="total"
               :page-size="PAGE_SIZE"
               :current-page="page"
-              class="items-pagination"
+              class="kcgl-list-pagination"
               @current-change="onPageChange"
             />
           </template>
@@ -1116,29 +1116,29 @@ onMounted(() => {
                 {{ t('items.batch.restore') }}
               </el-button>
             </div>
-            <div class="items-count-row">
-              <p class="items-count">
+            <div class="kcgl-list-count-row">
+              <p class="kcgl-list-count">
                 {{ t('items.totalCount', { n: recycleTotal }) }}
               </p>
               <p
                 v-if="recycleSelectedRows.length > 0"
-                class="items-count is-selected"
+                class="kcgl-list-count is-selected"
               >
                 {{ t('items.batch.selected', { n: recycleSelectedRows.length }) }}
               </p>
             </div>
             <div
               v-if="restoreResult"
-              class="items-batch-result"
+              class="kcgl-batch-result"
               :class="restoreResult.failures.length === 0 ? 'is-ok' : 'is-warn'"
               role="status"
             >
-              <p class="items-batch-result-line">
+              <p class="kcgl-batch-result-line">
                 {{ batchMessage }}
               </p>
               <ul
                 v-if="batchFailLines.length > 0"
-                class="items-batch-result-list"
+                class="kcgl-batch-result-list"
               >
                 <li
                   v-for="line in batchFailLines"
@@ -1159,7 +1159,7 @@ onMounted(() => {
               v-loading="recycleLoading"
               :data="recycleRows"
               row-key="id"
-              class="items-table"
+              class="kcgl-list-table"
               @selection-change="onRecycleSelectionChange"
             >
               <el-table-column
@@ -1173,8 +1173,8 @@ onMounted(() => {
                 fixed="left"
               >
                 <template #default="{ row }">
-                  <div class="items-item">
-                    <span class="items-thumb">
+                  <div class="kcgl-list-item">
+                    <span class="kcgl-thumb">
                       <img
                         v-if="(row as RecycleBinRow).thumbUrl"
                         :src="(row as RecycleBinRow).thumbUrl ?? undefined"
@@ -1182,7 +1182,7 @@ onMounted(() => {
                         loading="lazy"
                       >
                     </span>
-                    <span class="items-code">{{ (row as RecycleBinRow).itemCode }}</span>
+                    <span class="kcgl-list-code">{{ (row as RecycleBinRow).itemCode }}</span>
                   </div>
                 </template>
               </el-table-column>
@@ -1217,13 +1217,13 @@ onMounted(() => {
                 width="164"
               >
                 <template #default="{ row }">
-                  <div class="items-tags">
+                  <div class="kcgl-tags">
                     <span
-                      class="items-tag"
+                      class="kcgl-tag"
                       :class="stockTagClass((row as RecycleBinRow).stockStatus)"
                     >{{ stockText((row as RecycleBinRow).stockStatus) }}</span>
                     <span
-                      class="items-tag"
+                      class="kcgl-tag"
                       :class="saleTagClass((row as RecycleBinRow).saleStatus)"
                     >{{ saleText((row as RecycleBinRow).saleStatus) }}</span>
                   </div>
@@ -1277,7 +1277,7 @@ onMounted(() => {
               :total="recycleTotal"
               :page-size="PAGE_SIZE"
               :current-page="recyclePage"
-              class="items-pagination"
+              class="kcgl-list-pagination"
               @current-change="onRecyclePageChange"
             />
           </template>
@@ -1407,81 +1407,6 @@ onMounted(() => {
   color: var(--kcgl-color-text-sub);
 }
 
-/* 件数是筛选结果的回执：做成标签而非一行灰字——灰字落在表格上方，与"加载失败"
-   的留白长得一样（实测里用户正是把空结果读成"内容没加载出来"）。
-   两个徽标（总件数 / 选中件数）同行排；下边距挪到行容器上，免得双份留白 */
-.items-count-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--kcgl-space-2);
-  margin-bottom: var(--kcgl-space-3);
-}
-
-.items-count {
-  display: inline-flex;
-  align-items: center;
-  margin: 0;
-  padding: 0 var(--kcgl-space-3);
-  border: 1px solid var(--kcgl-color-border);
-  border-radius: 999px;
-  background: var(--kcgl-color-fill);
-  color: var(--kcgl-color-text-sub);
-  font-size: 0.85rem;
-  line-height: 22px;
-}
-
-/* 选中件数换主色：它是"接下来那一击会打到谁"的凭据，不能与总件数同灰 */
-.items-count.is-selected {
-  border-color: var(--kcgl-color-info-border);
-  background: var(--kcgl-color-info-bg);
-  color: var(--kcgl-color-info-text);
-}
-
-/* 批量结果条：成功=绿、部分失败=琥珀。用底色而不是左侧色条——左侧粗边在本项目
-   是"这里出错了"的通用语汇，成功回执也用会误读 */
-.items-batch-result {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--kcgl-space-2);
-  margin-bottom: var(--kcgl-space-3);
-  padding: var(--kcgl-space-2) var(--kcgl-space-3);
-  border: 1px solid;
-  border-radius: var(--kcgl-radius-m);
-  font-size: 0.85rem;
-}
-
-.items-batch-result.is-ok {
-  border-color: var(--kcgl-color-success-border);
-  background: var(--kcgl-color-success-bg);
-  color: var(--kcgl-color-success);
-}
-
-.items-batch-result.is-warn {
-  border-color: var(--kcgl-color-warning-border);
-  background: var(--kcgl-color-warning-bg);
-  color: var(--kcgl-color-warning);
-}
-
-.items-batch-result-line {
-  margin: 0;
-}
-
-/* 回执里的管理号：单行回执是「哪一件 + 做了什么」两句，不把管理号拎出来，
-   多行回执并排时读者得自己从长句里找号 */
-.items-batch-result-code {
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-/* 失败清单整条占一行：管理番号与理由是逐件读的，挤在回执句后面会连成一片 */
-.items-batch-result-list {
-  flex-basis: 100%;
-  margin: 0;
-  padding-left: 1.2em;
-}
-
 /* 回收站的一括復元：与主列表的一括削除同位（表格上方右对齐前的动作区） */
 .items-recycle-actions {
   display: flex;
@@ -1489,96 +1414,4 @@ onMounted(() => {
   margin-bottom: var(--kcgl-space-2);
 }
 
-.items-table {
-  width: 100%;
-}
-
-/* 金额列（align=right）数字加粗一档：tabular-nums 保证位对齐，字重让"数字成块"，
-   长列表纵向扫读时价格/成本/利润能一眼连成列 */
-.items-table :deep(.el-table__cell.is-right) .cell {
-  font-weight: 600;
-}
-
-/* 行整体即详情入口（Zaico 式整行点击） */
-.items-table :deep(tbody tr) {
-  cursor: pointer;
-}
-
-.items-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.items-thumb {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border: 1px solid var(--kcgl-color-divider);
-  border-radius: var(--kcgl-radius-s);
-  background: var(--kcgl-color-fill);
-  overflow: hidden;
-}
-
-.items-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.items-code {
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.items-tags {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.items-tag {
-  display: inline-block;
-  padding: 0 var(--kcgl-space-2);
-  border: 1px solid var(--kcgl-color-border);
-  border-radius: var(--kcgl-radius-s);
-  font-size: 0.75rem;
-  line-height: 20px;
-  color: var(--kcgl-color-text-sub);
-  white-space: nowrap;
-}
-
-.items-tag.is-success {
-  border-color: var(--kcgl-color-success-border);
-  background: var(--kcgl-color-success-bg);
-  color: var(--kcgl-color-success);
-}
-
-.items-tag.is-warning {
-  border-color: var(--kcgl-color-warning-border);
-  background: var(--kcgl-color-warning-bg);
-  color: var(--kcgl-color-warning);
-}
-
-.items-tag.is-danger {
-  border-color: var(--kcgl-color-danger-border);
-  background: var(--kcgl-color-danger-bg);
-  color: var(--kcgl-color-danger);
-}
-
-.items-tag.is-neutral {
-  border-color: var(--kcgl-color-border);
-  background: var(--kcgl-color-bg);
-  color: var(--kcgl-color-text-faint);
-}
-
-.items-pagination {
-  margin-top: var(--kcgl-space-4);
-  justify-content: flex-end;
-}
 </style>

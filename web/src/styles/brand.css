@@ -529,6 +529,184 @@ body {
   white-space: nowrap;
 }
 
+/* ------------------------------------------ ⑤′ 商品一覧共享基元（D-140） */
+
+/* 处境同 ⑤ 节的弹层基元（D-119）：这些类原先在 ItemsView.vue 的 <style scoped> 里，
+   主列表页签与回收站页签共用。把回收站拆成独立组件后，子组件拿不到父组件的
+   data-v-* 属性，这批规则会**静默失效**（不是报错，是页面看着没问题但样式全丢了），
+   故搬到全局。声明自 ItemsView 的 .items-* 原样搬来，只做两件事：改名成 .kcgl-*、
+   去掉 :deep()（全局 CSS 直接写真选择器，无需穿透）。
+   仅两个页签**都**用到的才在这里；只有单页签用的（如 .items-note）留给该组件自己的
+   scoped 样式，免得全局命名空间被单页私有类撑大。 */
+
+/* 件数是筛选结果的回执：做成标签而非一行灰字——灰字落在表格上方，与"加载失败"
+   的留白长得一样（实测里用户正是把空结果读成"内容没加载出来"）。
+   两个徽标（总件数 / 选中件数）同行排；下边距挪到行容器上，免得双份留白 */
+.kcgl-list-count-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kcgl-space-2);
+  margin-bottom: var(--kcgl-space-3);
+}
+
+.kcgl-list-count {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  padding: 0 var(--kcgl-space-3);
+  border: 1px solid var(--kcgl-color-border);
+  border-radius: 999px;
+  background: var(--kcgl-color-fill);
+  color: var(--kcgl-color-text-sub);
+  font-size: 0.85rem;
+  line-height: 22px;
+}
+
+/* 选中件数换主色：它是"接下来那一击会打到谁"的凭据，不能与总件数同灰 */
+.kcgl-list-count.is-selected {
+  border-color: var(--kcgl-color-info-border);
+  background: var(--kcgl-color-info-bg);
+  color: var(--kcgl-color-info-text);
+}
+
+/* 批量结果条：成功=绿、部分失败=琥珀。用底色而不是左侧色条——左侧粗边在本项目
+   是"这里出错了"的通用语汇，成功回执也用会误读 */
+.kcgl-batch-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--kcgl-space-2);
+  margin-bottom: var(--kcgl-space-3);
+  padding: var(--kcgl-space-2) var(--kcgl-space-3);
+  border: 1px solid;
+  border-radius: var(--kcgl-radius-m);
+  font-size: 0.85rem;
+}
+
+.kcgl-batch-result.is-ok {
+  border-color: var(--kcgl-color-success-border);
+  background: var(--kcgl-color-success-bg);
+  color: var(--kcgl-color-success);
+}
+
+.kcgl-batch-result.is-warn {
+  border-color: var(--kcgl-color-warning-border);
+  background: var(--kcgl-color-warning-bg);
+  color: var(--kcgl-color-warning);
+}
+
+.kcgl-batch-result-line {
+  margin: 0;
+}
+
+/* 回执里的管理号：单行回执是「哪一件 + 做了什么」两句，不把管理号拎出来，
+   多行回执并排时读者得自己从长句里找号 */
+.kcgl-batch-result-code {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* 失败清单整条占一行：管理番号与理由是逐件读的，挤在回执句后面会连成一片 */
+.kcgl-batch-result-list {
+  flex-basis: 100%;
+  margin: 0;
+  padding-left: 1.2em;
+}
+
+.kcgl-list-table {
+  width: 100%;
+}
+
+/* 金额列（align=right）数字加粗一档：tabular-nums 保证位对齐，字重让"数字成块"，
+   长列表纵向扫读时价格/成本/利润能一眼连成列 */
+.kcgl-list-table .el-table__cell.is-right .cell {
+  font-weight: 600;
+}
+
+/* 行整体即详情入口（Zaico 式整行点击） */
+.kcgl-list-table tbody tr {
+  cursor: pointer;
+}
+
+.kcgl-list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.kcgl-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--kcgl-color-divider);
+  border-radius: var(--kcgl-radius-s);
+  background: var(--kcgl-color-fill);
+  overflow: hidden;
+}
+
+.kcgl-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.kcgl-list-code {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.kcgl-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.kcgl-tag {
+  display: inline-block;
+  padding: 0 var(--kcgl-space-2);
+  border: 1px solid var(--kcgl-color-border);
+  border-radius: var(--kcgl-radius-s);
+  font-size: 0.75rem;
+  line-height: 20px;
+  color: var(--kcgl-color-text-sub);
+  white-space: nowrap;
+}
+
+.kcgl-tag.is-success {
+  border-color: var(--kcgl-color-success-border);
+  background: var(--kcgl-color-success-bg);
+  color: var(--kcgl-color-success);
+}
+
+.kcgl-tag.is-warning {
+  border-color: var(--kcgl-color-warning-border);
+  background: var(--kcgl-color-warning-bg);
+  color: var(--kcgl-color-warning);
+}
+
+.kcgl-tag.is-danger {
+  border-color: var(--kcgl-color-danger-border);
+  background: var(--kcgl-color-danger-bg);
+  color: var(--kcgl-color-danger);
+}
+
+.kcgl-tag.is-neutral {
+  border-color: var(--kcgl-color-border);
+  background: var(--kcgl-color-bg);
+  color: var(--kcgl-color-text-faint);
+}
+
+.kcgl-list-pagination {
+  margin-top: var(--kcgl-space-4);
+  justify-content: flex-end;
+}
+
 /* ---------------------------------------------------------------- ⑥ 动效与可访问性 */
 
 /* 换页动效的挂载点（两壳共用）：Transition 的直接子节点必须是单个元素，否则

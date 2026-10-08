@@ -192,14 +192,14 @@ describe('items view (M5-1)', () => {
 
     const rows = wrapper.findAll('#pane-list .el-table__row')
     expect(rows).toHaveLength(2)
-    expect(wrapper.find('.items-count').text()).toBe('全 2 件')
+    expect(wrapper.find('.kcgl-list-count').text()).toBe('全 2 件')
     expect(rows[0]!.text()).toContain('HT9-A1X')
     expect(rows[0]!.text()).toContain('長期滞留')
-    expect(rows[0]!.find('.items-tag.is-success').exists()).toBe(true) // 落札済み=green
+    expect(rows[0]!.find('.kcgl-tag.is-success').exists()).toBe(true) // 落札済み=green
     // venueName null → 占位符；仓 2 名古屋→福岡标签映射
     expect(rows[1]!.text()).toContain('—')
     expect(rows[1]!.text()).toContain('福岡倉庫')
-    expect(rows[0]!.find('.items-tag.is-danger').exists()).toBe(true)
+    expect(rows[0]!.find('.kcgl-tag.is-danger').exists()).toBe(true)
     expect(rows[0]!.text()).toContain('￥8,000')
   })
 
@@ -604,7 +604,7 @@ describe('items row status actions (D-129)', () => {
     expect(soldPrice).toBeUndefined()
     // 列表重取 + 回执（这一行可能因筛选不再命中而整行消失，回执是唯一落点）
     expect(apiMocks.searchItems.mock.calls.length).toBeGreaterThan(listCalls)
-    const notice = wrapper.find('#pane-list .items-batch-result')
+    const notice = wrapper.find('#pane-list .kcgl-batch-result')
     expect(notice.text()).toContain('HT9-A1X')
     expect(notice.text()).toContain('売却を記録しました')
   })

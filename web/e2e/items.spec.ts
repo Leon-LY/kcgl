@@ -122,12 +122,12 @@ test.describe('item list and detail (desktop-chromium)', () => {
 
     // ---- 列表：kw 管理号精确链命中单件
     await page.goto('/items')
-    await expect(page.locator('.items-table')).toBeVisible()
+    await expect(page.locator('.kcgl-list-table')).toBeVisible()
     await page.getByPlaceholder('管理番号・商品名・会場・棚番号などで検索').fill(itemA.itemCode)
     await page.getByRole('button', { name: '検索' }).click()
     const aRow = page.locator('#pane-list .el-table__row', { hasText: itemA.itemCode })
     await expect(aRow).toHaveCount(1)
-    await expect(page.locator('.items-count')).toContainText('全 1 件')
+    await expect(page.locator('.kcgl-list-count')).toContainText('全 1 件')
 
     // 条件クリア回全量（itemB 为最新件必在第一页）
     await page.getByRole('button', { name: '条件をクリア' }).click()
@@ -252,20 +252,20 @@ test.describe('item list and detail (desktop-chromium)', () => {
     await rowDialog.locator('textarea').fill('E2E行削除')
     await rowDialog.getByRole('button', { name: '削除する' }).click()
     // 结果留在列表上（弹层关掉不带走回执），且该行当场消失
-    await expect(page.locator('#pane-list .items-batch-result')).toContainText('1 件を削除しました。')
+    await expect(page.locator('#pane-list .kcgl-batch-result')).toContainText('1 件を削除しました。')
     await expect(rowOf(rowItem.itemCode)).toHaveCount(0)
 
     // ---- 一括削除：勾选两行 → 一次提交（逐件语义，成功数在回执里）
     for (const item of [bulkA, bulkB]) {
       await rowOf(item.itemCode).locator('.el-checkbox').click()
     }
-    await expect(page.locator('.items-count.is-selected')).toContainText('2 件')
+    await expect(page.locator('.kcgl-list-count.is-selected')).toContainText('2 件')
     await page.getByRole('button', { name: '選択した商品を削除' }).click()
     const bulkDialog = page.locator('.el-dialog:visible')
     await expect(bulkDialog).toContainText('2 件')
     await bulkDialog.locator('textarea').fill('E2E一括削除')
     await bulkDialog.getByRole('button', { name: '削除する' }).click()
-    await expect(page.locator('#pane-list .items-batch-result')).toContainText('2 件を削除しました。')
+    await expect(page.locator('#pane-list .kcgl-batch-result')).toContainText('2 件を削除しました。')
     await expect(rowOf(bulkA.itemCode)).toHaveCount(0)
     await expect(rowOf(bulkB.itemCode)).toHaveCount(0)
 
@@ -282,7 +282,7 @@ test.describe('item list and detail (desktop-chromium)', () => {
       await recycleRow(item.itemCode).locator('.el-checkbox').click()
     }
     await page.getByRole('button', { name: '選択した商品を復元' }).click()
-    await expect(page.locator('#pane-recycle .items-batch-result')).toContainText('3 件を復元しました。')
+    await expect(page.locator('#pane-recycle .kcgl-batch-result')).toContainText('3 件を復元しました。')
     await expect(page.locator('#pane-recycle .el-table__row')).toHaveCount(0)
 
     // ---- 回到列表：三件都在（搜索定位其中一件）
@@ -318,7 +318,7 @@ test.describe('item list and detail (desktop-chromium)', () => {
     await dialog.getByRole('button', { name: '出品中として記録する' }).click()
 
     // 全程不离开列表页：回执留在列表上，该行标记当场变化
-    await expect(page.locator('#pane-list .items-batch-result')).toContainText(item.itemCode)
+    await expect(page.locator('#pane-list .kcgl-batch-result')).toContainText(item.itemCode)
     await expect(rowOf).toContainText('出品中')
     await expect(page).toHaveURL(/\/items$/)
   })
@@ -329,7 +329,7 @@ test.describe('item list and detail (desktop-chromium)', () => {
 
     // 无回收站标签（单标签）；列表可读
     await expect(page.locator('.el-tabs__item')).toHaveCount(1)
-    await expect(page.locator('.items-table')).toBeVisible()
+    await expect(page.locator('.kcgl-list-table')).toBeVisible()
 
     // 行点击进详情：三个操作按钮全隐藏，信息段照常可读
     await page.locator('#pane-list .el-table__row').first().click()
