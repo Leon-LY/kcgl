@@ -189,7 +189,7 @@ test.describe('yahoo order pipeline (desktop-chromium)', () => {
     await expect(page.locator('#pane-reconcile')).toContainText('落札済み・未出庫（1）')
     await expect(page.locator('#pane-reconcile')).toContainText('落札なし・再出品待ち（0）')
     await expect(page.locator('#pane-reconcile')).toContainText('出庫済み・ヤフー出品中（取り下げ確認）（0）')
-    await expect(page.locator('#pane-reconcile .yahoo-tag')).toHaveText(['滞留'])
+    await expect(page.locator('#pane-reconcile .kcgl-yahoo-tag')).toHaveText(['滞留'])
 
     // 「この商品を売り上げる」深链：扫码页进页即定位，直接成交出库
     await page.getByRole('tab', { name: '出荷待ち' }).click()

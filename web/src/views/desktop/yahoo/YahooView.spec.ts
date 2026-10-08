@@ -213,7 +213,7 @@ describe('yahoo view (M5-②b)', () => {
     const rows = wrapper.findAll('#pane-import .el-table__row')
     expect(rows).toHaveLength(3)
     expect(wrapper.text()).toContain('ストア9.20(1).xlsx')
-    const tags = wrapper.findAll('#pane-import .yahoo-tag')
+    const tags = wrapper.findAll('#pane-import .kcgl-yahoo-tag')
     expect(tags.map((tag) => tag.text())).toEqual(['完了', '処理中', '失敗'])
     // 失败/处理中批次计数未落 → 占位符；完成批次显示真实计数
     expect(rows[0]!.text()).toContain('2')
@@ -371,7 +371,7 @@ describe('yahoo view (M5-②b)', () => {
 
     expect(apiMocks.fetchYahooBatches).toHaveBeenCalledTimes(2)
     expect(clearIntervalSpy).toHaveBeenCalled()
-    expect(wrapper.find('#pane-import .yahoo-tag').text()).toBe('完了')
+    expect(wrapper.find('#pane-import .kcgl-yahoo-tag').text()).toBe('完了')
   })
 
   // 回归（D-070 回声抑制附带+E2E yahoo.spec desktop 实录「出荷待ち 0 件」停旧）：

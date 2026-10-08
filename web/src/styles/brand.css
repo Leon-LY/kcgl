@@ -707,6 +707,70 @@ body {
   justify-content: flex-end;
 }
 
+/* ------------------------------------------ ⑤″ ヤフー联动共享基元（D-143） */
+
+/* 处境同 ⑤ 与 ⑤′：这些类原先在 YahooView.vue 的 <style scoped> 里，三个页签共用。
+   把每个页签拆成独立组件后，子组件各拿各的 data-v-*，这批规则在谁那儿都不成立
+   （不报错、DOM 照旧，只是样式全丢），故搬到全局。声明自 .yahoo-* 原样搬来，只改名
+   成 .kcgl-yahoo-*——全局命名空间里要与各组件 scoped 的 .yahoo-* 分得开，否则读代码
+   时分不清哪条是全局的。
+   只有**两个以上**页签用到的才在这里；单页签用的（如 .yahoo-thumb 只在出荷待ち、
+   .yahoo-upload 只在受注インポート）留在该组件自己的 scoped 样式里。
+
+   注：.kcgl-yahoo-table 与已有的 .kcgl-list-table、.kcgl-yahoo-code 与 .kcgl-list-code
+   声明逐字相同。合并要连带改既有页面的类名，值得单开一轮；本轮只拆组件，不搅在一起。
+   另：.kcgl-yahoo-tag 与 .kcgl-tag 看着像同一个东西，实则内边距不同
+   （2px 8px vs 0 space-2 + line-height 20px），合并会改高度，需视觉核验，同样另开。 */
+
+.kcgl-yahoo-table {
+  width: 100%;
+}
+
+.kcgl-yahoo-code {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.kcgl-yahoo-note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--kcgl-color-text-faint);
+}
+
+.kcgl-yahoo-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid var(--kcgl-color-border);
+  border-radius: var(--kcgl-radius-s);
+  font-size: 0.75rem;
+  color: var(--kcgl-color-text-sub);
+  white-space: nowrap;
+}
+
+.kcgl-yahoo-tag.is-processing {
+  border-color: var(--kcgl-color-warning-border);
+  background: var(--kcgl-color-warning-bg);
+  color: var(--kcgl-color-warning);
+}
+
+.kcgl-yahoo-tag.is-done {
+  border-color: var(--kcgl-color-success-border);
+  background: var(--kcgl-color-success-bg);
+  color: var(--kcgl-color-success);
+}
+
+.kcgl-yahoo-tag.is-failed {
+  border-color: var(--kcgl-color-danger-border);
+  background: var(--kcgl-color-danger-bg);
+  color: var(--kcgl-color-danger);
+}
+
+.kcgl-yahoo-tag.is-muted {
+  border-color: var(--kcgl-color-border);
+  background: var(--kcgl-color-bg);
+  color: var(--kcgl-color-text-faint);
+}
+
 /* ---------------------------------------------------------------- ⑥ 动效与可访问性 */
 
 /* 换页动效的挂载点（两壳共用）：Transition 的直接子节点必须是单个元素，否则

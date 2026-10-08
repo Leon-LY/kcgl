@@ -348,7 +348,7 @@ onBeforeUnmount(() => {
             v-loading="batchesLoading"
             :data="batches"
             row-key="id"
-            class="yahoo-table"
+            class="kcgl-yahoo-table"
             @expand-change="onBatchExpand"
           >
             <el-table-column type="expand">
@@ -405,7 +405,7 @@ onBeforeUnmount(() => {
                     </p>
                     <p
                       v-if="unmatchedState[row.id]?.loading"
-                      class="yahoo-unmatched-note"
+                      class="kcgl-yahoo-note"
                     >
                       {{ t('common.loading') }}
                     </p>
@@ -456,7 +456,7 @@ onBeforeUnmount(() => {
                       </el-table>
                       <p
                         v-if="unmatchedState[row.id]?.data?.truncated"
-                        class="yahoo-unmatched-note"
+                        class="kcgl-yahoo-note"
                       >
                         {{
                           t('yahoo.import.unmatchedTruncated', {
@@ -465,7 +465,7 @@ onBeforeUnmount(() => {
                         }}
                       </p>
                       <!-- 说明句与它说明的清单同进同出：有清单才说"下記" -->
-                      <p class="yahoo-unmatched-note">
+                      <p class="kcgl-yahoo-note">
                         {{ t('yahoo.import.unmatchedNote') }}
                       </p>
                     </template>
@@ -478,7 +478,7 @@ onBeforeUnmount(() => {
                     -->
                     <p
                       v-else-if="unmatchedState[row.id]?.data"
-                      class="yahoo-unmatched-note"
+                      class="kcgl-yahoo-note"
                     >
                       {{ t('yahoo.import.unmatchedEmpty') }}
                     </p>
@@ -498,7 +498,7 @@ onBeforeUnmount(() => {
             >
               <template #default="{ row }">
                 <span
-                  class="yahoo-tag"
+                  class="kcgl-yahoo-tag"
                   :class="statusClass((row as YahooImportBatch).status)"
                 >{{ statusText((row as YahooImportBatch).status) }}</span>
               </template>
@@ -590,7 +590,7 @@ onBeforeUnmount(() => {
             <el-table
               :data="shipmentItems"
               row-key="itemId"
-              class="yahoo-table"
+              class="kcgl-yahoo-table"
             >
               <el-table-column
                 width="70"
@@ -612,7 +612,7 @@ onBeforeUnmount(() => {
                 min-width="130"
               >
                 <template #default="{ row }">
-                  <span class="yahoo-code">{{ (row as YahooPendingShipment).itemCode }}</span>
+                  <span class="kcgl-yahoo-code">{{ (row as YahooPendingShipment).itemCode }}</span>
                 </template>
               </el-table-column>
               <el-table-column
@@ -670,7 +670,7 @@ onBeforeUnmount(() => {
                 <template #default="{ row }">
                   <span
                     v-if="(row as YahooPendingShipment).delayed"
-                    class="yahoo-tag is-failed"
+                    class="kcgl-yahoo-tag is-failed"
                   >{{ t('yahoo.shipments.delayed') }}</span>
                 </template>
               </el-table-column>
@@ -724,7 +724,7 @@ onBeforeUnmount(() => {
             <el-table
               :data="reconcileData.soldNotShipped"
               row-key="itemId"
-              class="yahoo-table"
+              class="kcgl-yahoo-table"
             >
               <el-table-column
                 prop="itemCode"
@@ -732,7 +732,7 @@ onBeforeUnmount(() => {
                 min-width="130"
               >
                 <template #default="{ row }">
-                  <span class="yahoo-code">{{ (row as YahooReconcileRow).itemCode }}</span>
+                  <span class="kcgl-yahoo-code">{{ (row as YahooReconcileRow).itemCode }}</span>
                 </template>
               </el-table-column>
               <el-table-column
@@ -789,7 +789,7 @@ onBeforeUnmount(() => {
                 <template #default="{ row }">
                   <span
                     v-if="(row as YahooReconcileRow).delayed"
-                    class="yahoo-tag is-failed"
+                    class="kcgl-yahoo-tag is-failed"
                   >{{ t('yahoo.reconcile.delayed') }}</span>
                 </template>
               </el-table-column>
@@ -808,7 +808,7 @@ onBeforeUnmount(() => {
             <el-table
               :data="reconcileData.canceledNotRelisted"
               row-key="itemId"
-              class="yahoo-table"
+              class="kcgl-yahoo-table"
             >
               <el-table-column
                 prop="itemCode"
@@ -816,7 +816,7 @@ onBeforeUnmount(() => {
                 min-width="130"
               >
                 <template #default="{ row }">
-                  <span class="yahoo-code">{{ (row as YahooReconcileRow).itemCode }}</span>
+                  <span class="kcgl-yahoo-code">{{ (row as YahooReconcileRow).itemCode }}</span>
                 </template>
               </el-table-column>
               <el-table-column
@@ -856,7 +856,7 @@ onBeforeUnmount(() => {
                 <template #default="{ row }">
                   <span
                     v-if="(row as YahooReconcileRow).delayed"
-                    class="yahoo-tag is-failed"
+                    class="kcgl-yahoo-tag is-failed"
                   >{{ t('yahoo.reconcile.delayed') }}</span>
                 </template>
               </el-table-column>
@@ -875,7 +875,7 @@ onBeforeUnmount(() => {
             <el-table
               :data="reconcileData.withdrawNeeded"
               row-key="itemId"
-              class="yahoo-table"
+              class="kcgl-yahoo-table"
             >
               <el-table-column
                 prop="itemCode"
@@ -883,7 +883,7 @@ onBeforeUnmount(() => {
                 min-width="130"
               >
                 <template #default="{ row }">
-                  <span class="yahoo-code">{{ (row as YahooReconcileRow).itemCode }}</span>
+                  <span class="kcgl-yahoo-code">{{ (row as YahooReconcileRow).itemCode }}</span>
                 </template>
               </el-table-column>
               <el-table-column
@@ -931,7 +931,7 @@ onBeforeUnmount(() => {
                 <template #default="{ row }">
                   <span
                     v-if="(row as YahooReconcileRow).recentlySynced"
-                    class="yahoo-tag is-muted"
+                    class="kcgl-yahoo-tag is-muted"
                   >{{ t('yahoo.reconcile.recentlySynced') }}</span>
                 </template>
               </el-table-column>
@@ -944,7 +944,7 @@ onBeforeUnmount(() => {
               </template>
             </el-table>
 
-            <p class="yahoo-unmatched-note">
+            <p class="kcgl-yahoo-note">
               {{ t('yahoo.reconcile.note') }}
             </p>
           </template>
@@ -1008,10 +1008,6 @@ onBeforeUnmount(() => {
   color: var(--kcgl-color-text-sub);
 }
 
-.yahoo-table {
-  width: 100%;
-}
-
 .yahoo-detail {
   display: grid;
   gap: 8px;
@@ -1036,46 +1032,6 @@ onBeforeUnmount(() => {
   max-width: 760px;
 }
 
-.yahoo-unmatched-note {
-  margin: 0;
-  font-size: 0.8rem;
-  color: var(--kcgl-color-text-faint);
-}
-
-.yahoo-tag {
-  display: inline-block;
-  padding: 2px 8px;
-  border: 1px solid var(--kcgl-color-border);
-  border-radius: var(--kcgl-radius-s);
-  font-size: 0.75rem;
-  color: var(--kcgl-color-text-sub);
-  white-space: nowrap;
-}
-
-.yahoo-tag.is-processing {
-  border-color: var(--kcgl-color-warning-border);
-  background: var(--kcgl-color-warning-bg);
-  color: var(--kcgl-color-warning);
-}
-
-.yahoo-tag.is-done {
-  border-color: var(--kcgl-color-success-border);
-  background: var(--kcgl-color-success-bg);
-  color: var(--kcgl-color-success);
-}
-
-.yahoo-tag.is-failed {
-  border-color: var(--kcgl-color-danger-border);
-  background: var(--kcgl-color-danger-bg);
-  color: var(--kcgl-color-danger);
-}
-
-.yahoo-tag.is-muted {
-  border-color: var(--kcgl-color-border);
-  background: var(--kcgl-color-bg);
-  color: var(--kcgl-color-text-faint);
-}
-
 .yahoo-thumb {
   display: flex;
   align-items: center;
@@ -1095,8 +1051,4 @@ onBeforeUnmount(() => {
   display: block;
 }
 
-.yahoo-code {
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
 </style>
