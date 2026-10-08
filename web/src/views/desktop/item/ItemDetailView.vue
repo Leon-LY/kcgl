@@ -4,34 +4,24 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import AppPageHeader from '@/components/AppPageHeader.vue'
-import { formatJstDate, formatJstDateTime, formatYen } from '@/utils/format'
-import { renderMessageJson, toDisplayMessage } from '@/utils/errors'
-import { ApiError } from '@/utils/api'
-import {
-  fetchItem,
-  fetchItemLedgers,
-  fetchItemYahooListings,
-  fetchVenues,
-} from '@/utils/api'
-import type {
-  ItemLedgerRow,
-  ItemResponse,
-  Venue,
-  YahooListingRow,
-} from '@/utils/api'
+import { ApiError, fetchItem, fetchVenues } from '@/utils/api'
+import type { ItemResponse, Venue } from '@/utils/api'
+import { itemListDisplay } from './itemListShared'
 import ItemPhotos from './ItemPhotos.vue'
+import ItemDetailTabs from './ItemDetailTabs.vue'
 import ItemAdjustDialog from './ItemAdjustDialog.vue'
 import ItemEditDialog from './ItemEditDialog.vue'
 import ItemVoidDialog from './ItemVoidDialog.vue'
 import ItemDeleteDialog from './ItemDeleteDialog.vue'
 
 /**
- * 商品详情（M5-①）：全字段四段式详情 + 取引履歴/ヤフー出品两历史表。
+ * 商品详情（M5-①）：页头（管理号 + 状态片 + 分歧提示 + 四个操作按钮）、商品本体与装载，
+ * 以及三个操作弹层；详细字段与两张历史表在页签体 ItemDetailTabs 里（D-152）。
  * 分歧徽标=号内快照 vs 现值三维度（会场码/年月/档位字母，D-063 snapshot
  * 单模式的界面落点）；编辑=全量 PUT（可选字段 null=清空，409000 重读后
  * 保留输入再提交）；作废→跳录入页重录（?reEntry=）；删除→回列表回收站。
- * 本页不接 SSE 失效（D-052 B：单件页操作后本地重取已覆盖，他人改动由
- * 切标签页时的重取兜底）。
+ * 本页不接 SSE 失效（D-052 B：单件页操作后本地重取已覆盖；他人改动由
+ * 切标签页时的重取兜底——懒加载那条 watch 现在归页签体）。
  */
 
 const { t } = useI18n()
@@ -96,10 +86,6 @@ function goBack(): void {
   void router.push({ name: 'items' })
 }
 
-function venueNameOf(target: ItemResponse): string {
-  return venues.value.find((v) => v.id === target.venueId)?.name ?? target.venueCode
-}
-
 // ------------------------------------------------------------- 分歧徽标（号内快照 vs 现值）
 
 const ITEM_CODE_PATTERN = /^([A-Z]{2})(1[0-2]|[1-9])-([A-Z]{1,3})([1-9][0-9]?)([A-Z])?$/
@@ -123,136 +109,21 @@ const diverged = computed(() => {
   return match != null && match[5] != null && match[5] !== current.priceBandCode
 })
 
-const seqText = computed(() => {
-  const current = item.value
-  if (current == null) {
-    return ''
-  }
-  return t('items.detail.seqValue', {
-    venue: venueNameOf(current),
-    month: current.buyMonth,
-    seq: `${current.seqPrefix}${current.seqNo}`,
-    band: current.priceBandCode,
-  })
-})
-
-// ------------------------------------------------------------- 历史两表（切标签页时重取）
-
-const activeTab = ref('basic')
-
-const ledgers = ref<ItemLedgerRow[]>([])
-const ledgerError = ref('')
-let ledgerSeq = 0
-
-async function loadLedgers(): Promise<void> {
-  const seq = ++ledgerSeq
-  ledgerError.value = ''
-  try {
-    const data = await fetchItemLedgers(currentItemId())
-    if (seq !== ledgerSeq) {
-      return
-    }
-    ledgers.value = data.rows
-  } catch (error) {
-    if (seq !== ledgerSeq) {
-      return
-    }
-    ledgerError.value = toDisplayMessage(error, t)
-  }
-}
-
-const listings = ref<YahooListingRow[]>([])
-const listingError = ref('')
-let listingSeq = 0
-
-async function loadListings(): Promise<void> {
-  const seq = ++listingSeq
-  listingError.value = ''
-  try {
-    const data = await fetchItemYahooListings(currentItemId())
-    if (seq !== listingSeq) {
-      return
-    }
-    listings.value = data.rows
-  } catch (error) {
-    if (seq !== listingSeq) {
-      return
-    }
-    listingError.value = toDisplayMessage(error, t)
-  }
-}
-
-watch(activeTab, (tab) => {
-  if (tab === 'ledger') {
-    void loadLedgers()
-  } else if (tab === 'listing') {
-    void loadListings()
-  }
-})
-
 // ------------------------------------------------------------- 展示帮助函数
 
-// el-table-column 渲染列时以 {row:{}} 探测嵌套列（TableColumnRenderer），
-// 动态 i18n key 必须空值兜底——否则空数据页也刷 missing-key 告警（D-056）
-function warehouseOf(target: number | null | undefined): string {
-  return target == null ? '—' : t(`common.warehouse.${target}`)
-}
-
-function stockText(status: number | null | undefined): string {
-  return status == null ? '' : t(`scan.stock.${status}`)
-}
-
-function saleText(status: number | null | undefined): string {
-  return status == null ? '' : t(`scan.sale.${status}`)
-}
-
-function ledgerTypeText(type: number | null | undefined): string {
-  return type == null ? '' : t(`items.ledger.type.${type}`)
-}
-
-/**
- * 流水理由（V7，D-130）：系统生成的理由（目前只有盘点差异入账的「棚卸調整 PD…」）
- * 后端同时落了 i18n 键+参数，按当前语言渲染；人工填写的理由没有键，原样显示。
- * 历史行也没有键，回退日文原文。
- */
-function ledgerReasonText(row: ItemLedgerRow): string {
-  return renderMessageJson(row.reasonCode, row.reasonParams, t, row.reason) || '—'
-}
+/** 行内文案与标签色走商品一覧那份共用件（itemListShared，D-147）：语义与拆分前逐字一致。 */
+const { stockText, saleText, stockTagClass, saleTagClass } = itemListDisplay(t)
 
 /**
  * 互链跳转（D-131）：原路是列表里点行、这里是详情里点号，都走 item-detail
  * （同组件复用，路由参数变化时整体重载）。对端已不在（异常数据）时按钮不渲染。
+ * 页签体里只报「要去看哪一件」（emit openItem）——跳转落在这里。
  */
 function goToItem(id: number | null | undefined): void {
   if (id == null) {
     return
   }
   void router.push({ name: 'item-detail', params: { id } })
-}
-
-function stockTagClass(status: number | null | undefined): string {
-  return status === 1 ? 'is-success' : 'is-neutral'
-}
-
-function saleTagClass(status: number | null | undefined): string {
-  return status === 1 ? 'is-warning' : status === 2 ? 'is-success' : 'is-neutral'
-}
-
-/** from→to 迁移展示：双侧空=无仓维度；单侧空=边界态；双侧有=「A → B」。 */
-function rangeText(from: string, to: string): string {
-  if (from === '' && to === '') return '—'
-  if (from === '') return to
-  if (to === '') return from
-  return `${from} → ${to}`
-}
-
-function whLabel(wh: number | null | undefined): string {
-  return wh == null ? '' : t(`common.warehouse.${wh}`)
-}
-
-function qtyText(qty: number | null | undefined): string {
-  if (qty == null) return '—'
-  return qty > 0 ? `+${qty}` : String(qty)
 }
 
 // ------------------------------------------------------------- 三个操作弹层（各自独立组件）
@@ -287,6 +158,9 @@ const adjustOpen = ref(false)
 
 // ------------------------------------------------------------- 装配
 
+/** 页签体（ItemDetailTabs）向外只暴露 reset：换件时清空两张历史表并回默认页签。 */
+const tabsRef = ref<InstanceType<typeof ItemDetailTabs> | null>(null)
+
 function reloadAll(): void {
   void loadItem()
 }
@@ -300,12 +174,10 @@ onMounted(() => {
   reloadAll()
 })
 
-// 同组件复用跳转（/items/5 → /items/12）时整体重载
+// 同组件复用跳转（/items/5 → /items/12）时整体重载；页签体的两张历史表也随换件清空
 watch(() => route.params.id, (next, prev) => {
   if (next !== prev && route.name === 'item-detail') {
-    ledgers.value = []
-    listings.value = []
-    activeTab.value = 'basic'
+    tabsRef.value?.reset()
     reloadAll()
   }
 })
@@ -425,351 +297,13 @@ watch(() => route.params.id, (next, prev) => {
         :can-edit="canEdit"
       />
 
-      <el-tabs
-        v-model="activeTab"
-        class="itemd-tabs"
-      >
-        <el-tab-pane
-          :label="t('items.detail.tab.basic')"
-          name="basic"
-        >
-          <el-descriptions
-            :title="t('items.detail.section.basic')"
-            :column="2"
-            border
-            class="itemd-desc"
-          >
-            <el-descriptions-item :label="t('items.detail.field.itemCode')">
-              <span class="itemd-code">{{ item.itemCode }}</span>
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('items.detail.field.venue')">
-              {{ venueNameOf(item) }}
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('items.detail.field.buyDate')">
-              {{ formatJstDate(item.buyDate) }}
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('items.detail.field.purchasePrice')">
-              {{ formatYen(item.purchasePrice) }}
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('items.detail.field.fee')">
-              {{ formatYen(item.fee) }}
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('items.detail.field.shippingFee')">
-              {{ formatYen(item.shippingFee) }}
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('items.detail.field.tax')">
-              {{ formatYen(item.tax) }}
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('items.detail.field.totalCost')">
-              {{ formatYen(item.totalCost) }}
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('items.detail.field.soldPrice')">
-              {{ formatYen(item.soldPrice) }}
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('items.detail.field.profit')">
-              {{ formatYen(item.profit) }}
-            </el-descriptions-item>
-          </el-descriptions>
-
-          <el-descriptions
-            :title="t('items.detail.section.stock')"
-            :column="2"
-            border
-            class="itemd-desc"
-          >
-            <el-descriptions-item :label="t('items.detail.field.stockStatus')">
-              <span
-                class="itemd-tag"
-                :class="stockTagClass(item.stockStatus)"
-              >{{ stockText(item.stockStatus) }}</span>
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('items.detail.field.saleStatus')">
-              <span
-                class="itemd-tag"
-                :class="saleTagClass(item.saleStatus)"
-              >{{ saleText(item.saleStatus) }}</span>
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('items.detail.field.warehouse')">
-              {{ warehouseOf(item.warehouse) }}
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('items.detail.field.shelfNo')">
-              {{ item.shelfNo ?? '—' }}
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('items.detail.field.warehouseInDate')">
-              {{ formatJstDate(item.warehouseInDate) }}
-            </el-descriptions-item>
-          </el-descriptions>
-
-          <el-descriptions
-            :title="t('items.detail.section.detail')"
-            :column="2"
-            border
-            class="itemd-desc"
-          >
-            <el-descriptions-item :label="t('items.detail.field.itemName')">
-              {{ item.itemName ?? '—' }}
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('items.detail.field.category')">
-              {{ item.category ?? '—' }}
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('items.detail.field.authorKiln')">
-              {{ item.authorKiln ?? '—' }}
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('items.detail.field.sizeText')">
-              {{ item.sizeText ?? '—' }}
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('items.detail.field.weightG')">
-              {{ item.weightG ?? '—' }}
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('items.detail.field.salesChannel')">
-              {{ item.salesChannel ?? '—' }}
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('items.detail.field.groupNo')">
-              {{ item.groupNo ?? '—' }}
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('items.detail.field.photoDate')">
-              <!-- 验收 13：未拍（photo_date NULL）显示「未撮影」而非通用空值「—」——「没拍」与「字段未填」语义不同 -->
-              {{ item.photoDate ? formatJstDate(item.photoDate) : t('items.detail.notTaken') }}
-            </el-descriptions-item>
-            <el-descriptions-item
-              :label="t('items.detail.field.remark')"
-              :span="2"
-            >
-              {{ item.remark ?? '—' }}
-            </el-descriptions-item>
-          </el-descriptions>
-
-          <el-descriptions
-            :title="t('items.detail.section.system')"
-            :column="2"
-            border
-            class="itemd-desc"
-          >
-            <el-descriptions-item :label="t('items.detail.field.seq')">
-              {{ seqText }}
-            </el-descriptions-item>
-            <el-descriptions-item :label="t('items.detail.field.createdAt')">
-              {{ formatJstDateTime(item.createdAt) }}
-            </el-descriptions-item>
-            <!-- 作废重录互链（D-131）：改从结构化列（re_entry_of/void_re_entry）渲染，
-                 不再由后端把「再登録元/先」日文标记写进备注——那串日文切语言也不变，
-                 还会被 Excel 导入导出与编辑弹层原样搬运。 -->
-            <el-descriptions-item
-              v-if="item.reEntryOfCode"
-              :label="t('items.detail.field.reEntryOf')"
-            >
-              <el-button
-                link
-                type="primary"
-                class="itemd-link"
-                @click="goToItem(item.reEntryOf)"
-              >
-                {{ item.reEntryOfCode }}
-              </el-button>
-            </el-descriptions-item>
-            <el-descriptions-item
-              v-if="item.voidReEntryCode"
-              :label="t('items.detail.field.voidReEntry')"
-            >
-              <el-button
-                link
-                type="primary"
-                class="itemd-link"
-                @click="goToItem(item.voidReEntry)"
-              >
-                {{ item.voidReEntryCode }}
-              </el-button>
-            </el-descriptions-item>
-          </el-descriptions>
-        </el-tab-pane>
-
-        <el-tab-pane
-          :label="t('items.detail.tab.ledger')"
-          name="ledger"
-        >
-          <p
-            v-if="ledgerError"
-            class="kcgl-error-box"
-            role="alert"
-          >
-            {{ ledgerError }}
-            <el-button
-              link
-              type="primary"
-              @click="loadLedgers"
-            >
-              {{ t('common.reload') }}
-            </el-button>
-          </p>
-          <el-table
-            v-else
-            :data="ledgers"
-            row-key="id"
-            class="itemd-table"
-          >
-            <el-table-column
-              :label="t('items.ledger.column.at')"
-              width="150"
-            >
-              <template #default="{ row }">
-                {{ formatJstDateTime((row as ItemLedgerRow).createdAt) }}
-              </template>
-            </el-table-column>
-            <el-table-column
-              :label="t('items.ledger.column.type')"
-              width="110"
-            >
-              <template #default="{ row }">
-                {{ ledgerTypeText((row as ItemLedgerRow).txnType) }}
-              </template>
-            </el-table-column>
-            <el-table-column
-              :label="t('items.ledger.column.warehouse')"
-              width="170"
-            >
-              <template #default="{ row }">
-                {{ rangeText(whLabel((row as ItemLedgerRow).whFrom), whLabel((row as ItemLedgerRow).whTo)) }}
-              </template>
-            </el-table-column>
-            <el-table-column
-              :label="t('items.ledger.column.qty')"
-              width="70"
-              align="right"
-            >
-              <template #default="{ row }">
-                {{ qtyText((row as ItemLedgerRow).qtyChange) }}
-              </template>
-            </el-table-column>
-            <el-table-column
-              :label="t('items.ledger.column.stock')"
-              width="150"
-            >
-              <template #default="{ row }">
-                {{ rangeText(stockText((row as ItemLedgerRow).stockFrom), stockText((row as ItemLedgerRow).stockTo)) }}
-              </template>
-            </el-table-column>
-            <el-table-column
-              :label="t('items.ledger.column.sale')"
-              width="150"
-            >
-              <template #default="{ row }">
-                {{ rangeText(saleText((row as ItemLedgerRow).saleFrom), saleText((row as ItemLedgerRow).saleTo)) }}
-              </template>
-            </el-table-column>
-            <el-table-column
-              :label="t('items.ledger.column.reason')"
-              min-width="160"
-              show-overflow-tooltip
-            >
-              <template #default="{ row }">
-                {{ ledgerReasonText(row as ItemLedgerRow) }}
-              </template>
-            </el-table-column>
-            <el-table-column
-              :label="t('items.ledger.column.operator')"
-              width="120"
-            >
-              <template #default="{ row }">
-                {{ (row as ItemLedgerRow).operatorName ?? '—' }}
-              </template>
-            </el-table-column>
-            <template #empty>
-              {{ t('items.ledger.empty') }}
-            </template>
-          </el-table>
-        </el-tab-pane>
-
-        <el-tab-pane
-          :label="t('items.detail.tab.listing')"
-          name="listing"
-        >
-          <p
-            v-if="listingError"
-            class="kcgl-error-box"
-            role="alert"
-          >
-            {{ listingError }}
-            <el-button
-              link
-              type="primary"
-              @click="loadListings"
-            >
-              {{ t('common.reload') }}
-            </el-button>
-          </p>
-          <el-table
-            v-else
-            :data="listings"
-            row-key="id"
-            class="itemd-table"
-          >
-            <el-table-column
-              :label="t('items.listing.column.orderId')"
-              min-width="110"
-            >
-              <template #default="{ row }">
-                {{ (row as YahooListingRow).orderId ?? '—' }}
-              </template>
-            </el-table-column>
-            <el-table-column
-              :label="t('items.listing.column.auctionId')"
-              min-width="120"
-            >
-              <template #default="{ row }">
-                {{ (row as YahooListingRow).yahooAuctionId ?? '—' }}
-              </template>
-            </el-table-column>
-            <el-table-column
-              :label="t('items.listing.column.listPrice')"
-              width="110"
-              align="right"
-            >
-              <template #default="{ row }">
-                {{ formatYen((row as YahooListingRow).listPrice) }}
-              </template>
-            </el-table-column>
-            <el-table-column
-              :label="t('items.listing.column.soldPrice')"
-              width="110"
-              align="right"
-            >
-              <template #default="{ row }">
-                {{ formatYen((row as YahooListingRow).soldPrice) }}
-              </template>
-            </el-table-column>
-            <el-table-column
-              :label="t('items.listing.column.status')"
-              width="110"
-            >
-              <template #default="{ row }">
-                <span
-                  class="itemd-tag"
-                  :class="saleTagClass((row as YahooListingRow).status)"
-                >{{ saleText((row as YahooListingRow).status) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column
-              :label="t('items.listing.column.listedAt')"
-              width="150"
-            >
-              <template #default="{ row }">
-                {{ formatJstDateTime((row as YahooListingRow).listedAt) }}
-              </template>
-            </el-table-column>
-            <el-table-column
-              :label="t('items.listing.column.closedAt')"
-              width="150"
-            >
-              <template #default="{ row }">
-                {{ formatJstDateTime((row as YahooListingRow).closedAt) }}
-              </template>
-            </el-table-column>
-            <template #empty>
-              {{ t('items.listing.empty') }}
-            </template>
-          </el-table>
-        </el-tab-pane>
-      </el-tabs>
+      <ItemDetailTabs
+        ref="tabsRef"
+        :item="item"
+        :item-id="currentItemId()"
+        :venues="venues"
+        @open-item="goToItem"
+      />
     </div>
 
     <ItemEditDialog
@@ -818,11 +352,6 @@ watch(() => route.params.id, (next, prev) => {
   flex-wrap: wrap;
 }
 
-.itemd-code {
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
 .itemd-divergence {
   margin: 6px 0 0;
   font-size: 0.85rem;
@@ -844,48 +373,6 @@ watch(() => route.params.id, (next, prev) => {
 
 .itemd-body {
   padding: 20px 24px;
-}
-
-.itemd-desc {
-  margin-bottom: 20px;
-}
-
-.itemd-table {
-  width: 100%;
-}
-
-.itemd-tag {
-  display: inline-block;
-  padding: 2px 8px;
-  border: 1px solid var(--kcgl-color-border);
-  border-radius: var(--kcgl-radius-s);
-  font-size: 0.75rem;
-  color: var(--kcgl-color-text-sub);
-  white-space: nowrap;
-}
-
-.itemd-tag.is-success {
-  border-color: var(--kcgl-color-success-border);
-  background: var(--kcgl-color-success-bg);
-  color: var(--kcgl-color-success);
-}
-
-.itemd-tag.is-warning {
-  border-color: var(--kcgl-color-warning-border);
-  background: var(--kcgl-color-warning-bg);
-  color: var(--kcgl-color-warning);
-}
-
-.itemd-tag.is-danger {
-  border-color: var(--kcgl-color-danger-border);
-  background: var(--kcgl-color-danger-bg);
-  color: var(--kcgl-color-danger);
-}
-
-.itemd-tag.is-neutral {
-  border-color: var(--kcgl-color-border);
-  background: var(--kcgl-color-bg);
-  color: var(--kcgl-color-text-faint);
 }
 
 </style>

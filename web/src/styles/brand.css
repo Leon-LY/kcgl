@@ -771,6 +771,59 @@ body {
   color: var(--kcgl-color-text-faint);
 }
 
+/* ------------------------------------------ ⑤‴ 商品详情共享基元（D-152） */
+
+/* 处境同 ⑤/⑤′/⑤″：这两条原先在 ItemDetailView.vue 的 <style scoped> 里，
+   拆出页签体（ItemDetailTabs）后页头与页签体都要用。子组件各拿各的 data-v-*，
+   规则留在任一侧都不成立（不报错、DOM 照旧，只是样式全丢），故搬到全局。
+   类名沿用 .itemd-*，没按 ⑤′/⑤″ 的习惯改名 .kcgl-*：ItemDetailView.spec.ts 按
+   `.itemd-title .itemd-tag.is-neutral` 与 `.itemd-code` 取值，改名要动测试选择器，
+   而拆组件这一提交只该搬位置（要统一命名就单独一轮，把那几处断言一起改）。
+   顺带一提，⑤ 节那条 .itemd-* → .kcgl-form 的先例正是从这个文件搬出去的，
+   那次改了名；这次保住原名，理由就是上面那几处断言。
+   只有两处都用的才在这里：单用的 .itemd-desc / .itemd-table 随页签体进它的 scoped
+   样式，页头私有的 .itemd-title / .itemd-divergence / .itemd-state / .itemd-body
+   留在 ItemDetailView 的 scoped 样式。 */
+
+.itemd-code {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.itemd-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid var(--kcgl-color-border);
+  border-radius: var(--kcgl-radius-s);
+  font-size: 0.75rem;
+  color: var(--kcgl-color-text-sub);
+  white-space: nowrap;
+}
+
+.itemd-tag.is-success {
+  border-color: var(--kcgl-color-success-border);
+  background: var(--kcgl-color-success-bg);
+  color: var(--kcgl-color-success);
+}
+
+.itemd-tag.is-warning {
+  border-color: var(--kcgl-color-warning-border);
+  background: var(--kcgl-color-warning-bg);
+  color: var(--kcgl-color-warning);
+}
+
+.itemd-tag.is-danger {
+  border-color: var(--kcgl-color-danger-border);
+  background: var(--kcgl-color-danger-bg);
+  color: var(--kcgl-color-danger);
+}
+
+.itemd-tag.is-neutral {
+  border-color: var(--kcgl-color-border);
+  background: var(--kcgl-color-bg);
+  color: var(--kcgl-color-text-faint);
+}
+
 /* ---------------------------------------------------------------- ⑥ 动效与可访问性 */
 
 /* 换页动效的挂载点（两壳共用）：Transition 的直接子节点必须是单个元素，否则
