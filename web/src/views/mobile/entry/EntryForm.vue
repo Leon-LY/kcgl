@@ -1,22 +1,26 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useUploadQueue } from '@/composables/useUploadQueue'
 import { useDictsStore } from '@/stores/dicts'
 import { useEntrySessionStore } from '@/stores/entrySession'
-import { ApiError, createItem, fetchItemImages, previewItemCode, type ItemResponse } from '@/utils/api'
+import { ApiError, createItem, type ItemResponse } from '@/utils/api'
 import { toDisplayMessage } from '@/utils/errors'
 import { JST_TZ, dayjs } from '@/utils/format'
 import { newClientId } from '@/utils/id'
 import { normalizeNumericText, parseAmount, trimText } from '@/utils/normalize'
+import { MIN_DATE, fromPickerValues, jstTodayEnd, toPickerValues, todayJst } from './entryShared'
+import EntryCodePreview from './EntryCodePreview.vue'
+import EntryPhotoField from './EntryPhotoField.vue'
 
 /**
- * 连续录入表单（docs/01 4.3 验收核心页）：
+ * 连续录入表单（docs/01 4.3 验收核心页）。本文件只留表单主体：两个自成一段的字段已拆成
+ * 子组件（D-148）——照片与重录继承图片在 EntryPhotoField，管理号预览在 EntryCodePreview。
  * - 沿用上一件（A13）：会场/仓库/落札日期/单价——挂载时从会话读，成功后父级重挂载取新值
- * - 两级预览：档位字母本地即时算（零往返）；完整号 300ms 防抖调 preview（≠保留，文案明示）
+ * - 两级预览：档位字母本地即时算（零往返，留在本组件）；完整号 300ms 防抖调 preview
+ *   （≠保留，文案明示；在 EntryCodePreview）
  * - 幂等（7.0）：clientReqId 一次逻辑保存从生成到成功共用；失败重试复用同键防重复件
  * - IME（7.8）：金额字段仅在 blur 归一化（NFKC 全角→半角）；备注仅 trim
- * - 照片（7.5）：选图即压缩落 Dexie（pending_bind）；保存成功后 bindItem 绑新商品后台续传
  */
 
 const emit = defineEmits<{ saved: [item: ItemResponse, photoCount: number]; cancelReEntry: [] }>()
@@ -51,8 +55,6 @@ const shelfNo = ref(props.reEntry?.shelfNo ?? '')
 const warehouseInDate = ref(props.reEntry?.warehouseInDate ?? '')
 const remark = ref(props.reEntry?.remark ?? '')
 const showMore = ref(false)
-
-const todayJst = (): string => dayjs().tz(JST_TZ).format('YYYY-MM-DD')
 
 /** 前日角标（L2）：沿用落札日 ≠ 今天且今日已有保存——多日拍卖会防第二日进错月桶。 */
 const carryPrevDay = computed(() => buyDate.value !== todayJst() && session.todayCount > 0)
@@ -106,25 +108,13 @@ watch(
   { immediate: true },
 )
 
-// 落札日历下界 2016（业务起点防误选）；Vant 日历边界取本地语义的日历日（列渲染读本地 Y/M/D）
-const MIN_DATE = dayjs('2016-01-01').toDate()
 /** 落札日禁未来（JST 日界）：max 取 JST 今日 23:59，+08 深夜开发场景下默认值与选择上限一致。 */
-const buyDateMax = dayjs().tz(JST_TZ).endOf('day').toDate()
+const buyDateMax = jstTodayEnd()
 /** 入库日允许未来（预填则到仓扫码不覆盖）。 */
 const inDateMax = dayjs().tz(JST_TZ).add(1, 'year').endOf('day').toDate()
 
 const showBuyDatePicker = ref(false)
 const showInDatePicker = ref(false)
-
-const pad2 = (value: string): string => String(Number(value)).padStart(2, '0')
-
-function toPickerValues(date: string): string[] {
-  return date ? [date.slice(0, 4), pad2(date.slice(5, 7)), pad2(date.slice(8, 10))] : []
-}
-
-function fromPickerValues(values: Array<string | number>): string {
-  return `${values[0]}-${pad2(String(values[1]))}-${pad2(String(values[2]))}`
-}
 
 function onBuyDateConfirm({ selectedValues }: { selectedValues: Array<string | number> }): void {
   buyDate.value = fromPickerValues(selectedValues)
@@ -138,161 +128,17 @@ function onInDateConfirm({ selectedValues }: { selectedValues: Array<string | nu
 
 const buyDateDisplay = computed(() => buyDate.value.replaceAll('-', '/'))
 
-// ------------------------------------------------------------------ 照片（7.5 先存后传）
+// ------------------------------------------------------------------ 照片字段（EntryPhotoField）
 
-const MAX_PHOTOS = 9
-type PhotoSource = 'camera' | 'album'
+/**
+ * 照片字段的引用：挂载时读回重录原件已有的图片，提交时给出随件上传的撮影日。
+ * 子组件不自带 onMounted——挂载时机只由这里的 onMounted 决定（同 ItemListTab 那条规矩）。
+ */
+const photoField = ref<InstanceType<typeof EntryPhotoField> | null>(null)
 
-interface LocalPhoto {
-  clientUuid: string
-  previewUrl: string
-  source: PhotoSource
-}
-
-const photos = ref<LocalPhoto[]>([])
-const photoDate = ref('')
-const photoError = ref<string | null>(null)
-const showPhotoDatePicker = ref(false)
-const cameraInput = ref<HTMLInputElement | null>(null)
-const albumInput = ref<HTMLInputElement | null>(null)
-/** 撮影日上限=今天（后端同口径校验）。 */
-const photoDateMax = buyDateMax
-
-async function onFilesChosen(event: Event, source: PhotoSource): Promise<void> {
-  const input = event.target as HTMLInputElement
-  const files = Array.from(input.files ?? [])
-  input.value = '' // 允许再次选择同一张
-  if (files.length === 0) {
-    return
-  }
-  if (photos.value.length + files.length > MAX_PHOTOS) {
-    photoError.value = t('entry.photoLimit')
-    return
-  }
-  photoError.value = null
-  try {
-    // 压缩（≤0.3MB/1920px）后即刻入 Dexie 队列——崩溃/刷新不丢
-    const entries = await uploadQueue.addFiles(files)
-    for (const entry of entries) {
-      photos.value.push({
-        clientUuid: entry.clientUuid,
-        previewUrl: URL.createObjectURL(new Blob([entry.data], { type: entry.mimeType })),
-        source,
-      })
-    }
-    // 拍照=撮影日=今天（7.5）；相册不默认今天（EXIF 自动读取为 D-034 决策延后项）
-    if (source === 'camera' && photoDate.value === '') {
-      photoDate.value = todayJst()
-    }
-  } catch {
-    photoError.value = t('entry.photoReadFailed')
-  }
-}
-
-async function removePhoto(clientUuid: string): Promise<void> {
-  const index = photos.value.findIndex((photo) => photo.clientUuid === clientUuid)
-  if (index === -1) {
-    return
-  }
-  URL.revokeObjectURL(photos.value[index]!.previewUrl)
-  photos.value.splice(index, 1)
-  await uploadQueue.removeUnbound(clientUuid)
-}
-
-onUnmounted(() => {
-  for (const photo of photos.value) {
-    URL.revokeObjectURL(photo.previewUrl)
-  }
-})
-
-// ------------------------------------------------------------------ 重录继承图片（M2-6）
-
-/** 原件已上传图片（只读展示）：保存时由服务端复制行到新商品，不进本地 Dexie、无需重拍。 */
-const inheritedImages = ref<Array<{ id: number; thumbUrl: string }>>([])
-
-onMounted(async () => {
-  if (props.reEntry == null) {
-    return
-  }
-  try {
-    const images = await fetchItemImages(props.reEntry.id)
-    inheritedImages.value = images.map((image) => ({ id: image.id, thumbUrl: image.thumbUrl }))
-  } catch {
-    // 读回失败不阻断重录：服务端复制不依赖前端展示，新件仍会带上图片
-  }
-})
-
-const photoDateDisplay = computed(() => (photoDate.value ? photoDate.value.replaceAll('-', '/') : ''))
-
-function onPhotoDateConfirm({ selectedValues }: { selectedValues: Array<string | number> }): void {
-  photoDate.value = fromPickerValues(selectedValues)
-  showPhotoDatePicker.value = false
-}
-
-/** 有照片时随保存提交撮影日（拍照自动=当天，可改；无照片不提交）。 */
-function photoDateForPayload(): string | undefined {
-  return photos.value.length > 0 && photoDate.value !== '' ? photoDate.value : undefined
-}
-
-// ------------------------------------------------------------------ 管理号预览
-
-const PREVIEW_DEBOUNCE_MS = 300
-
-const previewCode = ref<string | null>(null)
-const previewError = ref<string | null>(null)
-const previewLoading = ref(false)
-let previewTimer: ReturnType<typeof setTimeout> | null = null
-let previewSeq = 0
-
-const previewable = computed(
-  () =>
-    venueId.value != null &&
-    buyDate.value !== '' &&
-    priceValue.value != null &&
-    priceValue.value >= 1 &&
-    band.value != null,
-)
-
-watch([venueId, buyDate, priceValue], () => {
-  if (previewTimer != null) {
-    clearTimeout(previewTimer)
-  }
-  previewCode.value = null
-  previewError.value = null
-  if (!previewable.value) {
-    return
-  }
-  previewTimer = setTimeout(runPreview, PREVIEW_DEBOUNCE_MS)
-})
-
-async function runPreview(): Promise<void> {
-  if (!previewable.value || venueId.value == null || priceValue.value == null) {
-    return
-  }
-  const seq = ++previewSeq
-  previewLoading.value = true
-  try {
-    const result = await previewItemCode(venueId.value, buyDate.value, priceValue.value)
-    if (seq !== previewSeq) {
-      return // 已有更新的输入，丢弃过期响应
-    }
-    previewCode.value = result.code
-  } catch (error) {
-    if (seq !== previewSeq) {
-      return
-    }
-    previewError.value = toDisplayMessage(error, t)
-  } finally {
-    if (seq === previewSeq) {
-      previewLoading.value = false
-    }
-  }
-}
-
-onBeforeUnmount(() => {
-  if (previewTimer != null) {
-    clearTimeout(previewTimer)
-  }
+onMounted(() => {
+  // 重录时读回原件图片（只读展示）；失败不阻断——服务端保存时自会整组复制
+  void photoField.value?.loadInherited()
 })
 
 // ------------------------------------------------------------------ 校验与提交
@@ -333,7 +179,7 @@ async function onSubmit(): Promise<void> {
       buyDate: buyDate.value,
       purchasePrice: price,
       warehouse: warehouse.value,
-      photoDate: photoDateForPayload(),
+      photoDate: photoField.value?.photoDateForPayload(),
       fee: parseAmount(feeText.value) ?? undefined,
       shippingFee: parseAmount(shippingText.value) ?? undefined,
       tax: parseAmount(taxText.value) ?? undefined,
@@ -486,145 +332,16 @@ async function onSubmit(): Promise<void> {
       </van-field>
     </van-cell-group>
 
-    <van-cell-group
-      v-if="inheritedImages.length > 0"
-      inset
-      class="entry-inherited"
-    >
-      <van-cell :title="t('entry.inheritedImages')" />
-      <div class="entry-inherited-photos">
-        <img
-          v-for="image in inheritedImages"
-          :key="image.id"
-          :src="image.thumbUrl"
-          :alt="t('entry.inheritedImages')"
-        >
-      </div>
-      <p class="entry-inherited-note">
-        {{ t('entry.inheritedImagesNote') }}
-      </p>
-    </van-cell-group>
+    <EntryPhotoField
+      ref="photoField"
+      :re-entry-id="reEntry?.id ?? null"
+    />
 
-    <van-cell-group inset>
-      <van-field :label="t('entry.photos')">
-        <template #input>
-          <div class="entry-photos">
-            <div
-              v-for="photo in photos"
-              :key="photo.clientUuid"
-              class="entry-photo"
-            >
-              <img
-                :src="photo.previewUrl"
-                :alt="t('entry.photos')"
-              >
-              <button
-                type="button"
-                class="entry-photo-remove"
-                :aria-label="t('entry.photoRemove')"
-                @click="removePhoto(photo.clientUuid)"
-              >
-                ×
-              </button>
-            </div>
-            <span
-              v-if="photos.length > 0"
-              class="entry-photo-count"
-            >{{ photos.length }}/9</span>
-          </div>
-        </template>
-      </van-field>
-      <div class="entry-photo-actions">
-        <button
-          type="button"
-          class="kcgl-btn entry-photo-btn"
-          @click="cameraInput?.click()"
-        >
-          {{ t('entry.photoCamera') }}
-        </button>
-        <button
-          type="button"
-          class="kcgl-btn entry-photo-btn"
-          @click="albumInput?.click()"
-        >
-          {{ t('entry.photoAlbum') }}
-        </button>
-      </div>
-      <p
-        v-if="photoError"
-        class="entry-photo-error"
-      >
-        {{ photoError }}
-      </p>
-      <p class="entry-photo-hint">
-        {{ t('entry.photosHint') }}
-      </p>
-      <van-field
-        :model-value="photoDateDisplay"
-        :label="t('entry.photoDate')"
-        :placeholder="t('entry.photoDatePlaceholder')"
-        class="entry-photo-date"
-        readonly
-        is-link
-        name="photoDate"
-        @click="showPhotoDatePicker = true"
-      />
-      <van-popup
-        v-model:show="showPhotoDatePicker"
-        position="bottom"
-        round
-      >
-        <van-date-picker
-          :model-value="toPickerValues(photoDate)"
-          :min-date="MIN_DATE"
-          :max-date="photoDateMax"
-          :title="t('entry.photoDate')"
-          @confirm="onPhotoDateConfirm"
-          @cancel="showPhotoDatePicker = false"
-        />
-      </van-popup>
-    </van-cell-group>
-
-    <!-- iOS 相机直启（capture=environment）与相册多选分开两个入口：撮影日来源语义 -->
-    <input
-      ref="cameraInput"
-      type="file"
-      accept="image/jpeg,image/png"
-      capture="environment"
-      hidden
-      @change="onFilesChosen($event, 'camera')"
-    >
-    <input
-      ref="albumInput"
-      type="file"
-      accept="image/jpeg,image/png"
-      multiple
-      hidden
-      @change="onFilesChosen($event, 'album')"
-    >
-
-    <div class="entry-preview">
-      <div class="entry-preview-row">
-        <span class="entry-preview-label">{{ t('entry.nextCode') }}</span>
-        <span
-          v-if="previewLoading"
-          class="entry-preview-code"
-        >…</span>
-        <span
-          v-else-if="previewCode"
-          class="entry-preview-code"
-        >{{ previewCode }}</span>
-      </div>
-      <p
-        v-if="previewError"
-        class="entry-preview-error"
-      >
-        {{ previewError }}
-      </p>
-      <p class="entry-preview-note">
-        {{ t('entry.nextCodeNote') }}
-      </p>
-    </div>
+    <EntryCodePreview
+      :venue-id="venueId"
+      :buy-date="buyDate"
+      :price="priceValue"
+    />
 
     <van-cell-group
       inset
@@ -830,132 +547,6 @@ async function onSubmit(): Promise<void> {
   border-color: var(--kcgl-color-border-strong);
 }
 
-/* 照片区：缩略图 56px + 删除角标（触控目标 ≥44px 由按钮整体承担，角标为可点区域中心） */
-.entry-photos {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-}
-
-.entry-photo {
-  position: relative;
-  width: 56px;
-  height: 56px;
-}
-
-.entry-photo img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 4px;
-  border: 1px solid var(--kcgl-color-border);
-  display: block;
-}
-
-.entry-photo-remove {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(0, 0, 0, 0.6);
-  color: #fff;
-  font-size: 0.8rem;
-  line-height: 1;
-  cursor: pointer;
-  transition: transform var(--kcgl-dur-fast) var(--kcgl-ease-out);
-}
-
-/* 删除角标视觉必须保持 20px（放大就盖住缩略图），命中区靠透明覆盖层撑到 ≥44px */
-.entry-photo-remove::after {
-  content: '';
-  position: absolute;
-  inset: -12px;
-}
-
-.entry-photo-remove:active {
-  transform: translateY(1px);
-}
-
-.entry-photo-count {
-  font-size: 0.8rem;
-  color: var(--kcgl-color-text-sub);
-}
-
-.entry-photo-actions {
-  display: flex;
-  gap: 8px;
-  padding: 0 16px 8px;
-}
-
-/* 不再覆盖高度：回到 .kcgl-btn 的 44px 触控下限（覆盖前是 36px，手机偏小） */
-.entry-photo-btn {
-  flex: 1;
-  font-size: 0.9rem;
-}
-
-/* 按压反馈：1px 下沉（.kcgl-btn 已含 transform 过渡） */
-.entry-photo-btn:active {
-  transform: translateY(1px);
-}
-
-.entry-photo-error {
-  margin: 0 16px 4px;
-  font-size: 0.9rem;
-  color: var(--kcgl-color-danger);
-}
-
-.entry-photo-hint {
-  margin: 0 16px 8px;
-  font-size: 0.9rem;
-  color: var(--kcgl-color-text-sub);
-}
-
-.entry-preview {
-  margin: 0 16px;
-  padding: 12px 16px;
-  border: 1px dashed var(--kcgl-color-border);
-  border-radius: 6px;
-  background: #fff;
-  display: grid;
-  gap: 4px;
-}
-
-.entry-preview-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.entry-preview-label {
-  font-size: 0.9rem;
-  color: var(--kcgl-color-text-sub);
-}
-
-.entry-preview-code {
-  font-size: 1.3rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  font-family: 'Courier New', monospace;
-}
-
-.entry-preview-error {
-  margin: 0;
-  font-size: 0.9rem;
-  color: var(--kcgl-color-danger);
-}
-
-.entry-preview-note {
-  margin: 0;
-  font-size: 0.9rem;
-  color: var(--kcgl-color-text-sub);
-}
-
 .entry-more :deep(.van-cell) {
   color: var(--kcgl-color-text-sub);
   font-size: 0.9rem;
@@ -1058,27 +649,4 @@ async function onSubmit(): Promise<void> {
   color: var(--kcgl-color-primary-dark);
 }
 
-/* 继承图片：只读缩略图（不可删——服务端保存时整组复制到新件） */
-.entry-inherited-photos {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 0 16px 8px;
-}
-
-.entry-inherited-photos img {
-  width: 56px;
-  height: 56px;
-  object-fit: cover;
-  border-radius: 4px;
-  border: 1px solid var(--kcgl-color-border);
-  display: block;
-}
-
-.entry-inherited-note {
-  margin: 0 16px 12px;
-  font-size: 0.9rem;
-  line-height: 1.6;
-  color: var(--kcgl-color-text-sub);
-}
 </style>
