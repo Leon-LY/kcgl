@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, markRaw, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute, useRouter, type LocationQuery } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useSyncInvalidation } from '@/composables/useSyncInvalidation'
 import AppEmptyState from '@/components/AppEmptyState.vue'
@@ -13,9 +13,19 @@ import type { ActionResult, ItemSearchParams, ItemSearchRow, Venue } from '@/uti
 import { availableActions } from '@/utils/inventoryActions'
 import type { ScanAction } from '@/utils/inventoryActions'
 import { ITEM_LIST_PAGE_SIZE, batchEntriesOf, errorText, itemListDisplay } from './itemListShared'
+import {
+  emptyFilters,
+  filtersFromQuery,
+  listRequest,
+  pageFromQuery,
+  queryOf,
+  sameQuery,
+  type ItemFilterState,
+} from './itemFilters'
 import ItemActionDialog from './ItemActionDialog.vue'
 import ItemAdjustDialog from './ItemAdjustDialog.vue'
 import ItemBatchDeleteDialog from './ItemBatchDeleteDialog.vue'
+import ItemFilterBar from './ItemFilterBar.vue'
 import ItemRecycleTab from './ItemRecycleTab.vue'
 
 /**
@@ -77,21 +87,9 @@ function onBulkCommand(command: 'import' | 'export'): void {
 
 // ------------------------------------------------------------- 商品一覧
 
-/** 「すべて」选项值：共享对象哨兵——EP el-option 的 value prop 不收 null（每次
- *  挂载刷 prop 类型警告），空串又落 EP「空值=显示 placeholder」的歧义；对象值
- *  类型合法且与业务值永不碰撞，提交前统一映射回 undefined。markRaw 必须有：
- *  否则 ref 深层 reactive 代理化会破坏 `=== ALL` 身份比较（映射失效+选项匹配
- *  不上「すべて」）。 */
-const ALL = markRaw({ all: true } as const)
-
-const kw = ref('')
-const warehouse = ref<typeof ALL | number>(ALL)
-const stockStatus = ref<typeof ALL | number>(ALL)
-const saleStatus = ref<typeof ALL | number>(ALL)
-const venueId = ref<typeof ALL | number>(ALL)
-const buyDateFrom = ref<string | null>(null)
-const buyDateTo = ref<string | null>(null)
-const warnLevel = ref<typeof ALL | number>(ALL)
+/** 筛选条件：一个对象而不是八个 ref——URL 投影与检索参数两边本来就只按"整套"
+ *  读写（见 itemFilters）。列表位相（rows/total/page/加载/错误）不是条件，各自留着。 */
+const filters = ref<ItemFilterState>(emptyFilters())
 
 const venues = ref<Venue[]>([])
 const rows = ref<ItemSearchRow[]>([])
@@ -101,60 +99,9 @@ const listLoading = ref(true)
 const listError = ref('')
 let listSeq = 0
 
-/** 可投影到 URL 的键（与检索参数同名；size 恒定，不投影）。 */
-const QUERY_KEYS = [
-  'kw', 'warehouse', 'stockStatus', 'saleStatus', 'venueId',
-  'buyDateFrom', 'buyDateTo', 'warnLevel', 'page',
-] as const
-
-/** 各下拉的合法取值（与模板选项同域）。URL 是用户可手改的输入：域外值落回「すべて」，
- *  否则 el-select 匹配不到任何选项（筛选条显空白）且检索会发出非法参数。 */
-const FILTER_DOMAINS: Record<string, readonly number[]> = {
-  warehouse: [1, 2],
-  stockStatus: [0, 1, 2],
-  saleStatus: [0, 1, 2, 3],
-  warnLevel: [1, 2],
-}
-
-function domainFilter(raw: unknown, domain: readonly number[]): typeof ALL | number {
-  const value = typeof raw === 'string' ? Number(raw) : Number.NaN
-  return Number.isInteger(value) && domain.includes(value) ? value : ALL
-}
-
-function positiveInt(raw: unknown): number | null {
-  const value = typeof raw === 'string' ? Number(raw) : Number.NaN
-  return Number.isInteger(value) && value >= 1 ? value : null
-}
-
-/** 日付筛选只认 el-date-picker 的 value-format 口径（YYYY-MM-DD），其余视为未选。 */
-function dateFilter(raw: unknown): string | null {
-  return typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null
-}
-
-/** URL 查询串 → 列表态（首载前调用一次，C1）。 */
-function hydrateFromQuery(): void {
-  const query = route.query
-  kw.value = typeof query.kw === 'string' ? query.kw : ''
-  warehouse.value = domainFilter(query.warehouse, FILTER_DOMAINS.warehouse)
-  stockStatus.value = domainFilter(query.stockStatus, FILTER_DOMAINS.stockStatus)
-  saleStatus.value = domainFilter(query.saleStatus, FILTER_DOMAINS.saleStatus)
-  warnLevel.value = domainFilter(query.warnLevel, FILTER_DOMAINS.warnLevel)
-  venueId.value = positiveInt(query.venueId) ?? ALL
-  buyDateFrom.value = dateFilter(query.buyDateFrom)
-  buyDateTo.value = dateFilter(query.buyDateTo)
-  page.value = positiveInt(query.page) ?? 1
-}
-
-/** 列表态 → URL：只投影**非默认**项，空态保持 /items 裸路径（下钻详情后返回即回到同一屏幕）。 */
+/** 检索参数 → URL：只投影**非默认**项，空态保持 /items 裸路径（下钻详情后返回即回到同一屏幕）。 */
 function projectQuery(params: ItemSearchParams): void {
-  const query: Record<string, string> = {}
-  for (const key of QUERY_KEYS) {
-    const value = params[key]
-    if (value == null || value === '' || (key === 'page' && value === 1)) {
-      continue
-    }
-    query[key] = String(value)
-  }
+  const query = queryOf(params)
   if (sameQuery(route.query, query)) {
     return
   }
@@ -162,28 +109,11 @@ function projectQuery(params: ItemSearchParams): void {
   void router.replace({ name: 'items', query })
 }
 
-function sameQuery(current: LocationQuery, next: Record<string, string>): boolean {
-  const keys = Object.keys(next)
-  return Object.keys(current).length === keys.length && keys.every((key) => current[key] === next[key])
-}
-
 async function loadList(): Promise<void> {
   const seq = ++listSeq
   listLoading.value = true
   listError.value = ''
-  const params: ItemSearchParams = {
-    kw: kw.value.trim() === '' ? undefined : kw.value.trim(),
-    // 对象哨兵不可被 === 收窄（对象类型无名义恒等）：以 typeof 判别业务值分支
-    warehouse: typeof warehouse.value === 'number' ? warehouse.value : undefined,
-    stockStatus: typeof stockStatus.value === 'number' ? stockStatus.value : undefined,
-    saleStatus: typeof saleStatus.value === 'number' ? saleStatus.value : undefined,
-    venueId: typeof venueId.value === 'number' ? venueId.value : undefined,
-    buyDateFrom: buyDateFrom.value ?? undefined,
-    buyDateTo: buyDateTo.value ?? undefined,
-    warnLevel: typeof warnLevel.value === 'number' ? warnLevel.value : undefined,
-    page: page.value,
-    size: PAGE_SIZE,
-  }
+  const params = listRequest(filters.value, page.value, PAGE_SIZE)
   // URL 投影与真正发出的检索参数**同源**：不会出现「URL 带筛选而列表没有」的漂移
   projectQuery(params)
   try {
@@ -213,18 +143,6 @@ function onSearch(): void {
 function onPageChange(next: number): void {
   page.value = next
   void loadList()
-}
-
-function onClearFilters(): void {
-  kw.value = ''
-  warehouse.value = ALL
-  stockStatus.value = ALL
-  saleStatus.value = ALL
-  venueId.value = ALL
-  buyDateFrom.value = null
-  buyDateTo.value = null
-  warnLevel.value = ALL
-  onSearch()
 }
 
 function goDetail(row: ItemSearchRow): void {
@@ -458,7 +376,8 @@ useSyncInvalidation(['ITEM', 'INVENTORY', 'YAHOO_IMPORT'], reload)
 
 onMounted(() => {
   // 首载先消费 URL（从详情返回/深链直达时带回落札筛选与页码，C1）
-  hydrateFromQuery()
+  filters.value = filtersFromQuery(route.query)
+  page.value = pageFromQuery(route.query)
   void fetchVenues(false)
     .then((data) => {
       venues.value = data
@@ -484,194 +403,52 @@ onMounted(() => {
           :label="t('items.title')"
           name="list"
         >
-          <div class="items-toolbar">
-            <div class="items-search">
-              <el-input
-                v-model="kw"
-                :placeholder="t('items.searchPlaceholder')"
-                clearable
-                @keyup.enter="onSearch"
-                @clear="onSearch"
-              />
-              <el-button
-                type="primary"
-                @click="onSearch"
-              >
-                {{ t('items.search') }}
-              </el-button>
-            </div>
-            <div class="items-filters">
-              <el-select
-                v-model="warehouse"
-                class="items-filter-wh"
-                @change="onSearch"
-              >
-                <el-option
-                  :label="t('items.warehouseAll')"
-                  :value="ALL"
-                />
-                <el-option
-                  :label="t('common.warehouse.1')"
-                  :value="1"
-                />
-                <el-option
-                  :label="t('common.warehouse.2')"
-                  :value="2"
-                />
-              </el-select>
-              <el-select
-                v-model="stockStatus"
-                class="items-filter"
-                @change="onSearch"
-              >
-                <el-option
-                  :label="t('items.filterAll')"
-                  :value="ALL"
-                />
-                <el-option
-                  :label="t('scan.stock.0')"
-                  :value="0"
-                />
-                <el-option
-                  :label="t('scan.stock.1')"
-                  :value="1"
-                />
-                <el-option
-                  :label="t('scan.stock.2')"
-                  :value="2"
-                />
-              </el-select>
-              <el-select
-                v-model="saleStatus"
-                class="items-filter"
-                @change="onSearch"
-              >
-                <el-option
-                  :label="t('items.filterAll')"
-                  :value="ALL"
-                />
-                <el-option
-                  :label="t('scan.sale.0')"
-                  :value="0"
-                />
-                <el-option
-                  :label="t('scan.sale.1')"
-                  :value="1"
-                />
-                <el-option
-                  :label="t('scan.sale.2')"
-                  :value="2"
-                />
-                <el-option
-                  :label="t('scan.sale.3')"
-                  :value="3"
-                />
-              </el-select>
-              <el-select
-                v-model="venueId"
-                class="items-filter-venue"
-                filterable
-                @change="onSearch"
-              >
-                <el-option
-                  :label="t('items.venueAll')"
-                  :value="ALL"
-                />
-                <el-option
-                  v-for="venue in venues"
-                  :key="venue.id"
-                  :label="venue.name"
-                  :value="venue.id"
-                />
-              </el-select>
-              <!-- 区间两端与分隔符同一组：换行时整组换行，不让「〜」被折到下一行孤悬 -->
-              <span class="items-filter-range">
-                <el-date-picker
-                  v-model="buyDateFrom"
-                  type="date"
-                  :placeholder="t('items.buyDateFrom')"
-                  value-format="YYYY-MM-DD"
-                  class="items-filter-date"
-                  @change="onSearch"
-                />
-                <span class="items-range-sep">〜</span>
-                <el-date-picker
-                  v-model="buyDateTo"
-                  type="date"
-                  :placeholder="t('items.buyDateTo')"
-                  value-format="YYYY-MM-DD"
-                  class="items-filter-date"
-                  @change="onSearch"
-                />
-              </span>
-              <el-select
-                v-model="warnLevel"
-                class="items-filter-slow"
-                @change="onSearch"
-              >
-                <el-option
-                  :label="t('items.slowAll')"
-                  :value="ALL"
-                />
-                <el-option
-                  :label="t('items.slowYellow')"
-                  :value="1"
-                />
-                <el-option
-                  :label="t('items.slowRed')"
-                  :value="2"
-                />
-              </el-select>
-              <el-button
-                link
-                type="primary"
-                @click="onClearFilters"
-              >
-                {{ t('items.clear') }}
-              </el-button>
-            </div>
-            <p class="items-hint">
-              {{ t('items.searchHint') }}
-            </p>
-            <div class="items-toolbar-aside">
-              <!--
-                一括削除（D-126）：常驻而非选中才出现——入口本身要能被看见（原先
-                列表页连删除都没有，用户是找不到才来问的）。未选中时置灰，旁边的
-                件数徽标写明选了几件。
-              -->
-              <el-button
-                v-if="isAdmin"
-                class="items-batch-delete"
-                :disabled="selectedRows.length === 0"
-                @click="openBatchDelete"
-              >
-                {{ t('items.batch.delete') }}
-              </el-button>
-              <!--
-                一括入出力（D-106）：批量导入/导出本该在「商品」这里被找到，但它们的
-                交互是异步批处理（上传→判重→批次→报告），不适合塞进列表页，因此只放
-                入口、落到 /excel 对应标签页；批次历史与报告仍留原页。
-              -->
-              <el-dropdown
-                class="items-bulk"
-                @command="onBulkCommand"
-              >
-                <el-button class="items-bulk-trigger">
-                  {{ t('items.bulkEntry') }}
+          <ItemFilterBar
+            v-model="filters"
+            :venues="venues"
+            @search="onSearch"
+          >
+            <template #aside>
+              <div class="items-toolbar-aside">
+                <!--
+                  一括削除（D-126）：常驻而非选中才出现——入口本身要能被看见（原先
+                  列表页连删除都没有，用户是找不到才来问的）。未选中时置灰，旁边的
+                  件数徽标写明选了几件。
+                -->
+                <el-button
+                  v-if="isAdmin"
+                  class="items-batch-delete"
+                  :disabled="selectedRows.length === 0"
+                  @click="openBatchDelete"
+                >
+                  {{ t('items.batch.delete') }}
                 </el-button>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item command="import">
-                      {{ t('excel.import.title') }}
-                    </el-dropdown-item>
-                    <el-dropdown-item command="export">
-                      {{ t('excel.export.title') }}
-                    </el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-            </div>
-          </div>
+                <!--
+                  一括入出力（D-106）：批量导入/导出本该在「商品」这里被找到，但它们的
+                  交互是异步批处理（上传→判重→批次→报告），不适合塞进列表页，因此只放
+                  入口、落到 /excel 对应标签页；批次历史与报告仍留原页。
+                -->
+                <el-dropdown
+                  class="items-bulk"
+                  @command="onBulkCommand"
+                >
+                  <el-button class="items-bulk-trigger">
+                    {{ t('items.bulkEntry') }}
+                  </el-button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="import">
+                        {{ t('excel.import.title') }}
+                      </el-dropdown-item>
+                      <el-dropdown-item command="export">
+                        {{ t('excel.export.title') }}
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </div>
+            </template>
+          </ItemFilterBar>
 
           <p
             v-if="listError"
@@ -1009,67 +786,6 @@ onMounted(() => {
   padding: var(--kcgl-space-5) var(--kcgl-space-6);
 }
 
-.items-toolbar {
-  display: grid;
-  /* 左=搜索/筛选/提示各占一行，右=一括入出力入口（见 .items-bulk） */
-  grid-template-columns: 1fr auto;
-  align-items: start;
-  gap: var(--kcgl-space-3);
-  margin-bottom: var(--kcgl-space-3);
-}
-
-.items-search {
-  display: flex;
-  gap: var(--kcgl-space-2);
-  max-width: 520px;
-}
-
-.items-filters {
-  display: flex;
-  align-items: center;
-  gap: var(--kcgl-space-2);
-  /* 行间距必须显式给：只有 column-gap 时换行后的控件会贴着上一行，看着像挤成一团 */
-  row-gap: var(--kcgl-space-2);
-  flex-wrap: wrap;
-}
-
-/* 日期区间整组换行（两端 + 分隔符是一个语义单位） */
-.items-filter-range {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--kcgl-space-2);
-}
-
-.items-filter-wh {
-  width: 150px;
-}
-
-.items-filter {
-  width: 130px;
-}
-
-.items-filter-venue {
-  width: 170px;
-}
-
-.items-filter-date {
-  width: 150px;
-}
-
-.items-filter-slow {
-  width: 150px;
-}
-
-.items-range-sep {
-  color: var(--kcgl-color-text-faint);
-}
-
-.items-hint {
-  margin: 0;
-  font-size: 0.8rem;
-  color: var(--kcgl-color-text-faint);
-}
-
 /* 右侧动作列：钉在第 2 列、跨筛选区两行（它们是"对结果做事"或"去别处"，都不是筛选
    条件——挤进筛选行就等于暗示它们会影响当前查询结果）。列内再竖排：一括削除在
    一括入出力上方，两者都是整块动作，拉等宽以免出现长短不齐的按钮叠罗汉。 */
@@ -1081,19 +797,6 @@ onMounted(() => {
   flex-direction: column;
   align-items: stretch;
   gap: var(--kcgl-space-2);
-}
-
-.items-note {
-  margin: 0 0 var(--kcgl-space-3);
-  font-size: 0.85rem;
-  color: var(--kcgl-color-text-sub);
-}
-
-/* 回收站的一括復元：与主列表的一括削除同位（表格上方右对齐前的动作区） */
-.items-recycle-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: var(--kcgl-space-2);
 }
 
 </style>
