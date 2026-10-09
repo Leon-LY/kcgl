@@ -70,7 +70,7 @@ jobs:
           echo "本次版本 tag：$version"
 
       - name: 登录 ghcr.io
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
