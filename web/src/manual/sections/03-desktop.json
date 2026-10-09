@@ -14,6 +14,7 @@
   "features": [
     {
       "id": "dashboard",
+      "image": "03-desktop/dashboard.jpg",
       "title": { "ja": "ダッシュボード（全体の状況）", "zh": "仪表盘（整体情况）", "en": "Dashboard (overview)" },
       "intro": {
         "ja": "パソコンで最初に開く画面です。今の在庫や、ヤフー連携のやるべきことが一目でわかります。",
@@ -74,6 +75,7 @@
     },
     {
       "id": "items",
+      "image": "03-desktop/items.jpg",
       "title": { "ja": "商品を探す（商品一覧）", "zh": "查找商品（商品列表）", "en": "Find items (item list)" },
       "intro": {
         "ja": "登録した商品を検索・絞り込みして探します。1件の詳しい内容を見るときは、行を押して商品詳細へ移ります。",
@@ -160,6 +162,7 @@
     },
     {
       "id": "item-detail",
+      "image": "03-desktop/item-detail.jpg",
       "title": { "ja": "1件の商品を詳しく見る", "zh": "查看单件商品详情", "en": "Item details" },
       "intro": {
         "ja": "1件の商品の全項目、これまでの動き（取引履歴）、ヤフーでの受注履歴をまとめて見られます。",
@@ -273,6 +276,7 @@
     },
     {
       "id": "print",
+      "image": "03-desktop/print.jpg",
       "title": { "ja": "ラベルを印刷する", "zh": "打印标签", "en": "Print labels" },
       "intro": {
         "ja": "商品のQRコードと管理番号を印刷して、現物に貼ります。登録した人が印刷するとは限らないので、誰でも印刷できます。",

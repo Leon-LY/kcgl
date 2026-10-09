@@ -10,6 +10,7 @@
   "features": [
     {
       "id": "venues",
+      "image": "06-admin/venues.jpg",
       "title": { "ja": "会場を登録する", "zh": "登记会场", "en": "Register venues" },
       "intro": {
         "ja": "落札した場所のことです。会場コードは管理番号の先頭2文字になるので、最初に決めてください。",
@@ -59,6 +60,7 @@
     },
     {
       "id": "price-bands",
+      "image": "06-admin/price-bands.jpg",
       "title": { "ja": "価格帯を決める", "zh": "设定价格档位", "en": "Set price bands" },
       "intro": {
         "ja": "仕入単価を記号1文字に置き換える表です。その記号が管理番号の末尾に付きます。",
@@ -112,6 +114,7 @@
     },
     {
       "id": "users",
+      "image": "06-admin/users.jpg",
       "title": { "ja": "アカウントを作る", "zh": "创建账号", "en": "Create accounts" },
       "intro": {
         "ja": "使う人ごとに1つ作ります。権限は3つで、「管理者」「編集者」「閲覧者」です。",
@@ -208,6 +211,7 @@
     },
     {
       "id": "settings",
+      "image": "06-admin/settings.jpg",
       "title": { "ja": "システム設定を変える", "zh": "修改系统设置", "en": "Change system settings" },
       "intro": {
         "ja": "滞留のしきい値と、ラベルの既定サイズを決めます。",

@@ -26,6 +26,7 @@ const LANGS = ['ja', 'zh', 'en']
 const FILE_SUFFIX = { ja: 'ja', zh: 'zh', en: 'en' }
 
 const SECTIONS_DIR = fileURLToPath(new URL('../src/manual/sections/', import.meta.url))
+const SHOTS_DIR = fileURLToPath(new URL('../src/manual/screenshots/', import.meta.url))
 const OUT_DIR = fileURLToPath(new URL('../../docs/', import.meta.url))
 
 /** 章节顺序与 web/src/manual/index.ts 的 import 顺序一致（文件名前缀即排序） */
@@ -141,23 +142,28 @@ function renderStep(step, lang, labels) {
     </li>`
 }
 
-function renderFeature(feature, lang, labels) {
+function renderFeature(feature, lang, labels, shots) {
   const intro = feature.intro ? `<p class="feature-intro">${escapeHtml(feature.intro[lang])}</p>` : ''
   const badges = roleBadge(feature.roles, labels) + deviceBadge(feature.devices, labels)
   const steps = feature.steps.map((step) => renderStep(step, lang, labels)).join('\n')
+  // 截图先于步骤：读者先建立「这页长什么样」，再对齐下面每步在界面哪里
+  const shot = feature.image && shots.get(feature.image)
+    ? `<figure class="shot"><img src="${shots.get(feature.image)}" alt="${escapeHtml(feature.title[lang])}"></figure>`
+    : ''
   return `<article class="feature">
       <h3 class="feature-title">${escapeHtml(feature.title[lang])}${badges}</h3>
       ${intro}
+      ${shot}
       <ol class="steps">
 ${steps}
       </ol>
     </article>`
 }
 
-function renderSection(section, index, lang, labels) {
+function renderSection(section, index, lang, labels, shots) {
   const intro = section.intro ? `<p class="section-intro">${escapeHtml(section.intro[lang])}</p>` : ''
   const badges = roleBadge(section.roles, labels) + deviceBadge(section.devices, labels)
-  const features = section.features.map((feature) => renderFeature(feature, lang, labels)).join('\n')
+  const features = section.features.map((feature) => renderFeature(feature, lang, labels, shots)).join('\n')
   return `<section class="section" id="sec-${escapeHtml(section.id)}">
       <h2 class="section-title"><span class="section-num">${index + 1}</span>${escapeHtml(section.title[lang])}${badges}</h2>
       ${intro}
@@ -165,7 +171,7 @@ ${features}
     </section>`
 }
 
-function renderDocument(sections, lang, labels, generatedAt) {
+function renderDocument(sections, lang, labels, generatedAt, shots) {
   const toc = sections
     .map(
       (section, i) =>
@@ -329,6 +335,29 @@ function renderDocument(sections, lang, labels, generatedAt) {
     color: ${INK_SUB};
   }
 
+  /* ---------- 截图 ---------- */
+  /* 不加图注、不出血——图里就是该功能界面本身。
+     break-inside:avoid 让整图不跨页：横跨两页的界面图完全失去对照价值。
+     尺寸靠「宽高双上限 + 等比」自适应两种比例：横版电脑截图（1440×900）顶到
+     正文宽 178mm；竖版手机截图（390×844）若也按 178mm 宽出图会高达 385mm，
+     远超整页可用高度（A4 297mm 减上下边距约 263mm），故再由 max-height 封顶，
+     等比缩到约 83mm 宽、居中对齐。 */
+  .shot {
+    margin: 3mm 0 0;
+    break-inside: avoid;
+  }
+
+  .shot img {
+    display: block;
+    margin: 0 auto;
+    max-width: 100%;
+    max-height: 180mm;
+    width: auto;
+    height: auto;
+    border: 1px solid ${LINE};
+    border-radius: 1.5mm;
+  }
+
   /* ---------- 步骤 ---------- */
   .steps {
     margin: 3mm 0 0;
@@ -415,7 +444,7 @@ function renderDocument(sections, lang, labels, generatedAt) {
     <ol>${toc}</ol>
   </nav>
 
-${sections.map((section, i) => renderSection(section, i, lang, labels)).join('\n')}
+${sections.map((section, i) => renderSection(section, i, lang, labels, shots)).join('\n')}
 </body>
 </html>`
 }
@@ -429,6 +458,47 @@ async function loadSections() {
   return sections
 }
 
+const MIME_BY_EXT = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+}
+
+/**
+ * 预读手册引用到的截图，转成 data URI（Map：image 路径 → `data:image/jpeg;base64,...`）。
+ *
+ * 内嵌而非外链：PDF 由 file:// 加载的中间 HTML 产出，必须自包含——引相对路径的
+ * 图片在临时目录里根本找不到；也省得交付包多带一个资源目录。
+ *
+ * 引用了却不存在的图：直接抛错中止。手册配图是交付物的一部分，缺图出个半成品 PDF
+ * 比构建失败更糟（约定同 pack-release 缺 PDF 时硬失败）。
+ */
+async function loadShots(sections) {
+  const refs = new Set()
+  for (const section of sections) {
+    for (const feature of section.features) {
+      if (feature.image) refs.add(feature.image)
+    }
+  }
+
+  const shots = new Map()
+  for (const ref of refs) {
+    const ext = path.extname(ref).toLowerCase()
+    const mime = MIME_BY_EXT[ext]
+    if (!mime) {
+      throw new Error(`不认得的截图扩展名：${ref}（只支持 ${Object.keys(MIME_BY_EXT).join('/')}）`)
+    }
+    let buffer
+    try {
+      buffer = await readFile(path.join(SHOTS_DIR, ref))
+    } catch {
+      throw new Error(`手册引用了不存在的截图：${ref}（在 src/manual/screenshots/ 下）`)
+    }
+    shots.set(ref, `data:${mime};base64,${buffer.toString('base64')}`)
+  }
+  return shots
+}
+
 /** 页脚页码：Chromium 的 footerTemplate 用 pageNumber/totalPages 类名，样式须内联 */
 function footerTemplate() {
   return `<div style="width:100%;margin:0 16mm;font-size:8pt;color:${INK_SUB};
@@ -439,6 +509,7 @@ function footerTemplate() {
 
 async function main() {
   const sections = await loadSections()
+  const shots = await loadShots(sections)
   await mkdir(OUT_DIR, { recursive: true })
 
   // en-CA 的短日期就是 YYYY-MM-DD：三语一份、无月名缩写（dateStyle:'medium' 在本机
@@ -453,7 +524,7 @@ async function main() {
   const written = []
   for (const lang of LANGS) {
     const labels = LABELS[lang]
-    const html = renderDocument(sections, lang, labels, generatedAt)
+    const html = renderDocument(sections, lang, labels, generatedAt, shots)
     // 中间 HTML 落系统临时目录而非 docs/：docs/ 是交付物目录，多留一个中间产物
     // 会让人分不清哪个是甲方要的东西。删不删无所谓，系统会自己清。
     // 用 file:// 加载而非 setContent：内部锚点链接（目录跳章）需要真实 URL 才成为

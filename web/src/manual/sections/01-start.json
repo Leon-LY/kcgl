@@ -9,6 +9,7 @@
   "features": [
     {
       "id": "login",
+      "image": "01-start/login.jpg",
       "title": { "ja": "ログインする", "zh": "登录", "en": "Sign in" },
       "intro": {
         "ja": "ログインすると、そのアカウントの権限で使える画面だけが表示されます。",
@@ -57,6 +58,7 @@
     },
     {
       "id": "first-password",
+      "image": "01-start/first-password.jpg",
       "title": {
         "ja": "初回のパスワード変更",
         "zh": "首次登录修改密码",
@@ -92,6 +94,7 @@
     },
     {
       "id": "language",
+      "image": "01-start/language.jpg",
       "title": {
         "ja": "表示言語を切り替える",
         "zh": "切换界面语言",
@@ -131,6 +134,7 @@
     },
     {
       "id": "shell-switch",
+      "image": "01-start/shell-switch.jpg",
       "title": {
         "ja": "スマホ表示とパソコン表示を切り替える",
         "zh": "在手机版与电脑版之间切换",

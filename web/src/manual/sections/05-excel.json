@@ -10,6 +10,7 @@
   "features": [
     {
       "id": "excel-import",
+      "image": "05-excel/excel-import.jpg",
       "title": { "ja": "エクセルでまとめて登録する", "zh": "用 Excel 批量登记", "en": "Import from Excel" },
       "intro": {
         "ja": "テンプレートと同じ形式のファイルを取り込んで、商品をまとめて登録します。以前のシステムから移すときにも使えます。",
@@ -98,6 +99,7 @@
     },
     {
       "id": "excel-export",
+      "image": "05-excel/excel-export.jpg",
       "title": { "ja": "在庫を帳票として書き出す", "zh": "把库存导出成报表", "en": "Export stock as a report" },
       "intro": {
         "ja": "在庫の内容をエクセルに書き出します。売上や原価の集計、お客様への提出などに使えます。",

@@ -66,6 +66,41 @@ test.describe('in-app manual filtering', () => {
     )
   })
 
+  test('every figure on the administrator desktop manual is a real, loaded screenshot', async ({
+    page,
+  }) => {
+    test.skip(test.info().project.name !== 'desktop-chromium', '仅 desktop-chromium 项目执行')
+    await login(page, 'admin')
+
+    await page.goto('/help')
+    await expect(page.locator('.manual-view')).toBeVisible()
+
+    // 26 = 管理员桌面可见的配图功能数：start 4（首回パスワード/言語/切替/ログイン，
+    // 手机专属的「添加到主屏幕」无图且在手机章）+ desktop 4 + yahoo 3 + excel 2
+    // + admin 4 + monitor 3 + concepts 6。
+    const figures = page.locator('.manual-shot img')
+    await expect(figures).toHaveCount(26)
+
+    // 逐张滚进视口再验字节。img 带 loading="lazy"，没进视口就不会真的去取图，
+    // naturalWidth 停在 0——只验第一张的话，后面 25 张是死是活根本不知道。
+    // 这里同时守住 glob 路径约定：键写错则 img 压根不渲染（计数就不对），
+    // 或渲染成碎图（naturalWidth 恒 0）。
+    const broken: number[] = []
+    for (let i = 0; i < 26; i += 1) {
+      const img = figures.nth(i)
+      await img.scrollIntoViewIfNeeded()
+      const ok = await expect
+        .poll(async () => img.evaluate((el: HTMLImageElement) => el.naturalWidth), {
+          timeout: 5000,
+        })
+        .toBeGreaterThan(0)
+        .then(() => true)
+        .catch(() => false)
+      if (!ok) broken.push(i)
+    }
+    expect(broken, `第 ${broken.join('、')} 张图没取到字节`).toEqual([])
+  })
+
   test('a phone shell sees mobile chapters only, and hides desktop-only ones', async ({
     page,
   }) => {

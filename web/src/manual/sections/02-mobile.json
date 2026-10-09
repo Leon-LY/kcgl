@@ -14,6 +14,7 @@
   "features": [
     {
       "id": "home",
+      "image": "02-mobile/home.jpg",
       "title": { "ja": "ホーム画面", "zh": "首页", "en": "Home screen" },
       "intro": {
         "ja": "ログイン直後に開く画面です。よく使う操作が並んでいます。",
@@ -62,6 +63,7 @@
     },
     {
       "id": "entry",
+      "image": "02-mobile/entry.jpg",
       "title": { "ja": "商品を登録する", "zh": "商品录入", "en": "Register an item" },
       "intro": {
         "ja": "現場で落札した品物を1件ずつ登録します。保存すると管理番号とQRコードが自動で発行されます。1回の作業で10〜100件を続けて登録することを想定しています。",
@@ -226,6 +228,7 @@
     },
     {
       "id": "arrival",
+      "image": "02-mobile/arrival.jpg",
       "title": { "ja": "入庫確認をする", "zh": "到货核对", "en": "Check arrivals" },
       "intro": {
         "ja": "会場から倉庫に届いた品物を、在庫として受け入れる作業です。ここまで「入庫待ち」だった商品が、在庫になります。",
@@ -312,6 +315,7 @@
     },
     {
       "id": "scan",
+      "image": "02-mobile/scan.jpg",
       "title": { "ja": "スキャンして在庫を動かす", "zh": "扫码并操作库存", "en": "Scan and move stock" },
       "intro": {
         "ja": "商品のQRコードを読み取って、その商品を探し出し、売却・廃棄・移動・返品などを記録します。在庫を動かす操作は、すべてこの画面から行います。",
@@ -445,6 +449,7 @@
     },
     {
       "id": "stocktake",
+      "image": "02-mobile/stocktake.jpg",
       "title": { "ja": "棚卸をする", "zh": "盘点", "en": "Run a stocktake" },
       "intro": {
         "ja": "倉庫にあるはずの在庫を、実際に数えて確かめる作業です。数えた結果と、システム上の数との違いを「差異」として出し、人が確認してから在庫を直します。",
@@ -558,6 +563,7 @@
     },
     {
       "id": "pending-shipments",
+      "image": "02-mobile/pending-shipments.jpg",
       "title": { "ja": "出荷待ちを片付ける", "zh": "处理待发货", "en": "Clear pending shipments" },
       "intro": {
         "ja": "ヤフオク!で落札されたのに、まだ出庫の記録がない商品の一覧です。荷造りして発送したら、ここから売却を記録します。",
@@ -607,6 +613,7 @@
     },
     {
       "id": "today",
+      "image": "02-mobile/today.jpg",
       "title": { "ja": "本日の登録を確認する", "zh": "查看本日录入", "en": "Review today's entries" },
       "intro": {
         "ja": "自分が今日登録した商品の一覧です。現場で書き写すときや、作業の最後に数を合わせるときに使います。",

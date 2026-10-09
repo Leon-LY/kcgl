@@ -22,6 +22,9 @@ import monitor from './sections/07-monitor.json'
 import concepts from './sections/08-concepts.json'
 
 export * from './types'
+// 截图 URL 解析：仅渲染端（Vite）用——import.meta.glob 是构建期语法，
+// PDF 脚本在 Node 里直接 fs 读图片文件，不经这里。
+export { shotUrl } from './shots'
 
 /**
  * 全部章节（未过滤）。JSON 里 roles 写成 number[]、devices 写成 string[]，

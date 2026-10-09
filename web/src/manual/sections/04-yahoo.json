@@ -10,6 +10,7 @@
   "features": [
     {
       "id": "yahoo-import",
+      "image": "04-yahoo/yahoo-import.jpg",
       "title": { "ja": "受注ファイルを取り込む", "zh": "导入受注文件", "en": "Import an order file" },
       "intro": {
         "ja": "ヤフオク!の受注管理からダウンロードした受注ファイル（xlsx）を取り込みます。取り込むと、落札の記録と出荷待ちが作られます。",
@@ -100,6 +101,7 @@
     },
     {
       "id": "yahoo-shipments",
+      "image": "04-yahoo/yahoo-shipments.jpg",
       "title": { "ja": "出荷待ちを確認する", "zh": "确认待发货", "en": "Check pending shipments" },
       "intro": {
         "ja": "落札されたのにまだ出庫していない商品の一覧です。パソコンからも、スマホからも見られます。",
@@ -135,6 +137,7 @@
     },
     {
       "id": "yahoo-reconcile",
+      "image": "04-yahoo/yahoo-reconcile.jpg",
       "title": { "ja": "食い違いを照合する", "zh": "对账", "en": "Reconcile" },
       "intro": {
         "ja": "ヤフオク!の状態と、このシステムの状態が食い違っている商品を集めた画面です。放っておくと出荷漏れや二重出品につながるので、定期的に見てください。",

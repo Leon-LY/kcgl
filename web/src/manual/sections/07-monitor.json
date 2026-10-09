@@ -15,6 +15,7 @@
   "features": [
     {
       "id": "ledgers",
+      "image": "07-monitor/ledgers.jpg",
       "title": { "ja": "台帳をたどる", "zh": "查询流水台账", "en": "Browse the ledger" },
       "intro": {
         "ja": "すべての在庫の動きを、1つの表としてまとめて見られます。商品1件ごとの履歴では追えない「この日に何が動いたか」を調べるときに使います。",
@@ -71,6 +72,7 @@
     },
     {
       "id": "operation-logs",
+      "image": "07-monitor/operation-logs.jpg",
       "title": { "ja": "操作ログを見る", "zh": "查看操作日志", "en": "Review operation logs" },
       "intro": {
         "ja": "誰がどの画面で何をしたかの記録です。「いつ誰がこの商品を消したか」を調べるときに使います。",
@@ -118,6 +120,7 @@
     },
     {
       "id": "system-status",
+      "image": "07-monitor/system-status.jpg",
       "title": { "ja": "システムの状態を確かめる", "zh": "确认系统状况", "en": "Check system status" },
       "intro": {
         "ja": "「何かおかしい」と感じたときに、まずここを見ます。ふだんは開く必要はありません。",

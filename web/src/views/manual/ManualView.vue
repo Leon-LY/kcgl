@@ -5,7 +5,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useShell } from '@/composables/useShell'
 import AppPageHeader from '@/components/AppPageHeader.vue'
-import { getVisibleSections, pick, pickList, toLang } from '@/manual'
+import { getVisibleSections, pick, pickList, shotUrl, toLang } from '@/manual'
 import type { Device, ManualSection, Role } from '@/manual'
 
 /**
@@ -135,6 +135,20 @@ function onBack(): void {
           >
             {{ pick(feature.intro, lang) }}
           </p>
+
+          <!-- 界面截图（日文定格，D-160）：先给「这页长什么样」，再走下面的步骤。
+               alt 取功能标题——截图内容就是该功能的界面，比「截图」二字有信息。 -->
+          <figure
+            v-if="shotUrl(feature.image)"
+            class="manual-shot"
+          >
+            <img
+              :src="shotUrl(feature.image)"
+              :alt="pick(feature.title, lang)"
+              loading="lazy"
+              decoding="async"
+            >
+          </figure>
 
           <ol class="manual-steps">
             <li
@@ -272,6 +286,25 @@ function onBack(): void {
   color: var(--kcgl-color-text-sub);
   font-size: 0.9rem;
   max-width: 68ch;
+}
+
+/* 截图：width:fit-content 让容器收在图片宽度上（手机截图 390px 原尺寸显示、
+   不被拉大；电脑截图 1440px 超出容器时由 max-width 压回来）。
+   不设固定高度/object-fit：界面图长宽比就是它的信息，裁了反而看不出布局。 */
+.manual-shot {
+  width: fit-content;
+  max-width: 100%;
+  margin: var(--kcgl-space-3) 0 0;
+  border: 1px solid var(--kcgl-color-border);
+  border-radius: var(--kcgl-radius-m);
+  background: var(--kcgl-color-fill);
+  overflow: hidden;
+}
+
+.manual-shot img {
+  display: block;
+  max-width: 100%;
+  height: auto;
 }
 
 /* 步序：**不能用 display:grid 排列**。ol 一旦成为 grid 容器，li 被块级化后

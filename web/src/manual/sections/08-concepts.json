@@ -13,6 +13,7 @@
   "features": [
     {
       "id": "item-code",
+      "image": "08-concepts/item-code.jpg",
       "title": { "ja": "管理番号", "zh": "管理号", "en": "Item code" },
       "intro": {
         "ja": "1件ごとに付く、システムの中だけの番号です。この番号で商品を探し、ヤフオク!の商品と結び付けます。",
@@ -83,6 +84,7 @@
     },
     {
       "id": "qr",
+      "image": "08-concepts/qr.jpg",
       "title": { "ja": "QRコードとラベル", "zh": "二维码与标签", "en": "QR code and labels" },
       "intro": {
         "ja": "QRコードは管理番号を機械で読める形にしたものです。番号そのものと同じ意味しか持ちません。",
@@ -118,6 +120,7 @@
     },
     {
       "id": "stock-status",
+      "image": "08-concepts/stock-status.jpg",
       "title": { "ja": "在庫状態の意味", "zh": "库存状态的含义", "en": "Stock status meanings" },
       "intro": {
         "ja": "「この品物が今どこにあるか」を表す3つの状態です。",
@@ -165,6 +168,7 @@
     },
     {
       "id": "sale-status",
+      "image": "08-concepts/sale-status.jpg",
       "title": { "ja": "販売状態の意味", "zh": "销售状态的含义", "en": "Sale status meanings" },
       "intro": {
         "ja": "「ヤフオク!でどうなっているか」を表す4つの状態です。",
@@ -224,6 +228,7 @@
     },
     {
       "id": "warehouses",
+      "image": "08-concepts/warehouses.jpg",
       "title": { "ja": "2つの倉庫", "zh": "两个仓库", "en": "The two warehouses" },
       "intro": {
         "ja": "名古屋倉庫と福岡倉庫の2つを、1つのシステムで扱います。",
@@ -264,6 +269,7 @@
     },
     {
       "id": "slow-moving",
+      "image": "08-concepts/slow-moving.jpg",
       "title": {
         "ja": "滞留の黄と赤",
         "zh": "滞留的黄与红",

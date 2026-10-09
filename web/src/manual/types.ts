@@ -51,6 +51,18 @@ export interface ManualFeature {
   title: Phrase
   /** 这一功能是干什么的（可略） */
   intro?: Phrase
+  /**
+   * 界面截图，相对 src/manual/screenshots/ 的路径（如 "03-desktop/items.jpg"）。
+   *
+   * 界面截的是**日文定格**（系统默认 ja、甲方是日文读者），中英文正文照旧全写、
+   * 只是配图统一日文；且按管理员视角截（能看到全部操作），正文步骤再按登录者
+   * 角色与当前壳过滤。缺省表示该功能不配图（如「添加到主屏幕」是手机浏览器侧
+   * 的操作，拍不到界面图）。
+   *
+   * 图片本体由 scripts/capture-manual-shots.mjs 经真实 API 造演示数据后拍摄——
+   * 界面改动后要重跑该脚本，否则图与界面会脱节（记 D-160）。
+   */
+  image?: string
   roles?: Role[]
   devices?: Device[]
   steps: ManualStep[]

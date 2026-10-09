@@ -1,5 +1,6 @@
+import { existsSync, readdirSync } from 'node:fs'
 import { describe, expect, test } from 'vitest'
-import { getVisibleSections, manualSections, pick, pickList, toLang } from './index'
+import { getVisibleSections, manualSections, pick, pickList, shotUrl, toLang } from './index'
 import type { Device, ManualSection, Phrase, PhraseList, Role } from './types'
 
 // 手册数据的运行时契约。选 JSON 做源的代价是编译期不再管形状，这一层补回来，
@@ -102,6 +103,50 @@ describe('manual content shape', () => {
         expect(node.list.zh.length, `${node.path} 中日条数不一致`).toBe(node.list.ja.length)
         expect(node.list.en.length, `${node.path} 英日条数不一致`).toBe(node.list.ja.length)
       }
+    }
+  })
+})
+
+describe('manual screenshots', () => {
+  // 用 cwd 而不是 import.meta.url：vitest 里的 import.meta.url 不是 file: 方案，
+  // fileURLToPath 会抛「The URL must be of scheme file」。vitest 的 cwd 即配置根（web/）。
+  const SHOTS_DIR = `${process.cwd()}/src/manual/screenshots/`
+  const ALLOWED_EXT = ['.jpg', '.jpeg', '.png']
+
+  const refs = manualSections.flatMap((section) =>
+    section.features
+      .filter((feature) => feature.image)
+      .map((feature) => ({ path: `${section.id}.${feature.id}`, image: feature.image! })),
+  )
+
+  test('every referenced screenshot exists on disk with a supported extension', () => {
+    for (const { path: node, image } of refs) {
+      expect(
+        ALLOWED_EXT.some((ext) => image.toLowerCase().endsWith(ext)),
+        `${node} 的截图扩展名不在 ${ALLOWED_EXT.join('/')} 之内：${image}`,
+      ).toBe(true)
+      expect(existsSync(`${SHOTS_DIR}${image}`), `${node} 引用的截图不存在：${image}`).toBe(true)
+    }
+  })
+
+  test('every referenced screenshot resolves to a URL in the bundler glob', () => {
+    // 数据里有路径 ≠ 渲染端找得到：glob 的键是 './screenshots/' 前缀 + 原路径，
+    // 此处直接走渲染端那条路，把两侧的约定钉在一起。
+    for (const { path: node, image } of refs) {
+      expect(shotUrl(image), `${node} 的截图没能解析出 URL（glob 未收录）：${image}`).toBeTruthy()
+    }
+  })
+
+  test('no screenshot on disk is left unreferenced by any feature', () => {
+    // 功能改名/删除后旧图会留在仓库里，没人再引它——截图是「构建产物式」资产，
+    // 孤儿文件会让人以为手册还配了这张图。重跑 capture-manual-shots.mjs 可清干净。
+    const referenced = new Set(refs.map((ref) => ref.image))
+    const onDisk = readdirSync(SHOTS_DIR, { recursive: true, encoding: 'utf8' })
+      .filter((entry) => ALLOWED_EXT.some((ext) => entry.toLowerCase().endsWith(ext)))
+      .map((entry) => entry.replace(/\\/g, '/'))
+    expect(onDisk.length, '截图目录是空的——capture-manual-shots.mjs 还没跑过？').toBeGreaterThan(0)
+    for (const file of onDisk) {
+      expect(referenced.has(file), `截图没有对应功能引用，属孤儿文件：${file}`).toBe(true)
     }
   })
 })
