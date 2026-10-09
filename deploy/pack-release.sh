@@ -13,6 +13,7 @@
 #   images/kcgl-app-<版本>.tar  images/kcgl-web-<版本>.tar  images/kcgl-tools-<版本>.tar
 #   images/mysql-8.4.tar  images/flyway-11-alpine.tar（两个第三方基础镜像，见下）
 #   docs/デプロイ手順書.md docs/運用手順書.md（甲方日文文档）
+#   docs/操作手順書-ja.pdf docs/操作手順書-zh.pdf docs/操作手順書-en.pdf（操作手册三语）
 #   MANIFEST.txt（`#` 头部 + sha256 行，甲方可直接 sha256sum -c 校验文件完整性）
 #
 # 用法：./pack-release.sh <版本号> [输出目录]      例：./pack-release.sh v1.0.0 ../dist
@@ -40,6 +41,21 @@ BASE_IMAGES=(mysql:8.4 flyway/flyway:11-alpine)
 for bi in "${BASE_IMAGES[@]}"; do
     docker image inspect "$bi" >/dev/null 2>&1 || {
         echo "错误：本机缺少基础镜像 $bi（先 docker pull $bi 再打包——它必须进交付包）" >&2
+        exit 1
+    }
+done
+
+# 操作手册 PDF（三语）：与应用内手册页共用同一份内容源（web/src/manual/sections/*.json），
+# 由 `cd web && npm run manual:pdf` 生成到 docs/。它是**构建产物**、不入版本库（docs/ 整体
+# 已忽略），所以新克隆/新机器上并不存在——在这里先查，缺了立刻退出。放到 §4b 才发现的话，
+# 要白等三分钟镜像构建（实测过一次）。
+MANUAL_PDFS=()
+for lang in ja zh en; do
+    MANUAL_PDFS+=("操作手順書-$lang.pdf")
+done
+for mf in "${MANUAL_PDFS[@]}"; do
+    [ -f "$ROOT/docs/$mf" ] || {
+        echo "错误：缺少操作手册 docs/$mf（先在 web/ 执行 npm run manual:pdf 生成三语 PDF）" >&2
         exit 1
     }
 done
@@ -91,6 +107,13 @@ copy_ja_doc() {  # $1=仓库内相对 docs/ 的路径 $2=包内文件名
 }
 copy_ja_doc "deployment-ja.md" "デプロイ手順書.md"
 copy_ja_doc "runbook.md"       "運用手順書.md"
+
+# ---------- 4b. 操作手册 PDF（三语） ----------
+# 缺失已在 §0 前置检查拦下，这里只负责拷进包（缺了这份手册，交付包就少一件已约定的
+# 交付物——不该等甲方来问）。
+for mf in "${MANUAL_PDFS[@]}"; do
+    cp -p "$ROOT/docs/$mf" "$PKG/docs/$mf"
+done
 
 # ---------- 5. 清单与校验和 ----------
 # 头部行一律以 `#` 开头：sha256sum -c 会**静默忽略** # 注释行（实测 GNU coreutils），
