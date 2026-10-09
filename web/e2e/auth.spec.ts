@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { waitForViewSettled } from './fixtures'
 
 /**
  * M1 认证冒烟（docs/03 G1）：登录/锁定文案/语言切换/三角色/登出回跳/
@@ -121,5 +122,58 @@ test.describe('mobile shell (Pixel 5 viewport)', () => {
     await expect(page.locator('.shell-mobile')).toBeVisible()
     await expect(page.locator('.shell-desktop')).toHaveCount(0)
     await expect(page.locator('.home-welcome')).toContainText('閲覧者 次郎')
+  })
+})
+
+/**
+ * 登录页落位（**故意不分项目**：移动壳当年是对的、桌面壳是漏的，两个壳都得钉住）。
+ *
+ * 登录页是唯一靠"占满壳内剩余高度"落位的页面（.login-page 用 flex:1 +
+ * min-height:100%）。这条链要有三节才通：壳的 main 是列向 flex → .kcgl-view-slot
+ * 的 flex:1 才有父级可依 → .login-page 才撑得开。桌面壳的 main 漏了 display:flex，
+ * 槽高退回内容高，卡片在自己那个矮盒子里**仍是居中**的——所以只断言"卡片居中"抓不住
+ * 这个缺陷（实测缺陷版该断言为 0 偏差）；能抓住的是"槽有没有占满内容区"。
+ * 缺陷版实测（1920×1080）：内容区 1024px 高，槽仅 401px，卡片 y=96，应居中在 y≈372。
+ */
+test.describe('login page fills the content area whichever shell renders it', () => {
+  test('the login card centres in the content area instead of hugging its top', async ({ page }) => {
+    await page.goto('/login')
+    await waitForViewSettled(page, '.login-card')
+
+    const geometry = await page.evaluate(() => {
+      const box = (selector: string) => document.querySelector(selector)!.getBoundingClientRect()
+      const main = box('.shell-main')
+      const slot = box('.kcgl-view-slot')
+      const card = box('.login-card')
+      const mainStyle = getComputedStyle(document.querySelector('.shell-main')!)
+      return {
+        contentTop: main.top + parseFloat(mainStyle.paddingTop),
+        contentBottom: main.bottom - parseFloat(mainStyle.paddingBottom),
+        slotTop: slot.top,
+        slotBottom: slot.bottom,
+        slotHeight: slot.height,
+        slotCentre: (slot.top + slot.bottom) / 2,
+        cardHeight: card.height,
+        cardCentre: (card.top + card.bottom) / 2,
+      }
+    })
+
+    // ① 挂载点占满壳 main 的内容区（flex 链完整）。主断言：链一断，槽高=卡片高，
+    //    下面②在那个矮盒子里照样成立，光看②抓不住这个缺陷。
+    expect(
+      Math.abs(geometry.slotTop - geometry.contentTop),
+      `挂载点顶边没对齐内容区顶边：${geometry.slotTop} vs ${geometry.contentTop}`,
+    ).toBeLessThanOrEqual(1)
+    expect(
+      Math.abs(geometry.slotBottom - geometry.contentBottom),
+      `挂载点没占满内容区剩余高度（壳的 main 不是列向 flex？）：底边 ${geometry.slotBottom} vs ${geometry.contentBottom}`,
+    ).toBeLessThanOrEqual(1)
+
+    // ② 卡片在内容区里垂直居中；先要留得出居中空间（卡片撑满就无所谓居中了）
+    expect(geometry.cardHeight).toBeLessThan(geometry.slotHeight)
+    expect(
+      Math.abs(geometry.cardCentre - geometry.slotCentre),
+      `登录卡片没有垂直居中：卡片中心 ${geometry.cardCentre}，内容区中心 ${geometry.slotCentre}`,
+    ).toBeLessThanOrEqual(1)
   })
 })

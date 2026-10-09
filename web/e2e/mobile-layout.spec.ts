@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { waitForViewSettled } from './fixtures'
 
 /**
  * 移动壳版面回归（docs/07 §1 三档表、§6 触控）：每条断言各锁一类缺陷。
@@ -28,27 +29,6 @@ async function loginAsEditor(page: Page): Promise<void> {
   await page.fill('#login-password', E2E_PASSWORD)
   await page.getByRole('button', { name: 'ログイン' }).click()
   await expect(page.locator('.home-welcome, .dashboard-view')).toBeVisible()
-}
-
-/**
- * 等目标页面真正挂载、且换页动效走完，再量盒子。
- *
- * 两道门缺一不可：
- *  ① 页面根必须已在（ready 选择器可见）。`page.goto` 是全页加载，RouterView 的
- *    异步块尚未解析时 `.kcgl-view-slot` 是个**空壳**——此时量什么都是 0。实测踩过：
- *     只等 transform 的版本在空壳上直接放行，44px 扫描扫到 **0 个元素**，
- *     把一个 30px 的按钮放进去照样"通过"。
- *  ② transform 必须是 none。kcgl-view 的入场帧给 .kcgl-view-slot 挂了 transform
- *     （brand.css），带 transform 的祖先会成为 fixed 元素的包含块——动效进行中
- *     fixed 元素的 bottom 是相对挂载点算的（比定型后高约 68px），动效结束才回视口。
- */
-async function waitForViewSettled(page: Page, ready: string): Promise<void> {
-  await expect(page.locator(ready)).toBeVisible()
-  await expect
-    .poll(() =>
-      page.evaluate(() => getComputedStyle(document.querySelector('.kcgl-view-slot')!).transform),
-    )
-    .toBe('none')
 }
 
 test.describe('mobile layout', () => {

@@ -357,6 +357,12 @@ function onSwitchMobile(): void {
   width: 100%;
   max-width: 1600px;
   margin: 0 auto;
+  /* 列向 flex：与移动壳同一条契约——.kcgl-view-slot 上的 flex:1 要有父级 flex
+     才生效（brand.css 那层只负责传链）。少了它，槽高退回内容高，"占满剩余高度"
+     的页面（登录页的 min-height:100%）在桌面壳里就只剩内容高，卡片被顶到内容区
+     顶部：1920×1080 实测内容区 1024px，槽仅 401px、卡片落在 y=96。 */
+  display: flex;
+  flex-direction: column;
   padding: var(--kcgl-space-5) var(--kcgl-space-6) var(--kcgl-space-7);
 }
 
