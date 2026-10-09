@@ -1,0 +1,645 @@
+{
+  "id": "mobile",
+  "title": {
+    "ja": "スマホで使う（現場の作業）",
+    "zh": "用手机操作（现场作业）",
+    "en": "Using a phone (field work)"
+  },
+  "intro": {
+    "ja": "現場で行う作業は、すべてスマホで完結します。商品の登録、入庫確認、スキャン、棚卸の4つが中心です。下のバーから画面を行き来できます。",
+    "zh": "现场作业全部可以用手机完成，核心是四项：商品录入、到货核对、扫码、盘点。用底部导航栏在各页面之间切换。",
+    "en": "All field work can be done on a phone. The four core tasks are item entry, arrival check, scanning, and stocktake. Use the bottom bar to move between screens."
+  },
+  "devices": ["mobile"],
+  "features": [
+    {
+      "id": "home",
+      "title": { "ja": "ホーム画面", "zh": "首页", "en": "Home screen" },
+      "intro": {
+        "ja": "ログイン直後に開く画面です。よく使う操作が並んでいます。",
+        "zh": "登录后直接进入的页面，上面摆放着常用操作。",
+        "en": "The screen that opens right after signing in, with the most-used actions."
+      },
+      "steps": [
+        {
+          "title": {
+            "ja": "下のバーで画面を切り替える",
+            "zh": "用底部导航栏切换页面",
+            "en": "Switch screens with the bottom bar"
+          },
+          "body": {
+            "ja": "ホーム／商品登録／入庫確認／スキャン／本日の5つです。「商品登録」は編集者以上の人にだけ表示されます。",
+            "zh": "共五项：首页／商品录入／到货核对／扫码／本日。「商品录入」只对编辑者及以上显示。",
+            "en": "Five entries: Home, Entry, Arrivals, Scan, Today. Entry is shown only to editors and administrators."
+          }
+        },
+        {
+          "title": {
+            "ja": "「よく使う操作」から直接開く",
+            "zh": "用「常用操作」直接打开",
+            "en": "Open directly from Quick actions"
+          },
+          "body": {
+            "ja": "商品の登録／入庫確認／スキャン／本日の登録／棚卸／ラベル印刷／出荷待ちが並びます。ここにしかない画面（棚卸・出荷待ちなど）もあるので、見当たらないときはホームに戻ってください。",
+            "zh": "排列着商品录入／到货核对／扫码／本日录入／盘点／标签打印／待发货。有些页面只在这里有入口（如盘点、待发货），找不到时请回首页。",
+            "en": "These include Register an item, Arrival check, Scan, Today's entries, Stocktake, Label printing, and Pending shipments. Some screens (stocktake, pending shipments) are only reachable from here, so return home if you cannot find one."
+          }
+        },
+        {
+          "title": {
+            "ja": "初期セットアップの案内",
+            "zh": "初始设置引导",
+            "en": "Initial setup guide"
+          },
+          "body": {
+            "ja": "管理者には、使い始めに必要な5つの手順（アカウント作成→会場登録→価格帯登録→商品を1件登録→ラベルを1枚印刷）が表示されます。すべて終わると自然に消えます。",
+            "zh": "管理员会看到开始使用所需的五个步骤（创建账号→登记会场→登记价格档位→试录一件商品→试打一张标签），全部完成后会自动消失。",
+            "en": "Administrators see a five-step guide to get started (create an account, register a venue, register a price band, enter one item, print one label). It disappears once everything is done."
+          },
+          "roles": [1]
+        }
+      ]
+    },
+    {
+      "id": "entry",
+      "title": { "ja": "商品を登録する", "zh": "商品录入", "en": "Register an item" },
+      "intro": {
+        "ja": "現場で落札した品物を1件ずつ登録します。保存すると管理番号とQRコードが自動で発行されます。1回の作業で10〜100件を続けて登録することを想定しています。",
+        "zh": "在现场把落札的商品一件一件登记。保存后系统自动签发管理号和二维码。按一次作业连续录入 10～100 件来设计。",
+        "en": "Register each item won at the venue, one at a time. Saving issues the item code and QR code automatically. Designed for entering 10 to 100 items in one session."
+      },
+      "devices": ["mobile"],
+      "roles": [1, 2],
+      "steps": [
+        {
+          "title": {
+            "ja": "会場を選ぶ",
+            "zh": "选择会场",
+            "en": "Select the venue"
+          },
+          "body": {
+            "ja": "落札した会場を選びます。前回使った会場が覚えられていて、続けて登録するときは選び直す必要がありません。",
+            "zh": "选择落札的会场。系统会记住上次用的会场，连续录入时不需要重新选择。",
+            "en": "Choose the venue where you won the items. The last venue is remembered, so you do not need to pick it again while entering a run."
+          },
+          "note": {
+            "ja": "「前回の会場は今は使えないため、会場を選び直してください」と出たら、その会場は停止されています。別の会場を選んでください。",
+            "zh": "若提示「上次的会场现在已经不能用了，请重新选择会场」，说明该会场已停用，请另选一个。",
+            "en": "If it tells you the previous venue is no longer available, that venue has been disabled. Choose another."
+          }
+        },
+        {
+          "title": {
+            "ja": "落札日と仕入単価を入力する",
+            "zh": "输入落札日和进货单价",
+            "en": "Enter the purchase date and price"
+          },
+          "body": {
+            "ja": "落札日は最初から今日になっています。違う日なら直してください。仕入単価は落札した金額（円）です。",
+            "zh": "落札日默认是今天，不是的话请改。进货单价填落札金额（日元）。",
+            "en": "The purchase date defaults to today; change it if needed. The purchase price is the amount you paid, in yen."
+          },
+          "note": {
+            "ja": "仕入単価を入れると、管理番号の末尾に付く価格帯の記号がすぐ下に表示されます。ここで確認しておくと、後からの訂正が減ります。",
+            "zh": "输入进货单价后，下方会立即显示管理号末尾要用的价格档位字母。事先在这里确认，可以减少事后更正。",
+            "en": "As you type the price, the price-band letter that goes on the end of the item code appears just below. Checking it here avoids later corrections."
+          }
+        },
+        {
+          "title": {
+            "ja": "入庫予定の倉庫を選ぶ",
+            "zh": "选择预计入库仓库",
+            "en": "Select the destination warehouse"
+          },
+          "body": {
+            "ja": "名古屋倉庫か福岡倉庫のどちらかです。実際に入庫するときに違っていれば、入庫確認の画面で変更できます。",
+            "zh": "名古屋仓库或福冈仓库二选一。实际入库时若不同，可在到货核对页面改。",
+            "en": "Choose Nagoya or Fukuoka. If the actual warehouse differs, you can change it on the arrival-check screen."
+          }
+        },
+        {
+          "title": {
+            "ja": "必要なら「その他の項目」を開く",
+            "zh": "需要时展开「更多字段」",
+            "en": "Open More fields when needed"
+          },
+          "body": {
+            "ja": "手数料・送料・消費税は原価合計に含まれます。後から足すこともできます。",
+            "zh": "手续费、运费、税金会计入成本合计，也可以事后补录。",
+            "en": "Fee, shipping, and tax count toward the total cost. You can also add them later."
+          },
+          "bullets": {
+            "ja": [
+              "手数料・送料・消費税：落札金額に足して原価合計になります",
+              "グループ番号：同じ品を2〜3件まとめて扱うときの印。番号は1件ずつ別に発行されます",
+              "棚番号：倉庫の棚の位置",
+              "入庫日：先に入れておくと、入庫スキャンのときに上書きされません",
+              "備考：品物の状態・注意点など自由に書けます"
+            ],
+            "zh": [
+              "手续费・运费・税金：加到落札金额上，构成成本合计",
+              "同组编号：同款 2～3 件一起处理时的标记；管理号仍是一件一个",
+              "货架号：仓库里货架的位置",
+              "入库日期：预先填写后，到仓扫码时不会被覆盖",
+              "备注：品相、注意事项等，自由填写"
+            ],
+            "en": [
+              "Fee / shipping / tax: added to the purchase price to form the total cost",
+              "Group number: a mark for handling 2-3 identical items together; each item still gets its own code",
+              "Shelf number: where the item sits in the warehouse",
+              "Stock-in date: if filled in now, the arrival scan will not overwrite it",
+              "Notes: free text for condition, cautions, and so on"
+            ]
+          }
+        },
+        {
+          "title": {
+            "ja": "写真を撮る",
+            "zh": "拍照",
+            "en": "Take photos"
+          },
+          "body": {
+            "ja": "カメラで撮るか、アルバムから選びます。1件につき9枚までです。撮影日は自動で入ります。",
+            "zh": "可以拍照或从相册选择，每件最多 9 张。拍摄日期自动写入。",
+            "en": "Take a photo or choose from the album, up to 9 per item. The photo date is filled in automatically."
+          },
+          "note": {
+            "ja": "写真は保存したあとに自動で送信されます。電波が届かない場所でも消えず、つながったときに送られます。撮ってから保存するまでの間にアプリを閉じないでください。",
+            "zh": "照片在保存后自动上传。没有信号时也不会丢，联网后自动续传。拍照到保存之间请不要关闭应用。",
+            "en": "Photos upload automatically after saving. They are not lost without signal and are sent once connected. Do not close the app between taking and saving."
+          }
+        },
+        {
+          "title": {
+            "ja": "「登録する」を押す",
+            "zh": "点「保存」",
+            "en": "Select Save"
+          },
+          "body": {
+            "ja": "管理番号とQRコードが発行され、本日何件目かが表示されます。",
+            "zh": "系统签发管理号和二维码，并显示今日第几件。",
+            "en": "The item code and QR code are issued, and the app shows which item of the day this is."
+          }
+        },
+        {
+          "title": {
+            "ja": "現物に管理番号を書く",
+            "zh": "把管理号写到实物上",
+            "en": "Write the item code on the item"
+          },
+          "body": {
+            "ja": "油性ペンで、荷札や収納袋に管理番号を書いてください。事務所に戻ってから、ラベルに貼り替えます。",
+            "zh": "请用油性笔把管理号抄写在吊牌或收纳袋上；回办公室后再换成打印标签。",
+            "en": "Write the item code on the tag or storage bag with an oil-based pen. Back at the office, replace it with a printed label."
+          }
+        },
+        {
+          "title": {
+            "ja": "「続けて登録する」で次の1件へ",
+            "zh": "点「继续录入」录下一件",
+            "en": "Select Register the next item"
+          },
+          "body": {
+            "ja": "会場・倉庫・落札日・仕入単価は前の1件から引き継がれます。変えるところだけ直して、次を登録してください。",
+            "zh": "会场、仓库、落札日、进货单价会沿用上一件。只改需要变的地方，继续登记下一件。",
+            "en": "Venue, warehouse, purchase date, and price carry over from the previous item. Change only what differs and register the next one."
+          }
+        },
+        {
+          "title": {
+            "ja": "間違えて登録したときは（取り消して再登録）",
+            "zh": "登记错了怎么办（作废并重新录入）",
+            "en": "If you registered something wrong (void and re-enter)"
+          },
+          "body": {
+            "ja": "管理番号は発行後に変えられません。金額や会場を間違えたときは、その商品を取り消し、新しい管理番号で登録し直します。取り消した商品は「取り消し済み」として残り、番号は二度と使われません。",
+            "zh": "管理号一经签发就不能更改。金额或会场填错时，请作废该商品，用新的管理号重新登记。作废的商品会以「已作废」状态保留，其管理号不再复用。",
+            "en": "An item code cannot be changed once issued. If the price or venue is wrong, void that item and re-enter it under a new code. The voided item remains marked as voided, and its code is never reused."
+          },
+          "note": {
+            "ja": "取り消した商品の古いラベルは、必ず剥がすか、油性ペンで二重線を引いて無効にしてください。写真はそのまま引き継がれるので、撮り直す必要はありません。",
+            "zh": "作废商品的旧标签必须撕下或用油性笔划双线作废。照片会自动继承，无需重拍。",
+            "en": "Always remove the old label of a voided item, or cross it out with an oil-based pen. Photos carry over, so there is no need to retake them."
+          }
+        }
+      ]
+    },
+    {
+      "id": "arrival",
+      "title": { "ja": "入庫確認をする", "zh": "到货核对", "en": "Check arrivals" },
+      "intro": {
+        "ja": "会場から倉庫に届いた品物を、在庫として受け入れる作業です。ここまで「入庫待ち」だった商品が、在庫になります。",
+        "zh": "把从会场运到仓库的商品接收为在库。到这里为止状态为「待入库」的商品，会变成在库。",
+        "en": "Receive items that arrived at the warehouse from the venue. Items that were awaiting arrival become in stock."
+      },
+      "devices": ["mobile"],
+      "steps": [
+        {
+          "title": {
+            "ja": "入庫待ちの一覧を見る",
+            "zh": "查看待入库清单",
+            "en": "Look at the awaiting-arrival list"
+          },
+          "body": {
+            "ja": "画面上部に「入庫待ち ◯件」と出ます。倉庫で絞り込むこともできます。",
+            "zh": "页面顶部显示「待入库 ◯件」，也可以按仓库筛选。",
+            "en": "The top shows how many items await arrival. You can filter by warehouse."
+          }
+        },
+        {
+          "title": {
+            "ja": "入庫する商品にチェックを入れる",
+            "zh": "勾选要入库的商品",
+            "en": "Tick the items you are stocking in"
+          },
+          "body": {
+            "ja": "まとめて選べます。実際に届いていないものにはチェックを入れないでください。",
+            "zh": "可以批量勾选。实际没到的商品请不要勾。",
+            "en": "You can select several at once. Do not tick items that have not actually arrived."
+          }
+        },
+        {
+          "title": {
+            "ja": "入庫日を入れる（任意）",
+            "zh": "填写入库日期（选填）",
+            "en": "Enter the stock-in date (optional)"
+          },
+          "body": {
+            "ja": "空欄のままなら、今日の入庫として記録されます。",
+            "zh": "留空则记录为今天入库。",
+            "en": "Leave it blank to record the stock-in as today."
+          }
+        },
+        {
+          "title": {
+            "ja": "必要なら倉庫・棚番号を変える",
+            "zh": "需要时修改仓库与货架号",
+            "en": "Change the warehouse or shelf if needed"
+          },
+          "body": {
+            "ja": "登録時の予定と違う倉庫に入れる商品だけ指定します。指定しなかった商品は、予定どおりの倉庫に入ります。棚番号も同じ画面で入れられます。",
+            "zh": "只需指定实际入库仓库与登记时不同的商品；未指定的按登记时的预计仓库入库。货架号也在同一处填写。",
+            "en": "Set this only for items going somewhere other than planned. The rest go to their planned warehouse. The shelf number goes in the same place."
+          }
+        },
+        {
+          "title": {
+            "ja": "「入庫する」を押す",
+            "zh": "点「入库」",
+            "en": "Select Stock In"
+          },
+          "body": {
+            "ja": "在庫状態が「移動中」から「在庫」に変わり、入庫日と倉庫・棚番号が記録されます。",
+            "zh": "库存状态由「在途」变为「在库」，并记下入库日期、仓库与货架号。",
+            "en": "The stock status moves from In transit to In stock, and the date, warehouse, and shelf are recorded."
+          },
+          "roles": [1, 2]
+        },
+        {
+          "title": {
+            "ja": "閲覧者の方は",
+            "zh": "查看者请留意",
+            "en": "If you are a viewer"
+          },
+          "body": {
+            "ja": "入庫待ちの一覧は見られますが、入庫確認の操作には編集者以上の権限が必要です。",
+            "zh": "可以查看待入库清单，但确认入库需要编辑者及以上权限。",
+            "en": "You can view the awaiting-arrival list, but confirming stock-in requires editor permission or above."
+          },
+          "roles": [3]
+        }
+      ]
+    },
+    {
+      "id": "scan",
+      "title": { "ja": "スキャンして在庫を動かす", "zh": "扫码并操作库存", "en": "Scan and move stock" },
+      "intro": {
+        "ja": "商品のQRコードを読み取って、その商品を探し出し、売却・廃棄・移動・返品などを記録します。在庫を動かす操作は、すべてこの画面から行います。",
+        "zh": "读取商品二维码定位商品，然后记录卖出、报废、调拨、退货等。所有库存变动操作都在这个页面进行。",
+        "en": "Scan an item's QR code to bring it up, then record a sale, scrap, transfer, or return. All stock movements start from this screen."
+      },
+      "devices": ["mobile"],
+      "steps": [
+        {
+          "title": {
+            "ja": "QRコードをカメラにかざす",
+            "zh": "把二维码对准摄像头",
+            "en": "Hold the QR code up to the camera"
+          },
+          "body": {
+            "ja": "読み取ると商品が出てきます。暗い場所では「ライト」を押すと、カメラの照明がつきます。",
+            "zh": "读出来后商品会显示出来。光线暗时点「手电」打开摄像头照明。",
+            "en": "The item appears once it reads. In dark places, select Light to turn on the camera light."
+          }
+        },
+        {
+          "title": {
+            "ja": "カメラが使えないときは手入力する",
+            "zh": "摄像头用不了时手动输入",
+            "en": "If the camera is unavailable, type the code"
+          },
+          "body": {
+            "ja": "「管理番号を手入力して検索」に番号を入れて「検索」を押します。カメラは HTTPS の接続のときだけ使えます。",
+            "zh": "在「手动输入管理号查询」里输入编号后点「查询」。摄像头只在 HTTPS 连接下可用。",
+            "en": "Type the code under Search by item code and select Search. The camera works only over an HTTPS connection."
+          },
+          "note": {
+            "ja": "プリンターの調子が悪いときは、ラベルに印刷されている管理番号をそのまま入力できます。",
+            "zh": "打印机出问题时，可以直接输入标签上印着的管理号。",
+            "en": "If the label printer misbehaves, you can type the item code printed on the label."
+          }
+        },
+        {
+          "title": {
+            "ja": "商品の内容を確認する",
+            "zh": "核对商品内容",
+            "en": "Check the item details"
+          },
+          "body": {
+            "ja": "写真・管理番号・落札日・今の状態（在庫／出品中など）が出ます。操作する前に、現物と合っているか確認してください。",
+            "zh": "显示照片、管理号、落札日和当前状态（在库／在售等）。操作前请确认与实物一致。",
+            "en": "The photo, item code, purchase date, and current status appear. Check it matches the physical item before acting."
+          }
+        },
+        {
+          "title": {
+            "ja": "出す操作を選ぶ",
+            "zh": "选择要执行的操作",
+            "en": "Choose the action"
+          },
+          "body": {
+            "ja": "その商品の今の状態で、できる操作だけがボタンで並びます。",
+            "zh": "只显示该商品当前状态下可执行的操作按钮。",
+            "en": "Only the actions available for the item's current state are shown."
+          },
+          "bullets": {
+            "ja": [
+              "売却：売れたとき。落札価格を入れると利益が出ます（空欄でも記録でき、後からヤフオク!の結果で埋まります）",
+              "廃棄：捨てるとき。理由が必須です",
+              "移動：名古屋↔福岡で倉庫を移すとき。行き先を選びます",
+              "出品済みにする：ヤフオク!に出したとき（流拍後の再出品も含む）",
+              "出品取り消し：流拍や出品の取り消しを記録します",
+              "返品を受け取る：お客様から戻ってきたとき。元の倉庫の在庫に戻ります",
+              "会場へ返す：会場に返すとき。出庫扱いになります"
+            ],
+            "zh": [
+              "卖出：售出时使用。填落札价格可算出利润（留空也能记录，之后由雅虎拍卖的结果回填）",
+              "报废：丢弃时使用，必须填理由",
+              "调拨：名古屋↔福冈之间移动仓库，选择目标仓库",
+              "标记已上架：在雅虎拍卖出品时（含流拍后重新出品）",
+              "取消出品标记：流拍或取消出品时记录",
+              "收到退货：客户退回时使用，放回原仓库库存",
+              "退回拍卖场：退回会场时使用，按出库处理"
+            ],
+            "en": [
+              "Sell: when it sells. Enter the sale price to see profit (optional; it is filled in later from the Yahoo Auction result)",
+              "Scrap: when discarding. A reason is required",
+              "Transfer: move between Nagoya and Fukuoka; pick the destination",
+              "Mark as listed: when you list it on Yahoo Auction (including relisting after an unsold close)",
+              "Mark listing canceled: record an unsold close or a cancellation",
+              "Accept return: when a customer returns it; it goes back into the original warehouse's stock",
+              "Return to venue: send it back to the venue; treated as shipped out"
+            ]
+          },
+          "roles": [1, 2]
+        },
+        {
+          "title": {
+            "ja": "確認の画面で押して完了する",
+            "zh": "在确认页面点一下完成",
+            "en": "Confirm on the dialog to finish"
+          },
+          "body": {
+            "ja": "廃棄は理由、移動は行き先、売却は価格（任意）を入れてから確定します。押し間違いを防ぐため、必ず確認の画面が出ます。",
+            "zh": "报废填理由、调拨选目标仓库、卖出填价格（选填）后再确认。为防止误操作，一定会弹出确认页面。",
+            "en": "Enter a reason for scrap, a destination for transfer, and a price for a sale (optional), then confirm. A confirmation dialog always appears to prevent mistakes."
+          },
+          "roles": [1, 2]
+        },
+        {
+          "title": {
+            "ja": "取り消し済み・削除済みの商品",
+            "zh": "已作废／已删除的商品",
+            "en": "Voided or deleted items"
+          },
+          "body": {
+            "ja": "スキャンすると「取り消し済み」「削除済み」と出ます。この画面からは操作できません。取り消し済みの商品は、再登録した新しい管理番号も一緒に表示されます。",
+            "zh": "扫到会显示「已作废」「已删除」，在此页面无法操作。已作废的商品还会一并显示重新录入后的新管理号。",
+            "en": "Scanning one shows Voided or Deleted, and it cannot be operated on here. For a voided item, the new code from re-entry is also shown."
+          }
+        },
+        {
+          "title": {
+            "ja": "閲覧者の方は",
+            "zh": "查看者请留意",
+            "en": "If you are a viewer"
+          },
+          "body": {
+            "ja": "商品を探して内容を見ることはできますが、在庫を動かす操作には編集者以上の権限が必要です。",
+            "zh": "可以扫码查看商品内容，但库存变动操作需要编辑者及以上权限。",
+            "en": "You can scan and view an item, but moving stock requires editor permission or above."
+          },
+          "roles": [3]
+        }
+      ]
+    },
+    {
+      "id": "stocktake",
+      "title": { "ja": "棚卸をする", "zh": "盘点", "en": "Run a stocktake" },
+      "intro": {
+        "ja": "倉庫にあるはずの在庫を、実際に数えて確かめる作業です。数えた結果と、システム上の数との違いを「差異」として出し、人が確認してから在庫を直します。",
+        "zh": "实际清点仓库里应有的库存，把清点结果与系统数量的差别列成「差异」，经人工确认后才调整库存。",
+        "en": "Physically count the stock a warehouse should hold, list the differences against the system, and adjust the stock only after a person confirms."
+      },
+      "devices": ["mobile"],
+      "steps": [
+        {
+          "title": {
+            "ja": "「棚卸を開始する」を押す",
+            "zh": "点「开始盘点」",
+            "en": "Select Start stocktake"
+          },
+          "body": {
+            "ja": "対象の倉庫を選びます。同時にできる棚卸は、1つの倉庫につき1つまでです。",
+            "zh": "选择要盘点的仓库。同一个仓库同时只能有一个盘点单。",
+            "en": "Pick the warehouse. Only one stocktake can run per warehouse at a time."
+          },
+          "roles": [1, 2]
+        },
+        {
+          "title": {
+            "ja": "商品のQRコードを順にかざす",
+            "zh": "依次扫商品二维码",
+            "en": "Scan each item's QR code in order"
+          },
+          "body": {
+            "ja": "数えた件数が画面に出ます。同じ商品を二度読んだときは「スキャン済みの商品です」と出ます。",
+            "zh": "已扫件数会显示出来。同一件重复扫会提示「该商品已扫描过」。",
+            "en": "The scanned count is shown. Scanning the same item twice says it is already scanned."
+          },
+          "note": {
+            "ja": "他倉庫の商品や、システム上は在庫でない商品を読んだときも記録されます。あとで差異の画面で確認できます。電波が届かない場所でも読み取りは記録され、つながったときにまとめて送られます。",
+            "zh": "扫到他仓商品，或系统上非在库的商品，也会被记录下来，稍后在差异页面确认。没有信号时读取也会记录，联网后一并上传。",
+            "en": "Scanning an item from another warehouse, or one that is not in stock in the system, is still recorded and reviewed later on the difference screen. Scans are stored without signal and sent together once connected."
+          }
+        },
+        {
+          "title": {
+            "ja": "「棚卸を締める」を押す",
+            "zh": "点「结束盘点」",
+            "en": "Select Close stocktake"
+          },
+          "body": {
+            "ja": "締めると差異の一覧が作られ、その後のスキャンはできなくなります。未送信のスキャンが残っているときは、送信が終わるまで締められません。",
+            "zh": "结束后会生成差异清单，此后不能再扫码。若有未发送的扫描记录，需等全部送达后才能结束。",
+            "en": "Closing builds the difference list and stops further scanning. If any scans are unsent, closing waits until they are delivered."
+          },
+          "roles": [1, 2]
+        },
+        {
+          "title": {
+            "ja": "差異の一覧を見る",
+            "zh": "查看差异清单",
+            "en": "Review the differences"
+          },
+          "body": {
+            "ja": "差異の種類は4つです。行を押すと、その商品をどう扱うかの説明が出ます。",
+            "zh": "差异分四类。点开某一行会说明该商品将如何被处理。",
+            "en": "There are four kinds of difference. Opening a row explains what will happen to that item."
+          },
+          "bullets": {
+            "ja": [
+              "在庫不足：スキャンされなかった商品。この倉庫の在庫から外します",
+              "在庫超過：システムでは在庫以外の状態だった商品。この倉庫の在庫に加えます",
+              "倉庫違い：別の倉庫の在庫だった商品。この倉庫へ移します",
+              "凍結品：取り消し済み・削除済みの商品。ここでは調整できません"
+            ],
+            "zh": [
+              "盘亏：没扫到的商品，将从本仓在库中移除",
+              "盘盈：系统中非在库状态的商品，将加入本仓在库",
+              "仓库不符：属于其他仓库的在库商品，将移动到本仓",
+              "冻结品：已作废／已删除的商品，在这里无法调整"
+            ],
+            "en": [
+              "Missing: not scanned, so it is removed from this warehouse's stock",
+              "Surplus: not in stock in the system, so it is added to this warehouse's stock",
+              "Wrong warehouse: in stock at another warehouse, so it is moved here",
+              "Frozen item: voided or deleted, and cannot be adjusted here"
+            ]
+          }
+        },
+        {
+          "title": {
+            "ja": "1件ずつ「調整する」か「無視する」を選ぶ",
+            "zh": "逐条选择「确认调整」或「忽略」",
+            "en": "For each row, choose Adjust or Ignore"
+          },
+          "body": {
+            "ja": "「調整する」で在庫が実際の数に合います。「無視する」は、今回は直さないという判断です。全部を処理すると、棚卸は「確認済み」になります。調整した内容は、理由とともに記録に残ります。",
+            "zh": "点「确认调整」会把库存改成实际数量；「忽略」表示这次不调整。全部处理完后，盘点单转为「已确认」。调整内容会连同理由记入流水。",
+            "en": "Adjust brings the stock in line with the actual count. Ignore means leaving it as is this time. Once every row is handled, the stocktake becomes Confirmed. What you adjusted is recorded together with the reason."
+          },
+          "roles": [1, 2]
+        },
+        {
+          "title": {
+            "ja": "閲覧者の方は",
+            "zh": "查看者请留意",
+            "en": "If you are a viewer"
+          },
+          "body": {
+            "ja": "棚卸の記録を見ることはできますが、開始・スキャン・差異の確認には編集者以上の権限が必要です。",
+            "zh": "可以查看盘点记录，但发起、扫码、差异确认都需要编辑者及以上权限。",
+            "en": "You can view stocktake records, but starting, scanning, and confirming differences require editor permission or above."
+          },
+          "roles": [3]
+        }
+      ]
+    },
+    {
+      "id": "pending-shipments",
+      "title": { "ja": "出荷待ちを片付ける", "zh": "处理待发货", "en": "Clear pending shipments" },
+      "intro": {
+        "ja": "ヤフオク!で落札されたのに、まだ出庫の記録がない商品の一覧です。荷造りして発送したら、ここから売却を記録します。",
+        "zh": "列出在雅虎拍卖已落札、但还没有出库记录的商品。打包发出后，从这里记录卖出。",
+        "en": "Items sold on Yahoo Auction that have no shipment recorded yet. After packing and sending, record the sale from here."
+      },
+      "devices": ["mobile"],
+      "steps": [
+        {
+          "title": {
+            "ja": "滞留している商品を確認する",
+            "zh": "确认滞留的商品",
+            "en": "Check the stalled items"
+          },
+          "body": {
+            "ja": "落札から日が経っているものには「出荷遅延」の印がつきます。",
+            "zh": "落札后隔得久的会标上「发货滞留」。",
+            "en": "Items sitting a while since the sale are flagged as delayed."
+          }
+        },
+        {
+          "title": {
+            "ja": "「この商品を売り上げる」を押す",
+            "zh": "点「卖出此商品」",
+            "en": "Select Sell this item"
+          },
+          "body": {
+            "ja": "スキャンの画面に移り、その商品がすでに選ばれた状態で開きます。売却の操作を済ませてください。",
+            "zh": "会跳到扫码页面，并已定位到该商品，完成卖出操作即可。",
+            "en": "This opens the scan screen with the item already pulled up. Complete the sale there."
+          },
+          "roles": [1, 2]
+        },
+        {
+          "title": {
+            "ja": "一覧が空のとき",
+            "zh": "清单为空时",
+            "en": "When the list is empty"
+          },
+          "body": {
+            "ja": "パソコンからヤフーの受注ファイルを取り込むと、出荷待ちの商品がここに並びます。",
+            "zh": "从电脑端导入雅虎受注文件后，待发货的商品就会出现在这里。",
+            "en": "After importing a Yahoo order file on a PC, items awaiting shipment appear here."
+          }
+        }
+      ]
+    },
+    {
+      "id": "today",
+      "title": { "ja": "本日の登録を確認する", "zh": "查看本日录入", "en": "Review today's entries" },
+      "intro": {
+        "ja": "自分が今日登録した商品の一覧です。現場で書き写すときや、作業の最後に数を合わせるときに使います。",
+        "zh": "列出自己今天登记的商品。现场誊写、或收工时对数都用它。",
+        "en": "The items you registered today. Use it to write things down in the field or to reconcile counts at the end of the day."
+      },
+      "devices": ["mobile"],
+      "steps": [
+        {
+          "title": {
+            "ja": "今日の件数を確認する",
+            "zh": "确认今日件数",
+            "en": "Check today's counts"
+          },
+          "body": {
+            "ja": "「本日 ◯件・取り消し △件」と出ます。取り消した商品には「取り消し」の印がつきます。",
+            "zh": "显示「本日 ◯件・作废 △件」。作废的商品带「已作废」标记。",
+            "en": "It shows today's count and how many were voided. Voided items are tagged."
+          }
+        },
+        {
+          "title": {
+            "ja": "他の人の登録は出ません",
+            "zh": "看不到别人的录入",
+            "en": "You do not see other people's entries"
+          },
+          "body": {
+            "ja": "この画面は自分の分だけです。全体の状況は、パソコンのダッシュボードや商品一覧で見られます。",
+            "zh": "这个页面只显示你自己的。整体情况请在电脑端的仪表盘或商品列表查看。",
+            "en": "This screen shows only your own entries. For the whole picture, use the dashboard or item list on a PC."
+          }
+        }
+      ]
+    }
+  ]
+}

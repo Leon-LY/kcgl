@@ -1,0 +1,246 @@
+{
+  "id": "admin",
+  "title": { "ja": "管理の設定", "zh": "管理设置", "en": "Administration" },
+  "intro": {
+    "ja": "使い始めに一度だけ整えるものと、ときどき見直すものです。権限によって開ける画面が違います。",
+    "zh": "有些是开始使用时配置一次，有些是偶尔复查。能打开的页面随权限而不同。",
+    "en": "Some of this is set up once at the start; some is reviewed occasionally. Which screens open depends on your role."
+  },
+  "devices": ["desktop"],
+  "features": [
+    {
+      "id": "venues",
+      "title": { "ja": "会場を登録する", "zh": "登记会场", "en": "Register venues" },
+      "intro": {
+        "ja": "落札した場所のことです。会場コードは管理番号の先頭2文字になるので、最初に決めてください。",
+        "zh": "会场就是落札的地点。会场代码会成为管理号的前两位，请最先确定。",
+        "en": "A venue is where you won items. Its code becomes the first two characters of item codes, so settle it first."
+      },
+      "roles": [1, 2],
+      "steps": [
+        {
+          "title": {
+            "ja": "「会場を追加」を押す",
+            "zh": "点「新增会场」",
+            "en": "Select Add venue"
+          },
+          "body": {
+            "ja": "会場コード（半角英字2桁、例：AB）と会場名（例：飛騨古民具市）を入れます。",
+            "zh": "输入会场代码（2 位大写英文字母，如 AB）与会场名称（如 飞驒古民具市）。",
+            "en": "Enter the code (two uppercase letters, for example AB) and the venue name."
+          }
+        },
+        {
+          "title": {
+            "ja": "コードは後から変えられません",
+            "zh": "代码之后不能修改",
+            "en": "The code cannot be changed later"
+          },
+          "body": {
+            "ja": "発行済みの管理番号に使われているためです。名前は後から変更できます。",
+            "zh": "因为它已被已签发的管理号使用。名称之后可以修改。",
+            "en": "It is already used in issued item codes. The name can be changed later."
+          }
+        },
+        {
+          "title": {
+            "ja": "使わなくなった会場を停止する",
+            "zh": "停用不再使用的会场",
+            "en": "Disable a venue you no longer use"
+          },
+          "body": {
+            "ja": "停止すると、登録時の選択肢に出なくなります。過去の商品の記録はそのまま残ります。",
+            "zh": "停用后在登记时不再出现为选项，过去商品的记录原样保留。",
+            "en": "A disabled venue no longer appears when registering. Past item records stay unchanged."
+          },
+          "roles": [1]
+        }
+      ]
+    },
+    {
+      "id": "price-bands",
+      "title": { "ja": "価格帯を決める", "zh": "设定价格档位", "en": "Set price bands" },
+      "intro": {
+        "ja": "仕入単価を記号1文字に置き換える表です。その記号が管理番号の末尾に付きます。",
+        "zh": "把进货单价换算成一个字母的表，该字母会加在管理号末尾。",
+        "en": "A table that turns a purchase price into a single letter. That letter goes on the end of the item code."
+      },
+      "roles": [1],
+      "steps": [
+        {
+          "title": {
+            "ja": "「価格帯を追加」を押す",
+            "zh": "点「新增档位」",
+            "en": "Select Add band"
+          },
+          "body": {
+            "ja": "記号（半角英字1桁、例：X）と、対象の価格の範囲を入れます。",
+            "zh": "输入字母（1 位大写英文字母，如 X）与适用价格范围。",
+            "en": "Enter the letter (one uppercase letter, for example X) and the price range it covers."
+          }
+        },
+        {
+          "title": {
+            "ja": "範囲は「下限以上・上限未満」",
+            "zh": "范围按「下限以上、上限未满」处理",
+            "en": "Ranges are treated as lower bound inclusive, upper bound exclusive"
+          },
+          "body": {
+            "ja": "下限を空欄にすると下限なし、上限を空欄にすると上限なしになります。重複する範囲は保存できません。",
+            "zh": "下限留空表示向下无限制，上限留空表示向上无限制。区间重叠无法保存。",
+            "en": "Leave the lower bound blank for no bottom limit, or the upper bound blank for no top limit. Overlapping ranges cannot be saved."
+          },
+          "note": {
+            "ja": "すべての価格を1つの記号でまとめることもできます。運用が単純なときはそのほうが間違えません。",
+            "zh": "也可以用一个字母覆盖所有价格。运用简单时这样做更不容易出错。",
+            "en": "You can also cover all prices with a single letter. That is less error-prone when your operation is simple."
+          }
+        },
+        {
+          "title": {
+            "ja": "該当する価格帯が無いとき",
+            "zh": "没有匹配的价格档位时",
+            "en": "When no band matches"
+          },
+          "body": {
+            "ja": "登録の画面で「該当する価格帯がありません」と出て、保存できません。ここで価格帯を足すか、範囲を見直してください。",
+            "zh": "登记页面会提示「没有匹配的价格档位」且无法保存。请在此处补一个档位，或调整区间。",
+            "en": "The entry screen reports that no band matches and cannot save. Add a band here or adjust the ranges."
+          }
+        }
+      ]
+    },
+    {
+      "id": "users",
+      "title": { "ja": "アカウントを作る", "zh": "创建账号", "en": "Create accounts" },
+      "intro": {
+        "ja": "使う人ごとに1つ作ります。権限は3つで、「管理者」「編集者」「閲覧者」です。",
+        "zh": "每个使用者各建一个。权限分三种：管理员、编辑者、查看者。",
+        "en": "Create one per person. There are three roles: Administrator, Editor, and Viewer."
+      },
+      "roles": [1],
+      "steps": [
+        {
+          "title": {
+            "ja": "「アカウントを追加」を押す",
+            "zh": "点「新增账号」",
+            "en": "Select Add account"
+          },
+          "body": {
+            "ja": "ユーザー名（半角英数字と - _、3〜32字）、表示名、権限、初期パスワード（10文字以上）を入れます。",
+            "zh": "输入用户名（半角英数字与 - _，3～32 位）、显示名、权限、初始密码（至少 10 个字符）。",
+            "en": "Enter the username (letters, digits, - and _, 3-32 characters), display name, role, and an initial password (at least 10 characters)."
+          }
+        },
+        {
+          "title": {
+            "ja": "3つの権限の違い",
+            "zh": "三种权限的区别",
+            "en": "How the three roles differ"
+          },
+          "bullets": {
+            "ja": [
+              "管理者：すべてできます。商品の削除・復元、アカウント管理、価格帯、システム設定、台帳、操作ログ、システム状況も見られます",
+              "編集者：登録・入庫・スキャンによる在庫操作・棚卸・エクセルや受注の取り込みができます。商品の削除と、価格帯・アカウント・設定・監視の画面は開けません",
+              "閲覧者：見る・探す・書き出すだけです。在庫を動かす操作はできません"
+            ],
+            "zh": [
+              "管理员：全部可用。能删除与恢复商品、管理账号、设定价格档位与系统设置，也能看流水台账、操作日志、系统状况",
+              "编辑者：可录入、入库、扫码操作库存、盘点，以及导入 Excel 与受注文件。不能删除商品，也打不开价格档位、账号、设置与监控类页面",
+              "查看者：只看、只查、只导出，不能做任何库存变动操作"
+            ],
+            "en": [
+              "Administrator: everything. Can delete and restore items, manage accounts, set price bands and system settings, and view the ledger, operation logs, and system status",
+              "Editor: can register, stock in, move stock by scanning, run stocktakes, and import Excel and order files. Cannot delete items or open the price band, account, settings, and monitoring screens",
+              "Viewer: view, search, and export only. No stock movements"
+            ]
+          }
+        },
+        {
+          "title": {
+            "ja": "初期パスワードを本人に渡す",
+            "zh": "把初始密码交给本人",
+            "en": "Hand the initial password to the person"
+          },
+          "body": {
+            "ja": "本人が初めてログインしたときに、自分でパスワードを変更します。",
+            "zh": "本人首次登录时，会被要求自己修改密码。",
+            "en": "The person changes it themselves the first time they sign in."
+          }
+        },
+        {
+          "title": {
+            "ja": "パスワードを忘れたときは再発行する",
+            "zh": "忘记密码时重置",
+            "en": "Reset a forgotten password"
+          },
+          "body": {
+            "ja": "「パスワード再発行」を押すと、新しい初期パスワードがこの画面に一度だけ表示されます。必ず控えて本人に伝えてください。",
+            "zh": "点「重置密码」后，新的初始密码只在此页面显示一次，请务必记下并转告本人。",
+            "en": "Select Reset password. The new initial password is shown only once on this screen, so note it down and tell the person."
+          }
+        },
+        {
+          "title": {
+            "ja": "ロックを解除する",
+            "zh": "解除锁定",
+            "en": "Unlock an account"
+          },
+          "body": {
+            "ja": "パスワードを間違え続けてロックされた人には、「ロック解除」を押します。",
+            "zh": "连续输错密码被锁定的人，点「解除锁定」。",
+            "en": "For someone locked out by repeated wrong passwords, select Unlock."
+          }
+        },
+        {
+          "title": {
+            "ja": "辞めた人は停止する",
+            "zh": "离职的人要停用",
+            "en": "Disable the account of someone who has left"
+          },
+          "body": {
+            "ja": "アカウントは削除できないので、停止します。停止すると、その人はすぐにログインできなくなります。記録は残ります。",
+            "zh": "账号不能删除，只能停用。停用后该人立即无法登录，记录仍保留。",
+            "en": "Accounts cannot be deleted, only disabled. Disabling stops the person signing in immediately, and records stay."
+          }
+        }
+      ]
+    },
+    {
+      "id": "settings",
+      "title": { "ja": "システム設定を変える", "zh": "修改系统设置", "en": "Change system settings" },
+      "intro": {
+        "ja": "滞留のしきい値と、ラベルの既定サイズを決めます。",
+        "zh": "设定滞留阈值与标签的默认尺寸。",
+        "en": "Set the slow-moving thresholds and the default label size."
+      },
+      "roles": [1],
+      "steps": [
+        {
+          "title": {
+            "ja": "滞留のしきい値を決める",
+            "zh": "设定滞留阈值",
+            "en": "Set the slow-moving thresholds"
+          },
+          "body": {
+            "ja": "在庫日数が黄色のしきい値を超えると「滞留」、赤を超えると「長期滞留」として商品一覧に表示されます。黄色は赤より小さい日数にしてください。",
+            "zh": "在库天数超过黄色阈值标「滞留」，超过红色标「长期滞留」，显示在商品列表里。黄色阈值须小于红色阈值。",
+            "en": "Items held past the yellow threshold are tagged Slow, past the red threshold Long-term slow, in the item list. Yellow must be smaller than red."
+          }
+        },
+        {
+          "title": {
+            "ja": "ラベルの既定サイズを決める",
+            "zh": "设定标签默认尺寸",
+            "en": "Set the default label size"
+          },
+          "body": {
+            "ja": "ラベル印刷の画面で最初に選ばれているサイズです。幅と高さを mm で入れます。",
+            "zh": "这是标签打印页面默认选中的尺寸，宽高以 mm 填写。",
+            "en": "This is the size pre-selected on the label-printing screen. Enter width and height in mm."
+          }
+        }
+      ]
+    }
+  ]
+}

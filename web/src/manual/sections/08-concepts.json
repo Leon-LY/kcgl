@@ -1,0 +1,305 @@
+{
+  "id": "concepts",
+  "title": {
+    "ja": "用語と状態の意味",
+    "zh": "术语与状态的含义",
+    "en": "Terms and status meanings"
+  },
+  "intro": {
+    "ja": "画面に出てくる言葉の意味をまとめました。分からなくなったら、ここに戻ってきてください。",
+    "zh": "汇总了界面上出现的词的含义。弄不清时回到这里看看。",
+    "en": "What the words on screen mean. Come back here whenever something is unclear."
+  },
+  "features": [
+    {
+      "id": "item-code",
+      "title": { "ja": "管理番号", "zh": "管理号", "en": "Item code" },
+      "intro": {
+        "ja": "1件ごとに付く、システムの中だけの番号です。この番号で商品を探し、ヤフオク!の商品と結び付けます。",
+        "zh": "每件商品独有的、系统内部使用的编号。用它查找商品，并与雅虎拍卖的商品对应起来。",
+        "en": "A number unique to each item, used inside the system. It locates items and links them to their Yahoo Auction listings."
+      },
+      "steps": [
+        {
+          "title": {
+            "ja": "番号の成り立ち",
+            "zh": "编号的构成",
+            "en": "How the code is built"
+          },
+          "bullets": {
+            "ja": [
+              "例：HT9-A12X",
+              "HT：会場コード（この会場を表す2文字）",
+              "9：月（9月の落札）",
+              "A12：その月の通し番号",
+              "X：価格帯の記号（仕入単価がどの範囲に入るか）"
+            ],
+            "zh": [
+              "例：HT9-A12X",
+              "HT：会场代码（代表该会场的两位字母）",
+              "9：月份（9 月落札）",
+              "A12：该月的流水号",
+              "X：价格档位字母（进货单价落在哪个区间）"
+            ],
+            "en": [
+              "Example: HT9-A12X",
+              "HT: venue code (two letters identifying the venue)",
+              "9: month (won in September)",
+              "A12: the running number within that month",
+              "X: price-band letter (which price range the purchase falls into)"
+            ]
+          }
+        },
+        {
+          "title": {
+            "ja": "年は入りません",
+            "zh": "不含年份",
+            "en": "The year is not part of it"
+          },
+          "body": {
+            "ja": "番号に年を入れない運用です。月と通し番号で一意になるようにしています。",
+            "zh": "编号不体现年份，用月份与流水号保证唯一。",
+            "en": "The code deliberately omits the year; the month plus running number keeps it unique."
+          }
+        },
+        {
+          "title": {
+            "ja": "番号は後から変えられません",
+            "zh": "编号不能事后更改",
+            "en": "The code cannot be changed later"
+          },
+          "body": {
+            "ja": "発行された番号は固定です。内容を直しても番号は変わりません。金額や会場を間違えたときは「取り消して再登録」を使います。",
+            "zh": "签发后固定不变。即使修改内容，编号也不变。金额或会场填错时用「作废并重新录入」。",
+            "en": "Once issued it is fixed. Editing the content does not change it. If the price or venue is wrong, use Void and re-enter."
+          },
+          "note": {
+            "ja": "取り消した番号は、二度と使いません。欠番になりますが、それが正しい姿です。",
+            "zh": "作废过的编号不再复用，会成为空号——这是设计如此。",
+            "en": "A voided code is never reused. It becomes a gap, and that is correct."
+          }
+        }
+      ]
+    },
+    {
+      "id": "qr",
+      "title": { "ja": "QRコードとラベル", "zh": "二维码与标签", "en": "QR code and labels" },
+      "intro": {
+        "ja": "QRコードは管理番号を機械で読める形にしたものです。番号そのものと同じ意味しか持ちません。",
+        "zh": "二维码是管理号的机器可读形式，含义与管理号完全相同。",
+        "en": "The QR code is the item code in machine-readable form. It means exactly the same thing."
+      },
+      "steps": [
+        {
+          "title": {
+            "ja": "現場では手書き、事務所でラベル",
+            "zh": "现场手写，办公室贴标签",
+            "en": "Write by hand in the field, print labels at the office"
+          },
+          "body": {
+            "ja": "現場では油性ペンで番号を書き、事務所に戻ってからラベルを印刷して貼り替えます。手書きの番号からでも、スキャン画面の手入力で商品を探せます。",
+            "zh": "现场用油性笔写编号，回办公室后打印标签换上。手写的编号也能在扫码页面手动输入查到商品。",
+            "en": "Write the code with an oil-based pen in the field, then print labels at the office and swap them in. A hand-written code can still be looked up by typing it on the scan screen."
+          }
+        },
+        {
+          "title": {
+            "ja": "ラベルを貼り替えたら古いものは無効にする",
+            "zh": "换标签后要让旧的失效",
+            "en": "Invalidate the old label when you replace it"
+          },
+          "body": {
+            "ja": "取り消した商品の古いラベルが残っていると、現場で読み違えます。必ず剥がすか、油性ペンで二重線を引いてください。",
+            "zh": "作废商品的旧标签若还留着，现场会读错。务必撕下或用油性笔划双线。",
+            "en": "If a voided item's old label stays, someone will scan the wrong thing. Always remove it or cross it out with an oil-based pen."
+          }
+        }
+      ]
+    },
+    {
+      "id": "stock-status",
+      "title": { "ja": "在庫状態の意味", "zh": "库存状态的含义", "en": "Stock status meanings" },
+      "intro": {
+        "ja": "「この品物が今どこにあるか」を表す3つの状態です。",
+        "zh": "表示「这件东西现在在哪里」的三种状态。",
+        "en": "Three states that say where the physical item is right now."
+      },
+      "steps": [
+        {
+          "title": {
+            "ja": "移動中",
+            "zh": "在途",
+            "en": "In transit"
+          },
+          "body": {
+            "ja": "まだ倉庫に届いていません。会場で登録したばかりの状態です。入庫確認をすると次の状態になります。",
+            "zh": "还没到仓库。刚在现场登记完的状态。做完到货核对就进入下一个状态。",
+            "en": "It has not reached the warehouse yet: just registered at the venue. Checking the arrival moves it on."
+          }
+        },
+        {
+          "title": {
+            "ja": "在庫",
+            "zh": "在库",
+            "en": "In stock"
+          },
+          "body": {
+            "ja": "倉庫にあり、売れる状態です。売却・廃棄・移動・返品の操作ができます。",
+            "zh": "在仓库里、可以卖的状态。可以卖出、报废、调拨、退货。",
+            "en": "Sitting in the warehouse and available to sell. You can sell, scrap, transfer, or return it."
+          }
+        },
+        {
+          "title": {
+            "ja": "出庫済み",
+            "zh": "已出库",
+            "en": "Shipped out"
+          },
+          "body": {
+            "ja": "倉庫から出た状態です。売れたか、捨てたか、会場に返したか、のいずれかです。",
+            "zh": "已经出仓库的状态，可能是卖了、报废了，或退回会场了。",
+            "en": "It has left the warehouse: sold, scrapped, or returned to the venue."
+          }
+        }
+      ]
+    },
+    {
+      "id": "sale-status",
+      "title": { "ja": "販売状態の意味", "zh": "销售状态的含义", "en": "Sale status meanings" },
+      "intro": {
+        "ja": "「ヤフオク!でどうなっているか」を表す4つの状態です。",
+        "zh": "表示「在雅虎拍卖上处于什么状况」的四种状态。",
+        "en": "Four states that say where the item stands on Yahoo Auction."
+      },
+      "steps": [
+        {
+          "title": {
+            "ja": "未出品",
+            "zh": "未上架",
+            "en": "Not listed"
+          },
+          "body": {
+            "ja": "まだヤフオク!に出していません。",
+            "zh": "还没有在雅虎拍卖出品。",
+            "en": "Not put up for sale on Yahoo Auction yet."
+          }
+        },
+        {
+          "title": {
+            "ja": "出品中",
+            "zh": "在售",
+            "en": "Listed"
+          },
+          "body": {
+            "ja": "ヤフオク!に出しています。まだ売れていません。",
+            "zh": "已在雅虎拍卖出品，还没卖掉。",
+            "en": "On Yahoo Auction, not sold yet."
+          }
+        },
+        {
+          "title": {
+            "ja": "落札済み",
+            "zh": "已成交",
+            "en": "Sold"
+          },
+          "body": {
+            "ja": "買う人が決まりました。受注ファイルを取り込むか、手動で落札を記録すると、この状態になります。",
+            "zh": "有人买下了。导入受注文件、或手动记录落札后即为此状态。",
+            "en": "A buyer has been decided. Importing an order file, or recording the sale by hand, sets this."
+          }
+        },
+        {
+          "title": {
+            "ja": "キャンセル",
+            "zh": "已取消",
+            "en": "Canceled"
+          },
+          "body": {
+            "ja": "流拍、または出品を取り消した状態です。受注ファイルには取消の情報が入らないため、スキャン画面での手動の記録が唯一の情報源になります。",
+            "zh": "流拍或已取消出品。受注文件里不含取消信息，所以扫码页面的手动记录是唯一的来源。",
+            "en": "The listing closed unsold or was canceled. Order files carry no cancellation data, so the manual record on the scan screen is the only source."
+          }
+        }
+      ]
+    },
+    {
+      "id": "warehouses",
+      "title": { "ja": "2つの倉庫", "zh": "两个仓库", "en": "The two warehouses" },
+      "intro": {
+        "ja": "名古屋倉庫と福岡倉庫の2つを、1つのシステムで扱います。",
+        "zh": "名古屋仓库与福冈仓库，在同一套系统里管理。",
+        "en": "Nagoya and Fukuoka are managed in the same system."
+      },
+      "steps": [
+        {
+          "title": {
+            "ja": "倉庫ごとに数えられます",
+            "zh": "可以按仓库分别统计",
+            "en": "Counts can be split by warehouse"
+          },
+          "body": {
+            "ja": "倉庫別のサマリー、倉庫での絞り込み、倉庫単位の棚卸ができます。",
+            "zh": "可以看分仓概况、按仓库筛选、按仓库盘点。",
+            "en": "You get a per-warehouse summary, warehouse filters, and stocktakes per warehouse."
+          }
+        },
+        {
+          "title": {
+            "ja": "倉庫を移すのは「移動」",
+            "zh": "改仓走「调拨」",
+            "en": "Moving between warehouses uses Transfer"
+          },
+          "body": {
+            "ja": "名古屋↔福岡の移動は、スキャン画面の「移動」で記録します。直接倉庫を書き換えることはできません。",
+            "zh": "名古屋↔福冈之间的移动，在扫码页面用「调拨」记录。不能直接改写仓库字段。",
+            "en": "Record Nagoya to Fukuoka moves with Transfer on the scan screen. You cannot overwrite the warehouse field directly."
+          },
+          "note": {
+            "ja": "在庫中の商品は「移動」を使います。移動中（入庫前）の商品だけは、商品詳細の編集で倉庫を直せます。",
+            "zh": "在库的商品走「调拨」；只有在途（入库前）的商品可以在商品详情里直接改仓库。",
+            "en": "In-stock items go through Transfer. Only items in transit (before arrival) can have their warehouse corrected from the item details."
+          }
+        }
+      ]
+    },
+    {
+      "id": "slow-moving",
+      "title": {
+        "ja": "滞留の黄と赤",
+        "zh": "滞留的黄与红",
+        "en": "Slow-moving yellow and red"
+      },
+      "intro": {
+        "ja": "入庫してから長く売れていない商品に印を付けて、気づけるようにしています。",
+        "zh": "给入库后长期没卖掉的商品加标记，便于及时发现。",
+        "en": "Items sitting unsold for a long time get flagged so they are noticed."
+      },
+      "steps": [
+        {
+          "title": {
+            "ja": "黄色と赤の2段階",
+            "zh": "分黄、红两档",
+            "en": "Two levels, yellow and red"
+          },
+          "body": {
+            "ja": "入庫からの日数が黄色のしきい値を超えると「滞留」、赤のしきい値を超えると「長期滞留」になります。日数はシステム設定で変えられます。",
+            "zh": "入库后的天数超过黄色阈值为「滞留」，超过红色阈值为「长期滞留」。天数可在系统设置里改。",
+            "en": "Past the yellow threshold in days since arrival it is Slow; past the red threshold it is Long-term slow. The day counts are set under System Settings."
+          }
+        },
+        {
+          "title": {
+            "ja": "どこに出るか",
+            "zh": "在哪里显示",
+            "en": "Where it shows"
+          },
+          "body": {
+            "ja": "商品一覧の行、ダッシュボードの件数、そして絞り込みの「滞留：黄・赤」です。",
+            "zh": "商品列表的行、仪表盘的件数，以及筛选里的「滞留：黄·红」。",
+            "en": "On item-list rows, in the dashboard counts, and under the slow-moving filters."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -58,6 +58,14 @@ onBeforeUnmount(() => {
         <button
           v-if="auth.me"
           type="button"
+          class="shell-help"
+          @click="router.push({ name: 'help' })"
+        >
+          {{ t('common.help') }}
+        </button>
+        <button
+          v-if="auth.me"
+          type="button"
           class="shell-logout"
           @click="onLogout"
         >
@@ -212,6 +220,27 @@ onBeforeUnmount(() => {
 }
 
 .shell-logout:active {
+  color: var(--kcgl-ink-text);
+  border-color: var(--kcgl-ink-text-dim);
+}
+
+/* 帮助入口：与登出同为 ≥44px 触控目标；按下的反馈区分开——登出转向亮字（危险
+   动作前的确认感），帮助是普通导航，不做额外强调，避免被当成"退出"误触。 */
+.shell-help {
+  min-height: 44px;
+  padding: 0 var(--kcgl-space-3);
+  border: 1px solid var(--kcgl-ink-line);
+  border-radius: var(--kcgl-radius-s);
+  background: transparent;
+  color: var(--kcgl-ink-text-dim);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition:
+    border-color var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    color var(--kcgl-dur-fast) var(--kcgl-ease-out);
+}
+
+.shell-help:active {
   color: var(--kcgl-ink-text);
   border-color: var(--kcgl-ink-text-dim);
 }

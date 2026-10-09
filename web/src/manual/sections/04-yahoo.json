@@ -1,0 +1,184 @@
+{
+  "id": "yahoo",
+  "title": { "ja": "ヤフー連携", "zh": "雅虎联动", "en": "Yahoo integration" },
+  "intro": {
+    "ja": "ヤフオク!の受注ファイルを取り込むと、落札された商品・出荷待ちの商品・食い違いがこのシステムに出てきます。取り込まなくても、登録・スキャン・出庫は普通に使えます。",
+    "zh": "导入雅虎拍卖的受注文件后，落札的商品、待发货的商品与对不上的地方就会出现在本系统里。不导入也不影响录入、扫码、出库等日常使用。",
+    "en": "Importing a Yahoo Auction order file brings sold items, pending shipments, and mismatches into this system. Entry, scanning, and shipping all work fine without importing."
+  },
+  "devices": ["desktop"],
+  "features": [
+    {
+      "id": "yahoo-import",
+      "title": { "ja": "受注ファイルを取り込む", "zh": "导入受注文件", "en": "Import an order file" },
+      "intro": {
+        "ja": "ヤフオク!の受注管理からダウンロードした受注ファイル（xlsx）を取り込みます。取り込むと、落札の記録と出荷待ちが作られます。",
+        "zh": "导入从雅虎拍卖受注管理下载的受注文件（xlsx）。导入后会生成落札记录与待发货清单。",
+        "en": "Import the order file (xlsx) downloaded from Yahoo Auction order management. This creates the sale records and the pending-shipment list."
+      },
+      "steps": [
+        {
+          "title": {
+            "ja": "ヤフオク!で受注ファイルをダウンロードする",
+            "zh": "在雅虎拍卖下载受注文件",
+            "en": "Download the order file from Yahoo Auction"
+          },
+          "body": {
+            "ja": "ヤフオク!の受注管理から、受注ファイル（xlsx）をそのままダウンロードします。加工は不要です。",
+            "zh": "在雅虎拍卖的受注管理里直接下载受注文件（xlsx），不需要做任何加工。",
+            "en": "From Yahoo Auction order management, download the order file (xlsx) as-is. No editing is needed."
+          }
+        },
+        {
+          "title": {
+            "ja": "「ファイルを選択」で取り込む",
+            "zh": "点「选择文件」导入",
+            "en": "Select Choose file and import"
+          },
+          "body": {
+            "ja": "ファイルは5MBまでです。処理は数秒で終わり、結果は下の履歴に並びます。",
+            "zh": "文件需在 5MB 以内。处理只需几秒，结果列在下方的历史里。",
+            "en": "The file must be 5MB or less. Processing takes a few seconds and the result appears in the history below."
+          },
+          "roles": [1, 2]
+        },
+        {
+          "title": {
+            "ja": "履歴で結果を見る",
+            "zh": "在历史里看结果",
+            "en": "Read the result in the history"
+          },
+          "body": {
+            "ja": "総行数・一致・不一致・既存更新の件数が出ます。「詳細を見る」で、行ごとの内容を確認できます。",
+            "zh": "显示总行数、匹配、未匹配、更新既有的件数。点「查看详情」可逐行查看。",
+            "en": "It shows the total rows, matches, unmatched rows, and updated items. Select Details to see row by row."
+          }
+        },
+        {
+          "title": {
+            "ja": "「不一致」の行を確かめる",
+            "zh": "核对「未匹配」的行",
+            "en": "Check the unmatched rows"
+          },
+          "body": {
+            "ja": "受注ファイルにあるのに、このシステムに無い管理番号の行です。原文の管理番号のまま残ります。商品が登録されれば、次の取り込みで一致します。",
+            "zh": "这些是受注文件里有、但本系统里没有的管理号。会按受注文件原文的管理号保留。商品登记之后，下次导入即可匹配。",
+            "en": "These are codes present in the order file but not in this system. They are kept exactly as written. Once the item is registered, the next import matches it."
+          },
+          "note": {
+            "ja": "以前のシステムで使っていた形式の管理番号は、照合できません。その場合は商品を登録し直してください。",
+            "zh": "旧系统格式的管理号无法匹配，这类商品请重新登记。",
+            "en": "Codes in the previous system's format never match. Register those items again."
+          }
+        },
+        {
+          "title": {
+            "ja": "同じファイルを二度取り込んでも大丈夫",
+            "zh": "同一份文件导两次也没关系",
+            "en": "Importing the same file twice is safe"
+          },
+          "body": {
+            "ja": "同じ内容のファイルは「既にインポート済みです」となり、二重に数えません。出品回数や取消記録も正しく保たれます。",
+            "zh": "相同内容的文件会提示「已导入过」，不会重复计数，出品次数与取消记录也保持正确。",
+            "en": "An identical file reports that it was already imported and is not double-counted. Listing counts and cancellation records stay correct."
+          }
+        },
+        {
+          "title": {
+            "ja": "閲覧者の方は",
+            "zh": "查看者请留意",
+            "en": "If you are a viewer"
+          },
+          "body": {
+            "ja": "履歴と結果を見ることはできますが、取り込みの操作には編集者以上の権限が必要です。",
+            "zh": "可以查看历史与结果，但导入操作需要编辑者及以上权限。",
+            "en": "You can view the history and results, but importing requires editor permission or above."
+          },
+          "roles": [3]
+        }
+      ]
+    },
+    {
+      "id": "yahoo-shipments",
+      "title": { "ja": "出荷待ちを確認する", "zh": "确认待发货", "en": "Check pending shipments" },
+      "intro": {
+        "ja": "落札されたのにまだ出庫していない商品の一覧です。パソコンからも、スマホからも見られます。",
+        "zh": "列出已落札但还没出库的商品。电脑和手机都能查看。",
+        "en": "Items sold but not yet shipped. Visible from both a PC and a phone."
+      },
+      "steps": [
+        {
+          "title": {
+            "ja": "滞留している商品を確かめる",
+            "zh": "确认滞留的商品",
+            "en": "Check the stalled items"
+          },
+          "body": {
+            "ja": "落札から日が経っているものに「出荷遅延」の印がつきます。荷造りが済んだものから片付けてください。",
+            "zh": "落札后隔得久的标「发货滞留」。从打包好的开始处理。",
+            "en": "Items sitting a long time since the sale are flagged as delayed. Clear the ones you have packed."
+          }
+        },
+        {
+          "title": {
+            "ja": "一覧が空のとき",
+            "zh": "清单为空时",
+            "en": "When the list is empty"
+          },
+          "body": {
+            "ja": "受注ファイルを取り込むと、出荷待ちの商品がここに並びます。",
+            "zh": "导入受注文件后，待发货的商品就会出现在这里。",
+            "en": "After importing an order file, items awaiting shipment appear here."
+          }
+        }
+      ]
+    },
+    {
+      "id": "yahoo-reconcile",
+      "title": { "ja": "食い違いを照合する", "zh": "对账", "en": "Reconcile" },
+      "intro": {
+        "ja": "ヤフオク!の状態と、このシステムの状態が食い違っている商品を集めた画面です。放っておくと出荷漏れや二重出品につながるので、定期的に見てください。",
+        "zh": "汇总雅虎拍卖的状态与本系统状态对不上的商品。放着不管容易漏发或重复出品，请定期查看。",
+        "en": "Gathers items whose state differs between Yahoo Auction and this system. Left alone this leads to missed shipments or double listings, so check it regularly."
+      },
+      "steps": [
+        {
+          "title": {
+            "ja": "3つの食い違いを見る",
+            "zh": "看三类对不上的地方",
+            "en": "Review the three kinds of mismatch"
+          },
+          "bullets": {
+            "ja": [
+              "落札済み・未出庫：売れたのに出庫の記録がないもの。荷造りして出庫してください",
+              "落札なし・再出品待ち：流拍したので、ヤフオク!で出品し直す必要があるもの",
+              "出庫済み・ヤフー出品中：もう出庫したのに、ヤフオク!でまだ売りに出ているもの。取り下げてください"
+            ],
+            "zh": [
+              "已落札·未出库：卖掉了却没有出库记录，请打包并出库",
+              "流拍·待重新出品：流拍了，需要在雅虎拍卖重新出品",
+              "已出库·雅虎仍在售：已经出库了，但雅虎拍卖上还在卖，请撤下出品"
+            ],
+            "en": [
+              "Sold, not shipped: it sold but has no shipment record. Pack and ship it",
+              "Unsold, awaiting relist: it did not sell, so it must be relisted on Yahoo Auction",
+              "Shipped but still listed: it has already shipped yet is still for sale on Yahoo Auction. Withdraw the listing"
+            ]
+          }
+        },
+        {
+          "title": {
+            "ja": "「直近で同期済み」の印",
+            "zh": "「近期已同步」标记",
+            "en": "The recently-synced flag"
+          },
+          "body": {
+            "ja": "取り込み直後の行に付きます。すでに対応したものが紛れていないかを見分けるための印です。",
+            "zh": "标在刚导入的行上，用于分辨哪些是已经处理过的。",
+            "en": "It appears on rows just imported, to help tell which you have already handled."
+          }
+        }
+      ]
+    }
+  ]
+}

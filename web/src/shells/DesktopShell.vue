@@ -148,6 +148,14 @@ function onSwitchMobile(): void {
           <button
             v-if="auth.me"
             type="button"
+            class="shell-help"
+            @click="router.push({ name: 'help' })"
+          >
+            {{ t('common.help') }}
+          </button>
+          <button
+            v-if="auth.me"
+            type="button"
             class="shell-logout"
             @click="onLogout"
           >
@@ -344,6 +352,27 @@ function onSwitchMobile(): void {
 .shell-logout:hover {
   color: var(--kcgl-color-danger);
   border-color: var(--kcgl-color-danger-border);
+}
+
+/* 帮助入口：与登出同形不同色——登出在悬停时转向危险色，帮助是中性的导航动作，
+   两者若共用一套悬停反馈，鼠标扫过时会误读成危险操作 */
+.shell-help {
+  height: 32px;
+  padding: 0 var(--kcgl-space-3);
+  border: 1px solid var(--kcgl-color-border);
+  border-radius: var(--kcgl-radius-s);
+  background: var(--kcgl-color-card);
+  color: var(--kcgl-color-text-sub);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition:
+    border-color var(--kcgl-dur-fast) var(--kcgl-ease-out),
+    color var(--kcgl-dur-fast) var(--kcgl-ease-out);
+}
+
+.shell-help:hover {
+  color: var(--kcgl-color-primary);
+  border-color: var(--kcgl-color-primary);
 }
 
 /* 内容容器：1600 上限（docs/07 §4）。v1=1080 → v2=1280 的理由是「11 列表格被迫

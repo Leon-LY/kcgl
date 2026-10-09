@@ -1,0 +1,236 @@
+{
+  "id": "start",
+  "title": { "ja": "はじめに", "zh": "开始使用", "en": "Getting started" },
+  "intro": {
+    "ja": "このシステムは、スマホとパソコンのどちらからでも使えます。同じデータを見ているので、現場でスマホから登録した商品は、事務所のパソコンにすぐ出てきます。ここでは、使い始める前に知っておくことを説明します。",
+    "zh": "本系统在手机和电脑上都能使用。两端看的是同一份数据，现场用手机登记的商品，办公室电脑上马上就能看到。这里说明开始使用前需要了解的内容。",
+    "en": "This system works on both phones and PCs. Both see the same data, so an item registered on a phone in the field shows up on the office PC right away. This section covers what to know before you start."
+  },
+  "features": [
+    {
+      "id": "login",
+      "title": { "ja": "ログインする", "zh": "登录", "en": "Sign in" },
+      "intro": {
+        "ja": "ログインすると、そのアカウントの権限で使える画面だけが表示されます。",
+        "zh": "登录后，只会显示该账号权限范围内可用的页面。",
+        "en": "After signing in, only the screens your account is allowed to use are shown."
+      },
+      "steps": [
+        {
+          "title": {
+            "ja": "ユーザー名とパスワードを入力する",
+            "zh": "输入用户名和密码",
+            "en": "Enter your username and password"
+          },
+          "body": {
+            "ja": "ユーザー名とパスワードは管理者から渡されます。",
+            "zh": "用户名和密码由管理员发放。",
+            "en": "Your username and password are provided by your administrator."
+          }
+        },
+        {
+          "title": { "ja": "「ログイン」を押す", "zh": "点「登录」", "en": "Select Sign in" },
+          "body": {
+            "ja": "ログインしたままにしておくと、次回は入力なしで開けます。共用のパソコンでは、使い終わったら右上の「ログアウト」を押してください。",
+            "zh": "保持登录状态，下次打开就不用再输入。共用电脑上，用完请点右上角「退出登录」。",
+            "en": "If you stay signed in, the app opens without asking again. On a shared PC, select Sign out at the top right when you finish."
+          }
+        },
+        {
+          "title": {
+            "ja": "パスワードを間違え続けたときは",
+            "zh": "连续输错密码时",
+            "en": "If you enter the wrong password repeatedly"
+          },
+          "body": {
+            "ja": "アカウントが一時的にロックされます。時間をおいてから、もう一度お試しください。",
+            "zh": "账号会被暂时锁定。请过一段时间后再试。",
+            "en": "The account is temporarily locked. Wait a while and try again."
+          },
+          "note": {
+            "ja": "「このアカウントは無効になっています」と出る場合は、管理者がアカウントを停止しています。管理者にご連絡ください。",
+            "zh": "若提示「该账号已被停用」，说明管理员已停用该账号，请联系管理员。",
+            "en": "If it says the account has been disabled, an administrator has switched it off. Please contact your administrator."
+          }
+        }
+      ]
+    },
+    {
+      "id": "first-password",
+      "title": {
+        "ja": "初回のパスワード変更",
+        "zh": "首次登录修改密码",
+        "en": "Change your password on first sign-in"
+      },
+      "intro": {
+        "ja": "新しいアカウントで初めてログインしたときは、パスワードの変更を求められます。",
+        "zh": "用新账号首次登录时，系统会要求修改密码。",
+        "en": "The first time you sign in with a new account, you are asked to change the password."
+      },
+      "steps": [
+        {
+          "title": {
+            "ja": "現在のパスワードと、新しいパスワードを2回入力する",
+            "zh": "输入当前密码，并把新密码输入两次",
+            "en": "Enter the current password and the new password twice"
+          },
+          "body": {
+            "ja": "新しいパスワードは10文字以上です。",
+            "zh": "新密码需至少 10 个字符。",
+            "en": "The new password must be at least 10 characters."
+          }
+        },
+        {
+          "title": { "ja": "「変更する」を押す", "zh": "点「修改」", "en": "Select Change" },
+          "body": {
+            "ja": "変更が終わるまで、他の画面は開けません。",
+            "zh": "修改完成前，无法打开其他页面。",
+            "en": "Other screens stay closed until the change is done."
+          }
+        }
+      ]
+    },
+    {
+      "id": "language",
+      "title": {
+        "ja": "表示言語を切り替える",
+        "zh": "切换界面语言",
+        "en": "Switch the display language"
+      },
+      "intro": {
+        "ja": "画面の言葉は、日本語・中文・English の3つから選べます。人によって違う言葉で使えます。",
+        "zh": "界面文字可在日本語・中文・English 三种之间选择，各人可以各用各的语言。",
+        "en": "The interface can be shown in Japanese, Chinese, or English. Each person can choose their own."
+      },
+      "steps": [
+        {
+          "title": {
+            "ja": "画面の右上にある言語の切り替えを押す",
+            "zh": "点右上角的语言切换",
+            "en": "Select the language switch at the top right"
+          },
+          "body": {
+            "ja": "選んだ言語は、そのアカウントに記憶されます。次にログインしたときも同じ言語で開きます。",
+            "zh": "所选语言会记在该账号上，下次登录仍用同一语言打开。",
+            "en": "The language you pick is remembered for your account and opens the same way next time."
+          }
+        },
+        {
+          "title": {
+            "ja": "品物の名前や備考は翻訳されません",
+            "zh": "商品名、备注不会被翻译",
+            "en": "Item names and notes are not translated"
+          },
+          "body": {
+            "ja": "入力した言葉のままの形で保存され、そのまま表示されます。画面のボタンや項目名だけが切り替わります。",
+            "zh": "按录入时的原文原样保存、原样显示。只有按钮和字段名等界面文字会随之切换。",
+            "en": "They are stored and shown exactly as typed. Only interface text such as buttons and field names switches."
+          }
+        }
+      ]
+    },
+    {
+      "id": "shell-switch",
+      "title": {
+        "ja": "スマホ表示とパソコン表示を切り替える",
+        "zh": "在手机版与电脑版之间切换",
+        "en": "Switch between phone view and desktop view"
+      },
+      "intro": {
+        "ja": "同じ1つのシステムですが、画面の作りが2つあります。スマホならスマホ用、パソコンならパソコン用が自動で開きます。手動で切り替えることもできます。",
+        "zh": "同一套系统有两种版面。手机自动用手机版，电脑自动用电脑版；也可以手动切换。",
+        "en": "It is one system with two layouts. A phone opens the phone view, a PC the desktop view, automatically. You can also switch by hand."
+      },
+      "steps": [
+        {
+          "title": {
+            "ja": "パソコン表示からスマホ表示に切り替える",
+            "zh": "从电脑版切到手机版",
+            "en": "From desktop view to phone view"
+          },
+          "body": {
+            "ja": "左側のメニューの一番下にある「スマホ表示」を押します。",
+            "zh": "点左侧菜单最下方的「手机版」。",
+            "en": "Select Phone view at the bottom of the left-hand menu."
+          }
+        },
+        {
+          "title": {
+            "ja": "スマホ表示からパソコン表示に切り替える",
+            "zh": "从手机版切到电脑版",
+            "en": "From phone view to desktop view"
+          },
+          "body": {
+            "ja": "ホーム画面の「表示切替」から切り替えます。",
+            "zh": "在首页用「显示方式」切换。",
+            "en": "Use Switch view on the home screen."
+          }
+        },
+        {
+          "title": {
+            "ja": "パソコン専用の画面について",
+            "zh": "关于电脑专用页面",
+            "en": "About desktop-only screens"
+          },
+          "body": {
+            "ja": "商品一覧や管理画面など、パソコンでしか開けない画面があります。スマホから開こうとすると案内が出るので、「パソコン表示に切り替えて開く」を押すと、そのまま開けます。",
+            "zh": "商品列表、管理页面等只能在电脑版打开。手机上去打开时会给出提示，点「切到电脑版并打开」即可直接打开。",
+            "en": "Some screens, such as the item list and admin screens, only open in the desktop view. Opening one from a phone shows a prompt; select Switch to desktop view and open to continue."
+          }
+        }
+      ]
+    },
+    {
+      "id": "home-screen",
+      "title": {
+        "ja": "スマホのホーム画面に追加する",
+        "zh": "添加到手机主屏幕",
+        "en": "Add to the phone home screen"
+      },
+      "intro": {
+        "ja": "アプリとしてホーム画面に追加すると、アプリのように開けて、写真の一時保存も消えにくくなります。",
+        "zh": "添加到主屏幕后，可以像应用一样打开，照片的临时保存也不容易被清掉。",
+        "en": "Adding it to the home screen lets it open like an app and keeps temporarily stored photos safer."
+      },
+      "devices": ["mobile"],
+      "steps": [
+        {
+          "title": {
+            "ja": "iPhone の場合：Safari の「共有」から追加する",
+            "zh": "iPhone：用 Safari 的「分享」添加",
+            "en": "On iPhone: use Share in Safari"
+          },
+          "body": {
+            "ja": "Safari でこのシステムを開き、「共有」ボタン →「ホーム画面に追加」を押します。",
+            "zh": "用 Safari 打开本系统，点「分享」按钮 →「添加到主屏幕」。",
+            "en": "Open the system in Safari, select Share, then Add to Home Screen."
+          }
+        },
+        {
+          "title": {
+            "ja": "Android の場合：ブラウザのメニューから追加する",
+            "zh": "Android：用浏览器菜单添加",
+            "en": "On Android: use the browser menu"
+          },
+          "body": {
+            "ja": "ブラウザのメニュー →「アプリをインストール」／「ホーム画面に追加」を押します。",
+            "zh": "浏览器菜单 →「安装应用」／「添加到主屏幕」。",
+            "en": "Browser menu, then Install app or Add to Home Screen."
+          }
+        },
+        {
+          "title": {
+            "ja": "追加しなくても使えます",
+            "zh": "不加主屏幕也能用",
+            "en": "It works without adding it"
+          },
+          "body": {
+            "ja": "ブラウザからそのまま使えます。ただし、写真を撮ってから送信されるまでの間、長い期間アプリを開かないと、一時保存が消えることがあります。現場写真が多い日は、ホーム画面に追加しておくと安心です。",
+            "zh": "直接在浏览器里用也可以。但照片从拍摄到上传完成之间，若长时间不打开，临时保存可能被清除。现场拍照多的日子，建议先加好主屏幕更稳妥。",
+            "en": "You can use it straight from the browser. However, between taking a photo and it uploading, photos may be cleared if the app is not opened for a long time. On photo-heavy days, adding it to the home screen is safer."
+          }
+        }
+      ]
+    }
+  ]
+}

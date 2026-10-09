@@ -1,0 +1,352 @@
+{
+  "id": "desktop",
+  "title": {
+    "ja": "パソコンで使う（事務所の作業）",
+    "zh": "用电脑操作（办公室作业）",
+    "en": "Using a PC (office work)"
+  },
+  "intro": {
+    "ja": "事務所では、全体の状況を見たり、商品を探したり、ラベルを印刷したりします。左側のメニューから画面を選びます。",
+    "zh": "在办公室主要做三件事：看整体情况、查商品、打标签。从左栏菜单选择页面。",
+    "en": "In the office you review the overall picture, look up items, and print labels. Pick screens from the left-hand menu."
+  },
+  "devices": ["desktop"],
+  "features": [
+    {
+      "id": "dashboard",
+      "title": { "ja": "ダッシュボード（全体の状況）", "zh": "仪表盘（整体情况）", "en": "Dashboard (overview)" },
+      "intro": {
+        "ja": "パソコンで最初に開く画面です。今の在庫や、ヤフー連携のやるべきことが一目でわかります。",
+        "zh": "在电脑上最先打开的页面。一眼看清当前库存和雅虎联动要做的事。",
+        "en": "The first screen that opens on a PC. It shows the current stock and what needs doing for Yahoo at a glance."
+      },
+      "steps": [
+        {
+          "title": {
+            "ja": "全体サマリーを見る",
+            "zh": "看整体概况",
+            "en": "Read the overall summary"
+          },
+          "body": {
+            "ja": "全社の在庫・入庫待ち・出庫済みの件数、今月の入出庫、滞留（黄・赤）の件数、在庫評価額、平均在庫日数が出ます。",
+            "zh": "显示全公司的在库、待入库、已出库件数，本月出入库、滞留（黄・红）件数、在库货值与平均库龄。",
+            "en": "Shows company-wide counts of in-stock, awaiting arrival, and shipped items, this month's inbound and outbound, slow-moving (yellow and red) counts, stock value, and average stock age."
+          }
+        },
+        {
+          "title": {
+            "ja": "倉庫別サマリーを見る",
+            "zh": "看分仓概况",
+            "en": "Read the per-warehouse summary"
+          },
+          "body": {
+            "ja": "名古屋と福岡を並べて比べられます。",
+            "zh": "名古屋与福冈并排对比。",
+            "en": "Nagoya and Fukuoka side by side."
+          }
+        },
+        {
+          "title": {
+            "ja": "ヤフー連携のやるべきことを見る",
+            "zh": "看雅虎联动的待办",
+            "en": "See the Yahoo to-do card"
+          },
+          "body": {
+            "ja": "「落札済み・未出庫」「キャンセル・再出品待ち」「出品取り下げ必要」の件数と、最後に受注ファイルを取り込んだ時刻が出ます。押すと該当の画面へ移ります。",
+            "zh": "显示「已成交·未出库」「已取消·待重新出品」「需撤下出品」的件数，以及最近导入受注文件的时间。点击可跳到对应页面。",
+            "en": "It shows counts for sold-but-not-shipped, canceled-awaiting-relist, and needs-withdrawal, plus when the last order file was imported. Select one to jump to that screen."
+          }
+        },
+        {
+          "title": {
+            "ja": "初期セットアップの案内",
+            "zh": "初始设置引导",
+            "en": "Initial setup guide"
+          },
+          "body": {
+            "ja": "管理者には、使い始めの5つの手順が表示されます。すべて終わると消えます。",
+            "zh": "管理员会看到开始使用的五个步骤，全部完成后消失。",
+            "en": "Administrators see a five-step getting-started guide. It disappears once everything is done."
+          },
+          "roles": [1]
+        }
+      ]
+    },
+    {
+      "id": "items",
+      "title": { "ja": "商品を探す（商品一覧）", "zh": "查找商品（商品列表）", "en": "Find items (item list)" },
+      "intro": {
+        "ja": "登録した商品を検索・絞り込みして探します。1件の詳しい内容を見るときは、行を押して商品詳細へ移ります。",
+        "zh": "搜索、筛选已登记的商品。要看某一件的详细内容，点该行进入商品详情。",
+        "en": "Search and filter registered items. To see one item in detail, open its row."
+      },
+      "devices": ["desktop"],
+      "steps": [
+        {
+          "title": {
+            "ja": "検索する",
+            "zh": "搜索",
+            "en": "Search"
+          },
+          "body": {
+            "ja": "管理番号・商品名・会場・棚番号などで探せます。ひらがな・カタカナ、大文字・小文字は区別されません。",
+            "zh": "可按管理号、商品名、会场、货架号等搜索。平假名/片假名、大小写不区分。",
+            "en": "Search by item code, name, venue, shelf number, and more. Kana type and letter case are ignored."
+          }
+        },
+        {
+          "title": {
+            "ja": "条件で絞り込む",
+            "zh": "按条件筛选",
+            "en": "Filter"
+          },
+          "bullets": {
+            "ja": [
+              "在庫状態（移動中／在庫／出庫済み）と販売状態（未出品／出品中／落札済み／キャンセル）",
+              "倉庫、会場、落札日の範囲",
+              "滞留：すべて／滞留（黄・赤）／長期滞留（赤）"
+            ],
+            "zh": [
+              "库存状态（在途／在库／已出库）与销售状态（未上架／在售／已成交／已取消）",
+              "仓库、会场、落札日范围",
+              "滞留：全部／滞留（黄·红）／长期滞留（红）"
+            ],
+            "en": [
+              "Stock status (in transit / in stock / shipped) and sale status (not listed / listed / sold / canceled)",
+              "Warehouse, venue, and a range of purchase dates",
+              "Slow-moving: all / slow (yellow and red) / long-term slow (red)"
+            ]
+          }
+        },
+        {
+          "title": {
+            "ja": "一覧の見方",
+            "zh": "看懂列表",
+            "en": "Read the list"
+          },
+          "body": {
+            "ja": "在庫日数が黄色のしきい値を超えた商品に「滞留」、赤を超えた商品に「長期滞留」の印がつきます。しきい値はシステム設定で変えられます。",
+            "zh": "在库天数超过黄色阈值的标「滞留」，超过红色的标「长期滞留」。阈值可在系统设置里改。",
+            "en": "Items held past the yellow threshold are tagged Slow, past the red threshold Long-term slow. Thresholds are set under System Settings."
+          }
+        },
+        {
+          "title": {
+            "ja": "まとめて操作する",
+            "zh": "批量操作",
+            "en": "Bulk actions"
+          },
+          "body": {
+            "ja": "複数の行にチェックを入れると、まとめて削除できます。結果は1件ずつ表示され、できなかったものは理由が出ます。",
+            "zh": "勾选多行可批量删除。结果逐条显示，失败会给出理由。",
+            "en": "Tick several rows to act on them together. Results are reported per item, with reasons for any that failed."
+          },
+          "roles": [1]
+        },
+        {
+          "title": {
+            "ja": "削除した商品を元に戻す",
+            "zh": "恢复已删除的商品",
+            "en": "Restore deleted items"
+          },
+          "body": {
+            "ja": "「削除済み商品」のタブに切り替え、「復元する」を押すと元に戻ります。削除は完全には消えず、番号も再利用されません。",
+            "zh": "切到「已删除商品」标签页，点「恢复」即可还原。删除不是彻底清除，管理号也不复用。",
+            "en": "Switch to the Deleted items tab and select Restore. Deleting never erases, and the code is not reused."
+          },
+          "roles": [1]
+        }
+      ]
+    },
+    {
+      "id": "item-detail",
+      "title": { "ja": "1件の商品を詳しく見る", "zh": "查看单件商品详情", "en": "Item details" },
+      "intro": {
+        "ja": "1件の商品の全項目、これまでの動き（取引履歴）、ヤフーでの受注履歴をまとめて見られます。",
+        "zh": "集中查看一件商品的全部字段、历来的变动（交易流水）与雅虎受注历史。",
+        "en": "See all fields for one item, its history of movements, and its Yahoo order history in one place."
+      },
+      "devices": ["desktop"],
+      "steps": [
+        {
+          "title": {
+            "ja": "3つのタブを使い分ける",
+            "zh": "使用三个标签页",
+            "en": "Use the three tabs"
+          },
+          "bullets": {
+            "ja": [
+              "基本情報：会場・落札日・仕入単価・手数料・送料・税金・原価合計・落札価格・利益、在庫状態・販売状態、倉庫・棚番号・入庫日・備考、写真",
+              "取引履歴：登録・入庫・売却・廃棄・移動・返品・棚卸調整など、この商品に起きたことを時系列で",
+              "ヤフー受注：注文番号・オークションID・出品価格・落札価格・出品日時"
+            ],
+            "zh": [
+              "基本信息：会场、落札日、进货单价、手续费、运费、税金、成本合计、落札价格、利润、库存与销售状态、仓库、货架号、入库日期、备注、照片",
+              "交易流水：登记、入库、卖出、报废、调拨、退货、盘点调整等，按时间顺序列出这件商品身上发生的事",
+              "雅虎受注：订单号、拍卖 ID、出品价格、落札价格、出品时间"
+            ],
+            "en": [
+              "Basic info: venue, purchase date, purchase price, fee, shipping, tax, total cost, sold price, profit, stock and sale status, warehouse, shelf, stock-in date, notes, photos",
+              "Ledger: registration, arrival, sale, scrap, transfer, return, stocktake adjustment and more, in time order",
+              "Yahoo orders: order ID, auction ID, list price, sold price, listed time"
+            ]
+          }
+        },
+        {
+          "title": {
+            "ja": "管理番号発行時の内容と違うときは",
+            "zh": "与签发管理号时的内容不一致时",
+            "en": "When values differ from code issuance"
+          },
+          "body": {
+            "ja": "「管理番号発行時の内容と現在の値が異なります」と表示されます。入札後に直した内容がある場合に出るので、内容を確かめてください。",
+            "zh": "会显示「与管理号签发时的内容不一致」。这是登记后又改过内容时出现的提示，请核对。",
+            "en": "It notes that current values differ from those issued with the item code. This appears when the item was edited after entry, so check the details."
+          }
+        },
+        {
+          "title": {
+            "ja": "内容を直す",
+            "zh": "修改内容",
+            "en": "Edit the item"
+          },
+          "body": {
+            "ja": "「編集する」から直します。管理番号は変わりません。倉庫は、移動中の商品だけここで変えられます。在庫中の商品は、スキャン画面の「移動」で移してください。",
+            "zh": "点「编辑」修改，管理号不变。仓库只有「在途」的商品能在这里改；「在库」的商品请走扫码页的「调拨」。",
+            "en": "Select Edit. The item code does not change. Only items in transit can change warehouse here; for in-stock items use Transfer on the scan screen."
+          },
+          "roles": [1, 2]
+        },
+        {
+          "title": {
+            "ja": "状態を直接直す（管理者）",
+            "zh": "直接修正状态（管理员）",
+            "en": "Correct the status directly (administrator)"
+          },
+          "body": {
+            "ja": "ボタンの操作では直せない誤った状態を、管理者が理由をつけて直接直します。直した内容は理由とともに記録に残ります。倉庫はこの画面では変えられません。",
+            "zh": "按钮操作改不过来的错误状态，由管理员附上理由直接改正，改动内容连同理由记入流水。本页不能改仓库。",
+            "en": "An administrator can fix a wrong status that the normal buttons cannot correct, with a reason. What changed and why is recorded. The warehouse cannot be changed here."
+          },
+          "roles": [1]
+        },
+        {
+          "title": {
+            "ja": "誤って登録した商品を直す",
+            "zh": "修正错误登记的商品",
+            "en": "Fix a wrongly registered item"
+          },
+          "body": {
+            "ja": "金額や会場を間違えたときは「取り消して再登録」を使います。取り消した商品は「取り消し済み」として残り、新しい管理番号で登録し直します。写真は引き継がれます。古いラベルは剥がすか、二重線で無効にしてください。",
+            "zh": "金额或会场填错时用「作废并重新录入」。作废的商品以「已作废」保留，用新管理号重新登记，照片自动继承。旧标签请撕下或划双线作废。",
+            "en": "If the price or venue is wrong, use Void and re-enter. The voided item stays marked as voided and is re-entered under a new code, with photos carried over. Remove or cross out the old label."
+          },
+          "roles": [1, 2]
+        },
+        {
+          "title": {
+            "ja": "商品を削除する",
+            "zh": "删除商品",
+            "en": "Delete the item"
+          },
+          "body": {
+            "ja": "「削除する」で削除済みになります。削除済みの商品は商品一覧の「削除済み商品」から復元できます。",
+            "zh": "点「删除」置为已删除。已删除的商品可在商品列表的「已删除商品」里恢复。",
+            "en": "Select Delete to mark it deleted. Deleted items can be restored from Deleted items in the item list."
+          },
+          "roles": [1]
+        },
+        {
+          "title": {
+            "ja": "写真を入れ替える",
+            "zh": "调整照片",
+            "en": "Manage photos"
+          },
+          "body": {
+            "ja": "写真の並び順を変えたり、1枚だけ外したりできます。外した写真は元に戻せませんが、元の画像ファイルはサーバーに残ります。",
+            "zh": "可以调整照片顺序，或单独移除某一张。移除无法撤销，但原始图片文件仍保留在服务器上。",
+            "en": "You can reorder photos or remove a single one. Removing cannot be undone, though the original file stays on the server."
+          },
+          "roles": [1, 2]
+        }
+      ]
+    },
+    {
+      "id": "print",
+      "title": { "ja": "ラベルを印刷する", "zh": "打印标签", "en": "Print labels" },
+      "intro": {
+        "ja": "商品のQRコードと管理番号を印刷して、現物に貼ります。登録した人が印刷するとは限らないので、誰でも印刷できます。",
+        "zh": "打印商品的二维码与管理号，贴到实物上。登记的人不一定是打印的人，所以任何人都可以打印。",
+        "en": "Print an item's QR code and item code to stick on the item. Anyone can print, since the person printing is not always the person who registered it."
+      },
+      "devices": ["desktop"],
+      "steps": [
+        {
+          "title": {
+            "ja": "作成年日の範囲を決める",
+            "zh": "确定创建日期范围",
+            "en": "Set the created-date range"
+          },
+          "body": {
+            "ja": "現場から戻ってまとめて印刷するときは、今日の範囲にすると、その日の登録分だけが出ます。会場で絞り込むこともできます。",
+            "zh": "从现场回来后集中打印时，把范围设成今天，就只出当天的登记。也可按会场筛选。",
+            "en": "When printing a batch after returning from the field, set the range to today for just that day's entries. You can also filter by venue."
+          }
+        },
+        {
+          "title": {
+            "ja": "ラベルサイズを選ぶ",
+            "zh": "选择标签尺寸",
+            "en": "Choose the label size"
+          },
+          "body": {
+            "ja": "38×21／50×30／70×25 の3種類と、カスタムがあります。既定のサイズはシステム設定で決められます。",
+            "zh": "有 38×21／50×30／70×25 三种，另有自定义。默认尺寸可在系统设置里设定。",
+            "en": "Three presets (38×21, 50×30, 70×25) plus Custom. The default is set under System Settings."
+          }
+        },
+        {
+          "title": {
+            "ja": "「読み込む」でプレビューを見る",
+            "zh": "点「加载」预览",
+            "en": "Select Load to preview"
+          },
+          "body": {
+            "ja": "何件・何枚になるかと、印刷される内容が出ます。サムネイル（小さな写真）を入れるかどうかも選べます。",
+            "zh": "显示件数、页数与将要打印的内容，也可以选择是否带缩略图。",
+            "en": "It shows how many items and sheets, plus what will print. You can include thumbnails or not."
+          },
+          "note": {
+            "ja": "件数が多いときは「先頭◯件のみ印刷します」と出ます。期間を狭めて、何回かに分けてください。",
+            "zh": "件数多时会提示「仅打印前◯件」，请缩小范围、分几次打印。",
+            "en": "With many items it says only the first ones will print. Narrow the range and print in batches."
+          }
+        },
+        {
+          "title": {
+            "ja": "「印刷」を押す",
+            "zh": "点「打印」",
+            "en": "Select Print"
+          },
+          "body": {
+            "ja": "ブラウザの印刷画面が開きます。倍率100%・余白なし・ヘッダーとフッターなし に設定してください。",
+            "zh": "会打开浏览器打印窗口。请设置为「缩放100%」「边距无」「取消页眉页脚」。",
+            "en": "The browser print dialog opens. Set scale to 100%, margins to none, and uncheck headers and footers."
+          }
+        },
+        {
+          "title": {
+            "ja": "1枚だけ刷り直す",
+            "zh": "只补打一张",
+            "en": "Reprint a single label"
+          },
+          "body": {
+            "ja": "ラベルを破いたり汚したりしたときは、「管理番号で再印刷」に番号を入れて印刷します。取り消し済み・削除済みの商品は印刷できません。",
+            "zh": "标签撕坏或弄脏时，在「按管理号重打」里输入编号后打印。已作废／已删除的商品不能打印。",
+            "en": "If a label tears or smudges, type the code under Reprint by item code. Voided and deleted items cannot be printed."
+          }
+        }
+      ]
+    }
+  ]
+}

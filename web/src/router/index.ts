@@ -195,6 +195,15 @@ const router = createRouter({
       meta: { shell: 'desktop', titleKey: 'excel.title' },
     },
     {
+      // 操作マニュアル（M7）：内容按「当前角色 + 当前壳」在页内过滤，故这里
+      // 既不写 meta.shell（两种壳都能开）也不写 meta.roles（查看者也要能查）。
+      // 带 titleKey 让文档标题跟随语言，与其余各页一致。
+      path: '/help',
+      name: 'help',
+      component: () => import('@/views/manual/ManualView.vue'),
+      meta: { titleKey: 'manual.title' },
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/',
     },

@@ -1,0 +1,196 @@
+{
+  "id": "monitor",
+  "title": {
+    "ja": "監視と記録の確認",
+    "zh": "监控与记录查询",
+    "en": "Monitoring and records"
+  },
+  "intro": {
+    "ja": "管理者だけが開ける画面です。何がいつ・誰によって行われたかの記録と、システムが正常に動いているかの確認に使います。",
+    "zh": "只有管理员能打开的页面，用于查询「什么时候、谁、做了什么」的记录，以及确认系统是否正常。",
+    "en": "Screens only administrators can open. They record what happened, when, and by whom, and confirm the system is healthy."
+  },
+  "devices": ["desktop"],
+  "roles": [1],
+  "features": [
+    {
+      "id": "ledgers",
+      "title": { "ja": "台帳をたどる", "zh": "查询流水台账", "en": "Browse the ledger" },
+      "intro": {
+        "ja": "すべての在庫の動きを、1つの表としてまとめて見られます。商品1件ごとの履歴では追えない「この日に何が動いたか」を調べるときに使います。",
+        "zh": "把全部库存变动汇总成一张表。用于查询「这一天动了什么」——这是逐件查看商品历史时追不到的。",
+        "en": "All stock movements in one table. Use it to answer what moved on a given day, which per-item history cannot show."
+      },
+      "steps": [
+        {
+          "title": {
+            "ja": "期間や種類で絞り込む",
+            "zh": "按期间或类型筛选",
+            "en": "Filter by period or type"
+          },
+          "bullets": {
+            "ja": [
+              "種類：新規登録・入庫・売却・廃棄・倉庫移動・返品・棚卸調整・取り消し・出品記録・落札記録・キャンセル記録・手動修正・削除・復元",
+              "管理番号の先頭一致、操作者、日付の範囲"
+            ],
+            "zh": [
+              "类型：新建录入、入库、卖出、报废、仓库移动、退货、盘点调整、作废、上架标记、成交标记、取消标记、手动修正、回收站删除、回收站恢复",
+              "管理号前缀匹配、操作人、日期范围"
+            ],
+            "en": [
+              "Type: create, arrival, sell, scrap, transfer, return, stocktake adjustment, void, listed mark, sold mark, cancel mark, manual adjustment, recycle delete, recycle restore",
+              "Item code prefix, operator, and date range"
+            ]
+          }
+        },
+        {
+          "title": {
+            "ja": "行を押して商品を見る",
+            "zh": "点行打开商品",
+            "en": "Open an item from a row"
+          },
+          "body": {
+            "ja": "その動きが起きた商品の詳細画面に移ります。",
+            "zh": "跳到该变动所属商品的详情页面。",
+            "en": "It opens the details of the item the movement belongs to."
+          }
+        },
+        {
+          "title": {
+            "ja": "記録は書き換えられません",
+            "zh": "记录不可改写",
+            "en": "Records cannot be rewritten"
+          },
+          "body": {
+            "ja": "台帳は追記のみで、後から直すことはできません。誤りは新しい動きを足して正します。",
+            "zh": "台账只追加、不能事后修改。有错误时通过追加新的变动来纠正。",
+            "en": "The ledger is append-only and cannot be edited afterwards. Errors are corrected by adding a new movement."
+          }
+        }
+      ]
+    },
+    {
+      "id": "operation-logs",
+      "title": { "ja": "操作ログを見る", "zh": "查看操作日志", "en": "Review operation logs" },
+      "intro": {
+        "ja": "誰がどの画面で何をしたかの記録です。「いつ誰がこの商品を消したか」を調べるときに使います。",
+        "zh": "记录谁在哪个页面做了什么。用于查询「什么时候谁删了这件商品」。",
+        "en": "A record of who did what on which screen. Use it to find out when and by whom an item was deleted."
+      },
+      "steps": [
+        {
+          "title": {
+            "ja": "操作の種類や対象で絞り込む",
+            "zh": "按动作或对象筛选",
+            "en": "Filter by action or target type"
+          },
+          "body": {
+            "ja": "操作の種類は先頭の文字が一致するもの、対象は種別で絞り込めます。",
+            "zh": "动作按开头匹配筛选，对象按类型筛选。",
+            "en": "The action filter matches from the start; the target can be narrowed by type."
+          }
+        },
+        {
+          "title": {
+            "ja": "行を展開して詳しい内容を見る",
+            "zh": "展开行看详细内容",
+            "en": "Expand a row for details"
+          },
+          "body": {
+            "ja": "IPアドレスも記録されます。",
+            "zh": "同时记录 IP 地址。",
+            "en": "The IP address is recorded too."
+          }
+        },
+        {
+          "title": {
+            "ja": "ログも消せません",
+            "zh": "日志同样不能删除",
+            "en": "Logs cannot be deleted either"
+          },
+          "body": {
+            "ja": "追記のみです。編集も削除もできません。",
+            "zh": "只追加，不能编辑也不能删除。",
+            "en": "Append-only. Neither editing nor deletion is possible."
+          }
+        }
+      ]
+    },
+    {
+      "id": "system-status",
+      "title": { "ja": "システムの状態を確かめる", "zh": "确认系统状况", "en": "Check system status" },
+      "intro": {
+        "ja": "「何かおかしい」と感じたときに、まずここを見ます。ふだんは開く必要はありません。",
+        "zh": "感觉「哪里不对劲」时先看这里。平时不需要打开。",
+        "en": "Look here first when something seems off. You do not need to open it day to day."
+      },
+      "steps": [
+        {
+          "title": {
+            "ja": "基本情報を見る",
+            "zh": "看基本信息",
+            "en": "Read the overview"
+          },
+          "body": {
+            "ja": "アプリのバージョン、データベースの版、起動時刻、稼働時間、直近のバックアップ成功時刻、未読アラートの数が出ます。",
+            "zh": "显示应用版本、数据库版本、启动时刻、运行时长、最近备份成功时刻与未读告警数。",
+            "en": "Shows the app version, database version, start time, uptime, last successful backup, and the number of open alerts."
+          }
+        },
+        {
+          "title": {
+            "ja": "リソースとデータ量を見る",
+            "zh": "看资源与数据量",
+            "en": "Read resources and volumes"
+          },
+          "body": {
+            "ja": "メモリ、データベース接続、写真を保存しているディスクの空き、商品数・取引数・ログ数、管理番号の発番数が出ます。",
+            "zh": "显示内存、数据库连接、照片存储磁盘余量，以及商品数、流水数、日志数与管理号发号数。",
+            "en": "Shows memory, database connections, free space on the photo disk, counts of items, ledger entries, and logs, plus how many codes were issued."
+          }
+        },
+        {
+          "title": {
+            "ja": "アラートを確認して既読にする",
+            "zh": "确认告警并标记已读",
+            "en": "Review alerts and mark them read"
+          },
+          "body": {
+            "ja": "帳実不一致、ディスク使用率、画像ファイルの欠損、番号の不整合などをシステムが検出して並べます。レベルは「情報・警告・エラー」の3つです。確認したら「既読」を押します。",
+            "zh": "系统会把账实不符、磁盘使用率、图片文件缺失、编号不一致等检测出来并列在这里，级别分「提示·警告·错误」三种。确认后点「标记已读」。",
+            "en": "The system lists things it detected: ledger mismatches, disk usage, missing image files, counter inconsistencies and more. Levels are Info, Warning, and Error. Select Mark read once you have reviewed one."
+          }
+        },
+        {
+          "title": {
+            "ja": "「整合性チェックを実行」を押す",
+            "zh": "点「执行账实自检」",
+            "en": "Select Run self-check"
+          },
+          "body": {
+            "ja": "台帳の照合、番号カウンタ、データ量、ディスク、画像ファイルの5つを、その場で確かめます。「異常なし」なら問題ありません。",
+            "zh": "当场核对台账、编号计数器、数据量、磁盘、图片文件五项。显示「无异常」即没有问题。",
+            "en": "It checks five things on the spot: ledger consistency, code counters, data volumes, disk, and image files. If it says all checks passed, there is nothing to do."
+          }
+        },
+        {
+          "title": {
+            "ja": "診断情報をエクスポートする",
+            "zh": "导出诊断信息",
+            "en": "Export diagnostics"
+          },
+          "body": {
+            "ja": "調子が悪いとき、この一式を保存して開発元に送ってください。原因の調査が早くなります。",
+            "zh": "出问题的时候，把这一套保存下来发给开发方，能加快排查原因。",
+            "en": "When something is wrong, save this bundle and send it to the developer. It speeds up the investigation."
+          },
+          "note": {
+            "ja": "これは開発元に連絡するときの資料です。ふだんは押さないでください。",
+            "zh": "这是联系开发方时用的资料，平时不要点。",
+            "en": "This is material for contacting the developer. Do not select it in normal use."
+          }
+        }
+      ]
+    }
+  ]
+}

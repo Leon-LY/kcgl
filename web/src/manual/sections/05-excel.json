@@ -1,0 +1,147 @@
+{
+  "id": "excel",
+  "title": { "ja": "エクセル連携", "zh": "Excel 联动", "en": "Excel integration" },
+  "intro": {
+    "ja": "手持ちのエクセル表からまとめて登録したり、このシステムの在庫を帳票として書き出したりできます。",
+    "zh": "可以从手头的 Excel 表批量登记商品，也可以把本系统的库存导出成报表。",
+    "en": "Register items in bulk from an existing spreadsheet, or export this system's stock as a report."
+  },
+  "devices": ["desktop"],
+  "features": [
+    {
+      "id": "excel-import",
+      "title": { "ja": "エクセルでまとめて登録する", "zh": "用 Excel 批量登记", "en": "Import from Excel" },
+      "intro": {
+        "ja": "テンプレートと同じ形式のファイルを取り込んで、商品をまとめて登録します。以前のシステムから移すときにも使えます。",
+        "zh": "导入与模板格式一致的文件，批量登记商品。从旧系统迁移数据时也用这个。",
+        "en": "Import a file in the template format to register items in bulk. This also works for migrating from an older system."
+      },
+      "steps": [
+        {
+          "title": {
+            "ja": "テンプレートをダウンロードする",
+            "zh": "下载模板",
+            "en": "Download the template"
+          },
+          "body": {
+            "ja": "「テンプレートをダウンロード」で、正しい見出しの付いたファイルが手に入ります。見出しは変えずに、下の行から入力してください。",
+            "zh": "点「下载模板」得到带正确表头的文件。请不要改表头，从下面的行开始填写。",
+            "en": "Select Download template to get a file with the correct headings. Do not change the headings; fill in from the rows below."
+          },
+          "roles": [1, 2]
+        },
+        {
+          "title": {
+            "ja": "管理番号が空欄の行は自動で採番される",
+            "zh": "管理号留空的行自动编号",
+            "en": "Rows with a blank item code are numbered automatically"
+          },
+          "body": {
+            "ja": "管理番号を書かなければ、登録時に自動で発行されます。すでに番号がある行は、その番号で登録されます。",
+            "zh": "不填管理号，登记时自动签发；已填写的行按该编号登记。",
+            "en": "If you leave the code blank, one is issued on import. Rows with a code are registered under that code."
+          },
+          "roles": [1, 2]
+        },
+        {
+          "title": {
+            "ja": "「ファイルを選択」で取り込む",
+            "zh": "点「选择文件」导入",
+            "en": "Select Choose file and import"
+          },
+          "body": {
+            "ja": "ファイルは20MB、2万行までです。結果は下の履歴に出ます。",
+            "zh": "文件需在 20MB、2 万行以内。结果显示在下方的历史里。",
+            "en": "The file must be within 20MB and 20,000 rows. The result appears in the history below."
+          },
+          "roles": [1, 2]
+        },
+        {
+          "title": {
+            "ja": "履歴の「採番メモ」を見る",
+            "zh": "看历史里的「编号备注」",
+            "en": "Read the numbering note in the history"
+          },
+          "body": {
+            "ja": "既存の番号を取り込んだことで採番の基準が繰り上がったとき（例：A0→A5）に記録されます。以降の自動採番は、繰り上がった後の番号から続きます。",
+            "zh": "导入既有编号导致编号基准被推升时（如 A0→A5）会留下记录。之后的自动编号从推升后的编号继续。",
+            "en": "It is recorded when importing existing codes advanced the counter (for example A0 to A5). Later automatic codes continue from the advanced position."
+          }
+        },
+        {
+          "title": {
+            "ja": "エラーの行を直して取り込み直す",
+            "zh": "修正出错的行后重新导入",
+            "en": "Fix the error rows and import again"
+          },
+          "body": {
+            "ja": "エラーになった行には、行番号・行の内容・理由が出ます。理由を見て直し、もう一度取り込んでください。取り込めた行はすでに登録されているので、エラーの行だけを残したファイルで構いません。",
+            "zh": "出错的行会显示行号、行内容与原因。按原因修正后重新导入。已成功的行已经登记好，可以只保留出错的行成一份文件再导。",
+            "en": "Error rows show the line number, the row's content, and the reason. Fix them and import again. Rows that succeeded are already registered, so a file containing only the error rows is fine."
+          },
+          "roles": [1, 2]
+        },
+        {
+          "title": {
+            "ja": "閲覧者の方は",
+            "zh": "查看者请留意",
+            "en": "If you are a viewer"
+          },
+          "body": {
+            "ja": "取り込みの履歴と結果は見られますが、テンプレートのダウンロードとファイルの取り込みには編集者以上の権限が必要です。",
+            "zh": "可以查看导入历史与结果，但下载模板与导入文件需要编辑者及以上权限。",
+            "en": "You can view the import history and results, but downloading the template and importing files require editor permission or above."
+          },
+          "roles": [3]
+        }
+      ]
+    },
+    {
+      "id": "excel-export",
+      "title": { "ja": "在庫を帳票として書き出す", "zh": "把库存导出成报表", "en": "Export stock as a report" },
+      "intro": {
+        "ja": "在庫の内容をエクセルに書き出します。売上や原価の集計、お客様への提出などに使えます。",
+        "zh": "把库存内容导出为 Excel，可用于销售与成本汇总、向客户提交资料等。",
+        "en": "Export the stock to Excel. Useful for sales and cost summaries or for handing data to a client."
+      },
+      "steps": [
+        {
+          "title": {
+            "ja": "作成年日の範囲を入れる",
+            "zh": "填写创建日期范围",
+            "en": "Set the created-date range"
+          },
+          "body": {
+            "ja": "この範囲は必須です。いつ登録した商品を書き出すかを決めます。",
+            "zh": "此范围为必填，用于确定导出哪段时间登记的商品。",
+            "en": "This range is required. It decides which items, by registration date, are exported."
+          }
+        },
+        {
+          "title": {
+            "ja": "会場で絞り込む（任意）",
+            "zh": "按会场筛选（选填）",
+            "en": "Filter by venue (optional)"
+          },
+          "body": {
+            "ja": "会場ごとの集計を出したいときに使います。",
+            "zh": "需要按会场汇总时使用。",
+            "en": "Use this when you want a per-venue breakdown."
+          }
+        },
+        {
+          "title": {
+            "ja": "「エクスポート」を押す",
+            "zh": "点「导出」",
+            "en": "Select Export"
+          },
+          "body": {
+            "ja": "帳票形式（25列）で書き出され、原価合計と利益の列も含まれます。管理番号を入れると、その1件だけを書き出せます。",
+            "zh": "按报表格式（25 列）导出，包含成本合计与利润列。填写管理号则只导出该一件。",
+            "en": "It exports a report (25 columns) including total cost and profit. Enter an item code to export just that one item."
+          }
+        }
+      ]
+    }
+  ]
+}

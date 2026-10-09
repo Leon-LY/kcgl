@@ -18,7 +18,9 @@
       "2": "Fukuoka warehouse"
     },
     "saving": "Processing…",
-    "close": "Close"
+    "close": "Close",
+    "help": "Help",
+    "back": "Back"
   },
   "auth": {
     "username": "Username",
@@ -1033,5 +1035,14 @@
       "title": "{n} photo(s) pending upload",
       "body": "Photos may be cleared after long inactivity if the app is not added to the home screen. Uploads resume automatically once back online."
     }
+  },
+  "manual": {
+    "title": "Operation manual",
+    "description": "Only the operations available on the device you are using, with your permissions.",
+    "toc": "Contents",
+    "empty": "There is nothing to show here.",
+    "roleAdmin": "Admins only",
+    "roleEditor": "Editors and above",
+    "roleViewer": "For viewers"
   }
 }
