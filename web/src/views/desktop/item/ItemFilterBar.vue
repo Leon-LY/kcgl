@@ -109,7 +109,7 @@ function clear(): void {
       </el-select>
       <el-select
         v-model="stockStatus"
-        class="items-filter"
+        class="items-filter items-filter-stock"
         @change="emit('search')"
       >
         <el-option
@@ -131,7 +131,7 @@ function clear(): void {
       </el-select>
       <el-select
         v-model="saleStatus"
-        class="items-filter"
+        class="items-filter items-filter-sale"
         @change="emit('search')"
       >
         <el-option

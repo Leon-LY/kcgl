@@ -1,4 +1,3 @@
-import { markRaw } from 'vue'
 import type { LocationQuery } from 'vue-router'
 import type { ItemSearchParams } from '@/utils/api'
 
@@ -15,12 +14,16 @@ import type { ItemSearchParams } from '@/utils/api'
  */
 
 /**
- * 「すべて」选项值：共享对象哨兵——EP el-option 的 value prop 不收 null（每次挂载
- * 刷 prop 类型警告），空串又落 EP「空值=显示 placeholder」的歧义；对象值类型合法
- * 且与业务值永不碰撞，提交前统一映射回 undefined。markRaw 必须有：否则 ref 深层
- * reactive 代理化会破坏 `=== ALL` 身份比较（映射失效+选项匹配不上「すべて」）。
+ * 「すべて」の选项值：字符串哨兵。
+ *
+ * 曾是 markRaw 的对象哨兵（`{ all: true }`），为的是绕开 EP「value 不收 null（刷 prop
+ * 警告）／空串被判成空值显示 placeholder」两个坑。但对象值在 el-select 里匹配不到任何
+ * el-option，渲染回落到**最后一个选项的文字**：商品一覧一打开，五个下拉分别显示
+ * 「福岡倉庫／出庫済み／キャンセル／大阪骨董市／長期滞留（赤）」，而检索实际不带任何
+ * 条件——看着像筛过了、其实没筛（D-161 实测复现）。字符串哨兵同样不是 null 也不是空串，
+ * 但它是原始值，el-select 按值匹配不会落空；`__` 前缀与整数的业务值永不碰撞。
  */
-export const ALL = markRaw({ all: true } as const)
+export const ALL = '__all__'
 
 /** 下拉字段的类型：要么是业务数，要么是「すべて」哨兵。 */
 export type FilterValue = typeof ALL | number
@@ -74,7 +77,7 @@ function dateFilter(raw: unknown): string | null {
   return typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null
 }
 
-/** 哨兵不可被 === 收窄（对象类型无名义恒等），故以 typeof 判别业务值分支。 */
+/** 哨兵不是数字，故以 typeof 判别业务值分支（字符串哨兵下这条判别更直接）。 */
 function businessOf(value: FilterValue): number | undefined {
   return typeof value === 'number' ? value : undefined
 }

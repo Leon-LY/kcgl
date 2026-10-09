@@ -43,6 +43,10 @@ test.describe('monitoring pages (desktop-chromium)', () => {
     await page.goto('/ledgers')
     await expect(page).toHaveURL(/\/ledgers$/)
     await expect(page.locator('.page-header-title')).toHaveText('台帳ブラウズ')
+    // 回归（D-161）：两个下拉的首载默认态必须是「すべて」，不是回落渲染的最后一个选项
+    // ——对象哨兵曾让「種類」显示成「その他」、「倉庫」显示成「福岡倉庫」。
+    await expect(page.locator('.ledgers-filter-type .el-select__placeholder')).toHaveText('すべての種類')
+    await expect(page.locator('.ledgers-filter-wh .el-select__placeholder')).toHaveText('すべての倉庫')
     const rows = page.locator('.ledgers-table .el-table__row')
     await expect(rows.first()).toBeVisible()
     const countBefore = await rows.count()

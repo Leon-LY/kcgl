@@ -113,6 +113,30 @@ test.describe('item list and detail (desktop-chromium)', () => {
     test.skip(test.info().project.name !== 'desktop-chromium', '仅 desktop-chromium 项目执行')
   })
 
+  test('filter bar shows the all-option labels on first load, with no filter in the URL', async ({ page }) => {
+    // 回归（D-161）：「すべて」の哨兵值曾用 markRaw 的对象 `{ all: true }`——el-select
+    // 匹配不到任何 el-option 时回落渲染**最后一个选项**，于是商品一覧一打开五个下拉
+    // 分别显示「福岡倉庫／出庫済み／キャンセル／大阪骨董市／長期滞留（赤）」，而检索
+    // 不带任何条件：看着像筛过了、其实没筛。单测挂在 jsdom 上（未注册 Element Plus）
+    // 复现不了这条渲染回落，只有真浏览器能守住。
+    await login(page, 'admin')
+    await page.goto('/items')
+    await expect(page.locator('.items-filter-wh')).toBeVisible()
+
+    const defaults = [
+      ['.items-filter-wh', 'すべての倉庫'],
+      ['.items-filter-stock', 'すべて'],
+      ['.items-filter-sale', 'すべて'],
+      ['.items-filter-venue', 'すべての会場'],
+      ['.items-filter-slow', '滞留：すべて'],
+    ] as const
+    for (const [selector, label] of defaults) {
+      await expect(page.locator(`${selector} .el-select__placeholder`)).toHaveText(label)
+    }
+    // 默认条件不投影到 URL：空态就该是 /items 裸路径
+    expect(page.url()).not.toContain('?')
+  })
+
   test('editor searches, filters, edits item, and voids into re-entry deep link', async ({ page }) => {
     await login(page, 'editor')
     // 夹具价必须落在唯一启用档位 X=[0,3000) 左闭右开内（seeder 只种 X；admin.spec

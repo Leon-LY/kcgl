@@ -16,7 +16,7 @@ function empty(): ItemFilterState {
 }
 
 describe('emptyFilters', () => {
-  it('每次返回新对象，但哨兵是同一个（=== ALL 的身份比较不能被代理化破坏）', () => {
+  it('每次返回新对象，但哨兵是同一个（=== ALL 恒成立；字符串原始值不经代理，天然稳定）', () => {
     const a = empty()
     const b = empty()
 
@@ -133,7 +133,7 @@ describe('listRequest', () => {
     expect(listRequest({ ...empty(), kw: '   ' }, 1, 20).kw).toBeUndefined()
   })
 
-  it('「すべて」哨兵映射回 undefined（对象值不发给服务端）', () => {
+  it('「すべて」哨兵映射回 undefined（哨兵本身不发给服务端）', () => {
     const filters: ItemFilterState = {
       ...empty(),
       warehouse: 2,

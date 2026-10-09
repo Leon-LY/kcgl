@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { markRaw, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import AppPageHeader from '@/components/AppPageHeader.vue'
@@ -21,8 +21,12 @@ const TXN_TYPES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14] as const
 const { t } = useI18n()
 const router = useRouter()
 
-/** 「すべて」选项值：对象哨兵（el-option 不收 null；见 ItemsView 同款注释）。 */
-const ALL = markRaw({ all: true } as const)
+/**
+ * 「すべて」の选项值：字符串哨兵。与 items 的 itemFilters.ts 同款同因——对象哨兵在
+ * el-select 里匹配不到 el-option，会回落显示**最后一个选项**（这里会是「その他」与
+ * 「福岡倉庫」），看着像筛过了、其实没筛（D-161）。
+ */
+const ALL = '__all__'
 
 const txnType = ref<typeof ALL | number>(ALL)
 const itemCode = ref('')
