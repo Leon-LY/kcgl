@@ -157,14 +157,31 @@ jobs:
         # 服务器——镜像换了、巡检全绿，但「システム状況」的版本一直停在 jar 清单
         # 版本（0.1.0-SNAPSHOT），核对项永远通不过。生产走 upgrade.sh 批量同步，
         # 测试环境在此对齐。
-        # 不同步：.env（服务器私密配置，只由首次部署生成）、db-init/（仅首启生效）、
-        # nginx/（web 层，独立生命周期）。
+        # 不同步：.env（服务器私密配置，只由首次部署生成）、db-init/（仅首启生效）。
+        # nginx/ 原先也在「不同步」里（理由写的是「web 层，独立生命周期」），2026-10-09
+        # 复查推翻：那条理由不成立，且已经咬过一次。服务器 /opt/kcgl/nginx/ 目录时间戳
+        # 停在首次部署（Sep 30 08:17），里面还是**已修掉的死配置** `location /api/sse`
+        # ——真实路径不匹配，SSE 请求落到 /api/ 的 proxy_buffering on 上，实时同步一直
+        # 跑在一段没生效的配置上；仓库里改成精确匹配 `= /api/sync/events` 的修复从没
+        # 到达服务器。kcgl-web.conf 的 server_name 是 `_`、无任何主机相关项，它就是
+        # 部署件，不该有「独立生命周期」。故拆出下面一步单独同步（见该步注释）。
         run: >
           rsync -az -e "ssh"
           deploy/docker-compose.yml deploy/grants.sql deploy/backup.sh deploy/restore.sh
           deploy/verify-grants.sh deploy/kcgl-doctor.sh deploy/security-selfcheck.sh
           deploy/db-cli.sh
           ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}:${{ env.DEPLOY_DIR }}/
+
+      - name: 同步 nginx 配置（web 容器只读挂载的那两份）
+        # 不用 --delete：只增改、不删。将来真出现主机专属的 conf（如 TLS 证书段），
+        # 宁可留着也不要被 CI 抹掉——删错配置的代价远高于留一个未清理的文件。
+        # 挂载是 bind mount，改了源文件**不会**让容器里的 nginx 自动重读；生效靠本机侧
+        # deploy/deploy-test.sh 的 `compose up -d --force-recreate`（重建 web 容器即
+        # 重新挂载）。故本步与 deploy-test.sh 是配套的，单跑 CI 不生效。
+        run: >
+          rsync -az -e "ssh"
+          deploy/nginx/
+          ${{ secrets.TEST_SSH_USER }}@${{ secrets.TEST_SSH_HOST }}:${{ env.DEPLOY_DIR }}/nginx/
 
       - name: 回写 KCGL_VERSION 到服务器 .env（消除「.env 撒谎」漂移）
         # 病灶：本流水线一直用「KCGL_VERSION=... docker compose up -d」的内联形式覆盖，

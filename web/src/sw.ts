@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 import { precacheAndRoute, createHandlerBoundToURL } from 'workbox-precaching'
+import { clientsClaim } from 'workbox-core'
 import { ExpirationPlugin } from 'workbox-expiration'
 import { NavigationRoute, registerRoute } from 'workbox-routing'
 import { CacheFirst } from 'workbox-strategies'
@@ -16,9 +17,22 @@ import type { PrecacheEntry } from 'workbox-precaching'
  *   待传照片——页面不必存活。仅做「成功即出清」的最小回放：失败留给
  *   页面泵做退避/永久失败分类（单一职责），幂等键 clientUuid 保证
  *   SW 与页面泵并发双传也安全（服务端 200 读回）。
+ *
+ * **必须在 SW 侧自己 skipWaiting / clientsClaim（D-162）**：`registerType: 'autoUpdate'`
+ * 的接线只在客户端——vite-plugin-pwa 生成的注册代码会发 SKIP_WAITING、并在
+ * controlling 事件（isUpdate）后 reload。但新 SW 若不自调 skipWaiting，它会永远停在
+ * waiting，旧 SW 继续拿旧预缓存里的 index.html 供导航，于是**发了版用户也看不到**，
+ * 刷新无用（要关掉该站点所有标签页/PWA 窗口才自愈）。这两句缺了，autoUpdate 名存实亡。
  */
 
 declare let self: ServiceWorkerGlobalScope
+
+// 见文件头 D-162 说明：缺这两句，autoUpdate 名存实亡。
+// skipWaiting 是标准 API（ServiceWorkerGlobalScope）；clientsClaim 不是，它是
+// workbox-core 的助手（内部挂 activate 监听调 self.clients.claim()）——vite-plugin-pwa
+// 对 injectManifest + autoUpdate 给的就是这一对写法。
+self.skipWaiting()
+clientsClaim()
 
 precacheAndRoute((self as ServiceWorkerGlobalScope & { __WB_MANIFEST?: PrecacheEntry[] }).__WB_MANIFEST ?? [])
 
