@@ -1,12 +1,27 @@
 import { defineConfig, devices } from '@playwright/test'
+import { hasStackMarker } from './e2e/stack-shared.mjs'
 
 /**
  * M1 E2E 冒烟：登录/语言切换/三角色/首登改密/双壳。
  * 栈为 hermetic 一次性 MySQL（e2e/start-backend.mjs）+ jar + Vite dev——与开发库零耦合。
  * 单栈共享（workers=1 串行），避免种子数据与会话竞争。
+ *
+ * 日常节奏（改一处就全量的那 4 分钟是可以省掉的）：
+ *   改单个页面 → `npx playwright test e2e/<该页的 spec>.ts`（约 30s，栈自己起自己收）
+ *   反复迭代   → `npm run e2e:stack` 起一套常驻栈，之后每次跑只用几秒（复用见下）
+ *   推送前     → `npm run e2e:down` 后跑全量（干净库，CI 走的也是这条）
+ * 全量之所以要 4 分钟，成本在 desktop 那 167s 的用例本身（占 86%），不在启动；
+ * 复用栈省的是**迭代**的那 30s 固定成本。
  */
 const APP_PORT = process.env.E2E_APP_PORT ?? '18080'
 const WEB_PORT = process.env.E2E_WEB_PORT ?? '5173'
+
+/**
+ * 只复用 `npm run e2e:stack` 起的那套常驻栈（有标记才复用），不用 Playwright 默认的
+ * `!process.env.CI`：那样本地只要有人把开发服务开在 5173/18080 上就会被卷进 E2E 并
+ * 被用例改数据。没有标记时（含 CI）行为与从前一致——自己起、自己收。
+ */
+const REUSE_STACK = hasStackMarker()
 
 export default defineConfig({
   testDir: './e2e',
@@ -41,13 +56,13 @@ export default defineConfig({
       command: 'node e2e/start-backend.mjs',
       url: `http://127.0.0.1:${APP_PORT}/actuator/health`,
       timeout: 300_000,
-      reuseExistingServer: false,
+      reuseExistingServer: REUSE_STACK,
     },
     {
       command: `npm run dev -- --port ${WEB_PORT} --strictPort`,
       url: `http://127.0.0.1:${WEB_PORT}`,
       timeout: 60_000,
-      reuseExistingServer: false,
+      reuseExistingServer: REUSE_STACK,
       env: {
         KCGL_API_TARGET: `http://127.0.0.1:${APP_PORT}`,
       },

@@ -12,19 +12,18 @@ import { readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import {
+  APP_PORT,
+  CONTAINER,
+  DB_NAME,
+  DB_PASSWORD,
+  DB_USER,
+  WEB_PORT,
+  sleep,
+} from './stack-shared.mjs'
 
 const E2E_DIR = path.dirname(fileURLToPath(import.meta.url))
 const TARGET_DIR = path.resolve(E2E_DIR, '../../server/target')
-
-const APP_PORT = process.env.E2E_APP_PORT ?? '18080'
-const WEB_PORT = process.env.E2E_WEB_PORT ?? '5173'
-const CONTAINER = 'kcgl-e2e-mysql'
-// 口令须过 SecretStrengthGuard（验收 12 弱值拒启）：E2E 起的是打包 jar、e2e profile
-// 不关守卫——弱口令会让整条 E2E 栈起不来，故这里给一个够长的夹具口令（与一次性容器
-// 同生共死，无复用面）。
-const DB_PASSWORD = 'kcgl-e2e-fixture-Kq7x41bP'
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 function fail(message) {
   console.error(`[e2e-stack] ${message}`)
@@ -43,8 +42,8 @@ const run = spawnSync(
   [
     'run', '-d', '--name', CONTAINER,
     '-p', '127.0.0.1::3306',
-    '-e', 'MYSQL_DATABASE=kcgl',
-    '-e', 'MYSQL_USER=kcgl',
+    '-e', `MYSQL_DATABASE=${DB_NAME}`,
+    '-e', `MYSQL_USER=${DB_USER}`,
     '-e', `MYSQL_PASSWORD=${DB_PASSWORD}`,
     '-e', 'MYSQL_ROOT_PASSWORD=kcgl_e2e_root',
     '-e', 'TZ=Asia/Tokyo',
@@ -71,7 +70,7 @@ console.log(`[e2e-stack] MySQL 容器就绪（127.0.0.1:${hostPort}）`)
 for (let attempt = 0; attempt < 60; attempt++) {
   const ping = spawnSync(
     'docker',
-    ['exec', CONTAINER, 'mysqladmin', 'ping', '-h', '127.0.0.1', '-ukcgl', `-p${DB_PASSWORD}`],
+    ['exec', CONTAINER, 'mysqladmin', 'ping', '-h', '127.0.0.1', `-u${DB_USER}`, `-p${DB_PASSWORD}`],
     { encoding: 'utf8' },
   )
   if (ping.status === 0) {
@@ -98,8 +97,8 @@ const child = spawn('java', ['-jar', path.join(TARGET_DIR, jar)], {
     SERVER_PORT: APP_PORT,
     DB_HOST: '127.0.0.1',
     DB_PORT: hostPort,
-    DB_NAME: 'kcgl',
-    DB_USER: 'kcgl',
+    DB_NAME,
+    DB_USER,
     DB_PASSWORD,
     // Vite 代理转发保留浏览器 Origin 头——后端 Origin 白名单需放行 dev server 端口
     KCGL_ALLOWED_ORIGINS: `http://127.0.0.1:${WEB_PORT},http://localhost:${WEB_PORT}`,
