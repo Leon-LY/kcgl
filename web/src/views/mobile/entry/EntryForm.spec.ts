@@ -52,7 +52,7 @@ const bands = [
 
 const itemFixture = {
   id: 11,
-  itemCode: 'HT9-A1X',
+  itemCode: 'HT09-A1X',
   venueId: 7,
   warehouse: 1,
   buyDate: todayJst(),
@@ -252,7 +252,7 @@ describe('carry over from the previous item (A13)', () => {
 
 describe('two-level item code preview (preview ≠ reservation)', () => {
   it('computes the band locally at once and debounces input into a single preview request', async () => {
-    apiMocks.previewItemCode.mockResolvedValue({ code: 'HT9-A2X', bandCode: 'X', seqPrefix: 'A', seqNo: 2 })
+    apiMocks.previewItemCode.mockResolvedValue({ code: 'HT09-A2X', bandCode: 'X', seqPrefix: 'A', seqNo: 2 })
     const wrapper = mountForm()
     await pickFirstVenue(wrapper)
 
@@ -266,8 +266,11 @@ describe('two-level item code preview (preview ≠ reservation)', () => {
     // 完整号来自 preview（以保存为准的目安）
     expect(apiMocks.previewItemCode).toHaveBeenCalledTimes(1)
     expect(apiMocks.previewItemCode).toHaveBeenCalledWith(7, todayJst(), 1500)
-    expect(wrapper.text()).toContain('HT9-A2X')
-    expect(wrapper.text()).toContain('確定番号は保存時に発行されます')
+    // 空欄＝自動なので、目安の号は入力欄のプレースホルダーに出る
+    const manual = wrapper.find('#entry-manual-code').element as HTMLInputElement
+    expect(manual.placeholder).toBe('HT09-A2X')
+    expect(manual.value).toBe('')
+    expect(wrapper.text()).toContain('空欄のままにすると、保存時に自動で番号が付きます')
   })
 
   it('shows preview business errors (e.g. stale venue) inline', async () => {
@@ -280,6 +283,87 @@ describe('two-level item code preview (preview ≠ reservation)', () => {
     await new Promise((resolve) => setTimeout(resolve, 350))
 
     expect(wrapper.text()).toContain('選択された会場が存在しません')
+  })
+})
+
+describe('manual item code (D-167)', () => {
+  /** 当前落札月（默认今天）——手填号必须与它一致。 */
+  function currentMonth(): string {
+    return todayJst().slice(5, 7)
+  }
+
+  it('submits the typed code as-is after normalizing to upper case', async () => {
+    apiMocks.previewItemCode.mockResolvedValue({ code: 'HT10-A2X', bandCode: 'X', seqPrefix: 'A', seqNo: 2 })
+    apiMocks.createItem.mockResolvedValue({ ...itemFixture, itemCode: 'HT10-A5X' })
+    const wrapper = mountForm()
+    await pickFirstVenue(wrapper)
+
+    const expected = `HT${currentMonth()}-A5X`
+    const manual = wrapper.find('#entry-manual-code')
+    await manual.setValue(expected.toLowerCase())
+    await manual.trigger('blur')
+    await flushPromises()
+
+    expect((manual.element as HTMLInputElement).value).toBe(expected)
+    expect(wrapper.text()).toContain('この番号で登録します')
+    expect(wrapper.find('.entry-preview-error').exists()).toBe(false)
+
+    await fillAndSubmit(wrapper, '1000')
+
+    expect(apiMocks.createItem).toHaveBeenCalledWith(
+      expect.objectContaining({ manualCode: expected }),
+    )
+    await waitFor(() => wrapper.emitted('saved')?.[0])
+  })
+
+  it('blocks submit when the venue segment does not match the selected venue', async () => {
+    apiMocks.previewItemCode.mockResolvedValue({ code: 'HT10-A2X', bandCode: 'X', seqPrefix: 'A', seqNo: 2 })
+    const wrapper = mountForm()
+    await pickFirstVenue(wrapper)
+
+    await wrapper.find('#entry-manual-code').setValue(`NG${currentMonth()}-A5X`)
+    await flushPromises()
+    expect(wrapper.find('.entry-preview-error').text()).toContain('会場コード「HT」')
+
+    await fillAndSubmit(wrapper, '1000')
+
+    expect(apiMocks.createItem).not.toHaveBeenCalled()
+    expect(wrapper.find('.kcgl-error-box').text()).toContain('会場コード「HT」')
+  })
+
+  it('blocks submit when the month segment differs from the purchase date month', async () => {
+    apiMocks.previewItemCode.mockResolvedValue({ code: 'HT10-A2X', bandCode: 'X', seqPrefix: 'A', seqNo: 2 })
+    const wrapper = mountForm()
+    await pickFirstVenue(wrapper)
+
+    const other = String(Number(currentMonth()) === 12 ? 1 : Number(currentMonth()) + 1).padStart(2, '0')
+    await wrapper.find('#entry-manual-code').setValue(`HT${other}-A5X`)
+    await flushPromises()
+    expect(wrapper.find('.entry-preview-error').text()).toContain(`落札日の月（${Number(currentMonth())}月）`)
+
+    await fillAndSubmit(wrapper, '1000')
+    expect(apiMocks.createItem).not.toHaveBeenCalled()
+  })
+
+  it('rejects a malformed code and resets back to automatic numbering', async () => {
+    apiMocks.previewItemCode.mockResolvedValue({ code: 'HT10-A2X', bandCode: 'X', seqPrefix: 'A', seqNo: 2 })
+    const wrapper = mountForm()
+    await pickFirstVenue(wrapper)
+
+    await wrapper.find('#entry-manual-code').setValue('HT-A5X')
+    await flushPromises()
+    expect(wrapper.find('.entry-preview-error').text()).toContain('管理番号の形が正しくありません')
+
+    await wrapper.find('.entry-preview-reset').trigger('click')
+    await flushPromises()
+    const manual = wrapper.find('#entry-manual-code').element as HTMLInputElement
+    expect(manual.value).toBe('')
+    expect(wrapper.find('.entry-preview-error').exists()).toBe(false)
+
+    apiMocks.createItem.mockResolvedValue(itemFixture)
+    await fillAndSubmit(wrapper, '1000')
+    const payload = apiMocks.createItem.mock.calls[0]![0] as { manualCode?: string }
+    expect(payload.manualCode).toBeUndefined()
   })
 })
 
@@ -305,7 +389,7 @@ describe('save-failure retry (7.0 idempotency: reuses the same clientReqId)', ()
     expect(second.clientReqId).toBe(first.clientReqId)
     expect(first.clientReqId).toMatch(/^[0-9a-f-]{36}$/)
     const saved = await waitFor(() => wrapper.emitted('saved')?.[0])
-    expect(saved[0]).toMatchObject({ id: 11, itemCode: 'HT9-A1X' })
+    expect(saved[0]).toMatchObject({ id: 11, itemCode: 'HT09-A1X' })
   })
 })
 
@@ -391,7 +475,7 @@ describe('photo selection (compress into Dexie first, bind to the new item and u
     const payload = apiMocks.createItem.mock.calls[0]![0] as { photoDate?: string }
     expect(payload.photoDate).toBe(todayJst())
     expect(saved).toMatchObject([
-      { id: 11, itemCode: 'HT9-A1X' },
+      { id: 11, itemCode: 'HT09-A1X' },
       1, // boundCount
     ])
 
@@ -421,7 +505,7 @@ describe('re-entry (M2-6: full-field prefill after voiding)', () => {
   const voidedItem = {
     ...itemFixture,
     id: 31,
-    itemCode: 'HT9-A3X',
+    itemCode: 'HT09-A3X',
     buyDate: '2026-09-20',
     purchasePrice: 1200,
     fee: 300,
@@ -441,7 +525,7 @@ describe('re-entry (M2-6: full-field prefill after voiding)', () => {
     await flushPromises()
 
     // 横幅：旧号 + 再登録文案
-    expect(wrapper.text()).toContain('HT9-A3X の再登録')
+    expect(wrapper.text()).toContain('HT09-A3X の再登録')
     expect(wrapper.text()).toContain('新しい管理番号が発番')
 
     const inputs = wrapper.findAll('input')
@@ -465,7 +549,7 @@ describe('re-entry (M2-6: full-field prefill after voiding)', () => {
 
   it('submits with reEntryOf set to the original id (server inherits omitted fields and copies photo rows)', async () => {
     apiMocks.fetchItemImages.mockResolvedValue([])
-    apiMocks.createItem.mockResolvedValue({ ...itemFixture, id: 32, itemCode: 'HT9-A4X' })
+    apiMocks.createItem.mockResolvedValue({ ...itemFixture, id: 32, itemCode: 'HT09-A4X' })
     const wrapper = mountForm({ reEntry: voidedItem })
     await flushPromises()
 
@@ -502,7 +586,7 @@ describe('re-entry (M2-6: full-field prefill after voiding)', () => {
     const wrapper = mountForm({ reEntry: voidedItem })
     await flushPromises()
 
-    expect(wrapper.text()).toContain('HT9-A3X の再登録')
+    expect(wrapper.text()).toContain('HT09-A3X の再登録')
     expect(wrapper.findAll('.entry-inherited-photos img')).toHaveLength(0)
 
     await wrapper.find('form').trigger('submit')

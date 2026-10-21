@@ -140,7 +140,7 @@ describe('excel view (M4-5)', () => {
         errorCount: 0, finishedAt: null }),
       batch({ id: 3, status: 2, errorMessage: '1列目の表頭が一致しません',
         rowCount: 0, generatedCount: 0, importedCount: 0, errorCount: 0, finishedAt: null,
-        errorRows: [{ line: 3, raw: 'HT9-A5X,HT,…', reason: '倉庫の値が不正です' }] }),
+        errorRows: [{ line: 3, raw: 'HT09-A5X,HT,…', reason: '倉庫の値が不正です' }] }),
     ])
     const wrapper = await mountView()
 
@@ -168,7 +168,7 @@ describe('excel view (M4-5)', () => {
         errorMessage: '3列目の見出しが「落札日」であるべきですが「購入日」になっています',
         errorMessageCode: 'imports.batch.excelHeaderMismatch',
         errorMessageParams: JSON.stringify({ column: '3', expected: '落札日', actual: '購入日' }),
-        errorRows: [{ line: 3, raw: 'HT9-A5X,…', reason: '倉庫は 1／2／名古屋／福岡 で入力してください: 東京',
+        errorRows: [{ line: 3, raw: 'HT09-A5X,…', reason: '倉庫は 1／2／名古屋／福岡 で入力してください: 東京',
           code: 'imports.reason.warehouseFormat', params: { raw: '東京' } }] }),
     ])
     i18n.global.locale.value = 'zh-CN'
@@ -279,7 +279,7 @@ describe('excel view (M4-5)', () => {
       'update:modelValue',
       ['2026-12-31', '2026-01-01'],
     )
-    await wrapper.find('.excel-code input').setValue('ｈｔ９－ａ１ｘ')
+    await wrapper.find('.excel-code input').setValue('ｈｔ０９－ａ１ｘ')
     await wrapper.find('.excel-export-row .el-button').trigger('click')
     await flushPromises()
 
@@ -287,7 +287,7 @@ describe('excel view (M4-5)', () => {
       createdFrom: '2026-12-31',
       createdTo: '2026-01-01',
       venueId: null,
-      code: 'HT9-A1X',
+      code: 'HT09-A1X',
     })
     expect(clickSpy).toHaveBeenCalledTimes(1)
 
@@ -299,7 +299,7 @@ describe('excel view (M4-5)', () => {
       createdFrom: '2026-12-31',
       createdTo: '2026-01-01',
       venueId: 3,
-      code: 'HT9-A1X',
+      code: 'HT09-A1X',
     })
   })
 

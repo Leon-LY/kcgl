@@ -215,13 +215,13 @@ class YahooImportIntegrationTest {
     @Test
     void importFullPipeline_ordersMarkSold_andReported() throws Exception {
         MockHttpSession editor = loginAs("eichi");
-        long item1 = createInStockItem(editor, "yho-a1"); // HT9-A1X
-        long item2 = createInStockItem(editor, "yho-a2"); // HT9-A2X
+        long item1 = createInStockItem(editor, "yho-a1"); // HT09-A1X
+        long item2 = createInStockItem(editor, "yho-a2"); // HT09-A2X
 
         // 46283.5=2026-09-18 12:00；两件在库未上架 → SOLD_MARK 0→2 直报边；旧码行未匹配
         long batchId = upload(editor, xlsx(
-                orderRow("10004866", "HT9-A1X", "46283.5", "b1243949032", "3500"),
-                orderRow("10004867", "HT9-A2X", "46283.5", "b1243949033", "12000"),
+                orderRow("10004866", "HT09-A1X", "46283.5", "b1243949032", "3500"),
+                orderRow("10004867", "HT09-A2X", "46283.5", "b1243949033", "12000"),
                 orderRow("10004868", "ZZZZ-ZZ9X", "46283.5", "b1243949034", "2000")));
         String report = awaitBatch(editor, batchId);
 
@@ -275,11 +275,11 @@ class YahooImportIntegrationTest {
     @Test
     void multiCodeOrder_bothMarked_priceUndivided_noteAttached() throws Exception {
         MockHttpSession editor = loginAs("eichi");
-        long item1 = createInStockItem(editor, "yho-m1"); // HT9-A1X
-        long item2 = createInStockItem(editor, "yho-m2"); // HT9-A2X
+        long item1 = createInStockItem(editor, "yho-m1"); // HT09-A1X
+        long item2 = createInStockItem(editor, "yho-m2"); // HT09-A2X
 
         long batchId = upload(editor, xlsx(
-                orderRow("10004900", "HT9-A1X\nHT9-A2X", "46283.5", "x1243954505", "12595")));
+                orderRow("10004900", "HT09-A1X\nHT09-A2X", "46283.5", "x1243954505", "12595")));
         String report = awaitBatch(editor, batchId);
 
         // rowCount=物理行；matched 按子行（一行拆两子行）
@@ -289,7 +289,7 @@ class YahooImportIntegrationTest {
         // 批次 note 補注：注文 ID 锚定 + 双码「・」连接（D-069 4）
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT note FROM yahoo_import_batch WHERE id = ?", String.class, batchId))
-                .contains("注文10004900").contains("HT9-A1X・HT9-A2X").contains("単価が未分割");
+                .contains("注文10004900").contains("HT09-A1X・HT09-A2X").contains("単価が未分割");
 
         // 同一条補注的结构化形态（D-127）：前端据此按当前语言渲染，
         // note 仅作旧数据/日志/诊断导出的兜底——两列必须同源。
@@ -300,7 +300,7 @@ class YahooImportIntegrationTest {
         assertThat(noteJson.replace(" ", ""))
                 .contains("\"code\":\"imports.note.multiItemByOrder\"")
                 .contains("\"orderId\":\"10004900\"")
-                .contains("HT9-A1X・HT9-A2X");
+                .contains("HT09-A1X・HT09-A2X");
 
         // 商品侧：双件 SOLD_MARK；単価未分割 → sold_price 不写（手填后补）
         assertThat(saleStatusOf(item1)).isEqualTo(2);
@@ -324,7 +324,7 @@ class YahooImportIntegrationTest {
     @Test
     void reuploadSameBytes_409() throws Exception {
         MockHttpSession editor = loginAs("eichi");
-        byte[] bytes = xlsx(orderRow("10006001", "HT9-A1X", "46283.5", "auc-601", "1000"));
+        byte[] bytes = xlsx(orderRow("10006001", "HT09-A1X", "46283.5", "auc-601", "1000"));
         upload(editor, bytes);
         mockMvc.perform(multipart("/api/yahoo/imports").session(editor)
                         .file(new MockMultipartFile("file", "orders.xlsx",
@@ -336,17 +336,17 @@ class YahooImportIntegrationTest {
     @Test
     void staleReplay_neverRegresses_pairIdempotent() throws Exception {
         MockHttpSession editor = loginAs("eichi");
-        long item = createInStockItem(editor, "yho-b1"); // HT9-A1X
+        long item = createInStockItem(editor, "yho-b1"); // HT09-A1X
 
         long soldBatch = upload(editor, xlsx(
-                orderRow("10005001", "HT9-A1X", "46280.875", "auc-301", "30000"))); // 09-15 21:00
+                orderRow("10005001", "HT09-A1X", "46280.875", "auc-301", "30000"))); // 09-15 21:00
         awaitBatch(editor, soldBatch);
         assertThat(saleStatusOf(item)).isEqualTo(2);
         assertThat(soldPriceOf(item)).isEqualTo(30000);
 
         // 陈旧重放：同拍卖同商品、更早受注时刻（09-10）、更低价 → 不得回退
         long staleBatch = upload(editor, xlsx(
-                orderRow("10005002", "HT9-A1X", "46275.5", "auc-301", "1000")));
+                orderRow("10005002", "HT09-A1X", "46275.5", "auc-301", "1000")));
         String report = awaitBatch(editor, staleBatch);
         assertThat(report).contains("\"matchedCount\":1").contains("\"updatedCount\":1");
         assertThat(saleStatusOf(item)).isEqualTo(2);
@@ -384,9 +384,9 @@ class YahooImportIntegrationTest {
                 .isEqualTo(7777);
 
         // 商品录入后同拍卖再导入（受注时刻更新、自码命中）→ 占位行被认领，id 不断链
-        long item = createInStockItem(editor, "yho-e1"); // HT9-A1X
+        long item = createInStockItem(editor, "yho-e1"); // HT09-A1X
         long secondBatch = upload(editor, xlsx(
-                orderRow("10005102", "HT9-A1X", "46284.5", "auc-501", "8888"))); // 09-19 12:00
+                orderRow("10005102", "HT09-A1X", "46284.5", "auc-501", "8888"))); // 09-19 12:00
         assertThat(awaitBatch(editor, secondBatch))
                 .contains("\"matchedCount\":1").contains("\"updatedCount\":1");
         assertThat(saleStatusOf(item)).isEqualTo(2);
@@ -402,7 +402,7 @@ class YahooImportIntegrationTest {
                 .isEqualTo(item);
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT raw_item_code FROM yahoo_listing WHERE yahoo_auction_id = 'auc-501'",
-                String.class)).isEqualTo("HT9-A1X");
+                String.class)).isEqualTo("HT09-A1X");
     }
 
     @Test
@@ -430,7 +430,7 @@ class YahooImportIntegrationTest {
         badHeader.set(1, "商品コード");
         badHeader.set(15, "合計金額");
         long headerBatch = upload(editor, xlsx(badHeader,
-                orderRow("10005201", "HT9-A1X", "46283.5", "auc-521", "1000")));
+                orderRow("10005201", "HT09-A1X", "46283.5", "auc-521", "1000")));
         assertThat(awaitBatch(editor, headerBatch)).contains("\"status\":2");
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT error_message FROM yahoo_import_batch WHERE id = ?", String.class, headerBatch))
@@ -454,7 +454,7 @@ class YahooImportIntegrationTest {
         List<String> badHeader = new ArrayList<>(HEADER);
         badHeader.set(0, "長い見出し".repeat(200));
         long batchId = upload(editor, xlsx(badHeader,
-                orderRow("10005201", "HT9-A1X", "46283.5", "auc-521", "1000")));
+                orderRow("10005201", "HT09-A1X", "46283.5", "auc-521", "1000")));
         assertThat(awaitBatch(editor, batchId)).contains("\"status\":2");
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT error_message FROM yahoo_import_batch WHERE id = ?", String.class, batchId))
@@ -470,7 +470,7 @@ class YahooImportIntegrationTest {
         // 计数仍全量、批次照常完成
         String[][] rows = new String[1500][];
         for (int i = 0; i < rows.length; i++) {
-            rows[i] = orderRow(String.valueOf(90000000 + i), "HT9-A1X", "46283.5",
+            rows[i] = orderRow(String.valueOf(90000000 + i), "HT09-A1X", "46283.5",
                     "auc-cap-" + i, "三百円");
         }
         long batchId = upload(editor, xlsx(rows));
@@ -502,11 +502,11 @@ class YahooImportIntegrationTest {
     @Test
     void multiCodeOrder_mixedMatch_itemRowPlusPlaceholderRowBothKept() throws Exception {
         MockHttpSession editor = loginAs("eichi");
-        long item = createInStockItem(editor, "yho-a1"); // HT9-A1X
+        long item = createInStockItem(editor, "yho-a1"); // HT09-A1X
         // 混合形态：未命中码+命中码 → 占位行与 (item,auction) 行各一行、命中件
         // SOLD_MARK（代码评审 MEDIUM-1 场景 B：命中子行不得收养兄弟刚插的占位行）
         long batchId = upload(editor, xlsx(
-                orderRow("10006102", "OLD9-ZZ9\nHT9-A1X", "46283.5", "auc-m2", "5000")));
+                orderRow("10006102", "OLD9-ZZ9\nHT09-A1X", "46283.5", "auc-m2", "5000")));
         assertThat(awaitBatch(editor, batchId))
                 .contains("\"status\":1").contains("\"rowCount\":1")
                 .contains("\"matchedCount\":1").contains("\"unmatchedCount\":1");
@@ -525,12 +525,12 @@ class YahooImportIntegrationTest {
     @Test
     void inFileRowOrder_newerEventFirst_olderRowDoesNotRegress() throws Exception {
         MockHttpSession editor = loginAs("eichi");
-        createInStockItem(editor, "yho-a1"); // HT9-A1X
+        createInStockItem(editor, "yho-a1"); // HT09-A1X
         // 确定性矩阵「乱序」形态：同文件同 (商品,拍卖) 对、新时刻行在前旧在后
         // → recency 保新值（行序不敏感锚定）
         long batchId = upload(editor, xlsx(
-                orderRow("10006201", "HT9-A1X", "46284.0", "auc-ord", "7000"),
-                orderRow("10006202", "HT9-A1X", "46283.0", "auc-ord", "6000")));
+                orderRow("10006201", "HT09-A1X", "46284.0", "auc-ord", "7000"),
+                orderRow("10006202", "HT09-A1X", "46283.0", "auc-ord", "6000")));
         awaitBatch(editor, batchId);
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT sold_price FROM yahoo_listing WHERE yahoo_auction_id = ?",
@@ -561,11 +561,11 @@ class YahooImportIntegrationTest {
     @Test
     void errorRowSampled_badPriceKeptOthersFlow() throws Exception {
         MockHttpSession editor = loginAs("eichi");
-        createInStockItem(editor, "yho-e2"); // HT9-A1X 的匹配目标
+        createInStockItem(editor, "yho-e2"); // HT09-A1X 的匹配目标
 
         long batchId = upload(editor, xlsx(
-                orderRow("10005201", "HT9-A1X", "46283.5", "auc-521", "1000"),
-                orderRow("10005202", "HT9-A2X", "46283.5", "auc-522", "三百円")));
+                orderRow("10005201", "HT09-A1X", "46283.5", "auc-521", "1000"),
+                orderRow("10005202", "HT09-A2X", "46283.5", "auc-522", "三百円")));
         String report = awaitBatch(editor, batchId);
         assertThat(report).contains("\"status\":1").contains("\"rowCount\":2")
                 .contains("\"matchedCount\":1").contains("\"unmatchedCount\":0");
@@ -584,7 +584,7 @@ class YahooImportIntegrationTest {
         mockMvc.perform(multipart("/api/yahoo/imports").session(viewer)
                         .file(new MockMultipartFile("file", "orders.xlsx",
                                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                xlsx(orderRow("10006001", "HT9-A1X", "46283.5", "auc-601", "1000")))))
+                                xlsx(orderRow("10006001", "HT09-A1X", "46283.5", "auc-601", "1000")))))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/yahoo/imports").session(viewer)).andExpect(status().isOk());
         mockMvc.perform(get("/api/yahoo/reconcile").session(viewer)).andExpect(status().isOk());
@@ -594,13 +594,13 @@ class YahooImportIntegrationTest {
     @Test
     void pendingShipments_andReconcileViews_assembledFromItemAndManualMarks() throws Exception {
         MockHttpSession editor = loginAs("eichi");
-        long soldItem = createInStockItem(editor, "yho-d1"); // HT9-A1X
-        long liveItem = createInStockItem(editor, "yho-d2"); // HT9-A2X
-        long canceledItem = createInStockItem(editor, "yho-d3"); // HT9-A3X
+        long soldItem = createInStockItem(editor, "yho-d1"); // HT09-A1X
+        long liveItem = createInStockItem(editor, "yho-d2"); // HT09-A2X
+        long canceledItem = createInStockItem(editor, "yho-d3"); // HT09-A3X
 
         // soldItem：受注成交 → 出荷待ち/视图一（2026-09-02 21:00 → 滞留红标）
         long batchId = upload(editor, xlsx(
-                orderRow("10007001", "HT9-A1X", "46267.875", "auc-701", "25000")));
+                orderRow("10007001", "HT09-A1X", "46267.875", "auc-701", "25000")));
         awaitBatch(editor, batchId);
 
         // liveItem：手动上架后在售；盘点差异出库（stock=2, sale=1）→ 撤架视图三
@@ -623,7 +623,7 @@ class YahooImportIntegrationTest {
         String pending = mockMvc.perform(get("/api/yahoo/pending-shipments").session(editor))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.count").value(1))
-                .andExpect(jsonPath("$.data.items[0].itemCode").value("HT9-A1X"))
+                .andExpect(jsonPath("$.data.items[0].itemCode").value("HT09-A1X"))
                 .andExpect(jsonPath("$.data.items[0].orderId").value("10007001"))
                 .andExpect(jsonPath("$.data.items[0].auctionId").value("auc-701"))
                 .andExpect(jsonPath("$.data.items[0].soldPrice").value(25000))
@@ -638,8 +638,8 @@ class YahooImportIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
         // 视图二=手动取消标记驱动；视图三=手动上架+盘点差异，lastSyncedAt 兜底最近导入
         // 完成时刻（受注导入刚完成）→ recentlySynced 降灰
-        assertThat(reconcile).contains("\"itemCode\":\"HT9-A2X\"")
-                .contains("\"itemCode\":\"HT9-A3X\"").contains("\"recentlySynced\":true");
+        assertThat(reconcile).contains("\"itemCode\":\"HT09-A2X\"")
+                .contains("\"itemCode\":\"HT09-A3X\"").contains("\"recentlySynced\":true");
 
         // 卖出清账后出荷待ち清空
         jdbcTemplate.update("UPDATE item SET stock_status = 2 WHERE id = ?", soldItem);
@@ -651,11 +651,11 @@ class YahooImportIntegrationTest {
     @Test
     void unmatchedRowsListed_byRawSelfCode_matchedRowsExcluded() throws Exception {
         MockHttpSession editor = loginAs("eichi");
-        createInStockItem(editor, "yho-u1"); // HT9-A1X=唯一命中行
+        createInStockItem(editor, "yho-u1"); // HT09-A1X=唯一命中行
 
         long batchId = upload(editor, xlsx(
                 orderRow("10004876", "M-D8T-SR5\nM-A68L-KW4", "46283.5", "auc-901", "12595"),
-                orderRow("10004866", "HT9-A1X", "46283.5", "auc-902", "3500"),
+                orderRow("10004866", "HT09-A1X", "46283.5", "auc-902", "3500"),
                 orderRow("10004867", "ZZZZ-ZZ9X", "46283.5", "auc-903", "2000")));
         String report = awaitBatch(editor, batchId);
         assertThat(report).contains("\"rowCount\":3").contains("\"matchedCount\":1")
@@ -671,7 +671,7 @@ class YahooImportIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
         assertThat(body).contains("M-D8T-SR5").contains("M-A68L-KW4").contains("ZZZZ-ZZ9X")
                 .contains("\"orderId\":\"10004876\"").contains("\"auctionId\":\"auc-901\"")
-                .doesNotContain("HT9-A1X"); // 命中行不进不一致清单
+                .doesNotContain("HT09-A1X"); // 命中行不进不一致清单
         // まとめ売り子行=単価未分割（合计价无拆分依据，sold_price 留空手填）
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM yahoo_listing WHERE yahoo_auction_id = 'auc-901'"

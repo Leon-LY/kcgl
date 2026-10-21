@@ -87,7 +87,7 @@ function batch(overrides: Partial<YahooImportBatch> = {}): YahooImportBatch {
 function shipment(): YahooPendingShipment {
   return {
     itemId: 601,
-    itemCode: 'HT9-A1X',
+    itemCode: 'HT09-A1X',
     thumbUrl: null,
     warehouse: 1,
     shelfNo: 'A-03',
@@ -102,7 +102,7 @@ function shipment(): YahooPendingShipment {
 function reconcileRow(overrides: Partial<YahooReconcileRow> = {}): YahooReconcileRow {
   return {
     itemId: 701,
-    itemCode: 'HT9-A2X',
+    itemCode: 'HT09-A2X',
     warehouse: 2,
     shelfNo: null,
     soldPrice: 25000,
@@ -223,7 +223,7 @@ describe('yahoo view (M5-②b)', () => {
   // まとめ売り補注（D-069 4）：批次 note 在展开区呈现（単価未分割提示）
   it('shows the multi-item note in the batch expand', async () => {
     apiMocks.fetchYahooBatches.mockResolvedValue([
-      batch({ note: '注文10004900（HT9-A1X・HT9-A2X）は複数商品のため単価が未分割です' }),
+      batch({ note: '注文10004900（HT09-A1X・HT09-A2X）は複数商品のため単価が未分割です' }),
     ])
     const { wrapper } = await mountView()
 
@@ -275,11 +275,11 @@ describe('yahoo view (M5-②b)', () => {
   // D-127：まとめ売り補注走 note_json 数组，逐条按当前语言渲染后用当语言连接符重连
   it('renders the structured multi-item note in the active locale', async () => {
     apiMocks.fetchYahooBatches.mockResolvedValue([
-      batch({ note: '注文10004900（HT9-A1X・HT9-A2X）は複数商品のため単価が未分割です',
+      batch({ note: '注文10004900（HT09-A1X・HT09-A2X）は複数商品のため単価が未分割です',
         noteJson: JSON.stringify([{
           code: 'imports.note.multiItemByOrder',
-          params: { orderId: '10004900', codes: 'HT9-A1X・HT9-A2X' },
-          text: '注文10004900（HT9-A1X・HT9-A2X）は複数商品のため単価が未分割です',
+          params: { orderId: '10004900', codes: 'HT09-A1X・HT09-A2X' },
+          text: '注文10004900（HT09-A1X・HT09-A2X）は複数商品のため単価が未分割です',
         }]) }),
     ])
     i18n.global.locale.value = 'en-US'
@@ -289,7 +289,7 @@ describe('yahoo view (M5-②b)', () => {
     await flushPromises()
 
     const shown = wrapper.find('#pane-import .yahoo-detail .kcgl-info-box').text()
-    expect(shown).toBe('Order 10004900 (HT9-A1X・HT9-A2X) contains several items, so the unit price was not split')
+    expect(shown).toBe('Order 10004900 (HT09-A1X・HT09-A2X) contains several items, so the unit price was not split')
     expect(shown).not.toContain('単価が未分割')
   })
 
@@ -422,7 +422,7 @@ describe('yahoo view (M5-②b)', () => {
     const { wrapper, router } = await mountView()
 
     const row = wrapper.find('#pane-shipments .el-table__row')
-    expect(row.text()).toContain('HT9-A1X')
+    expect(row.text()).toContain('HT09-A1X')
     expect(row.text()).toContain('￥12,000')
     expect(row.text()).toContain('10004866')
     expect(row.text()).toContain('出荷遅延')
@@ -432,7 +432,7 @@ describe('yahoo view (M5-②b)', () => {
     await flushPromises()
 
     expect(router.currentRoute.value.name).toBe('scan')
-    expect(router.currentRoute.value.query.code).toBe('HT9-A1X')
+    expect(router.currentRoute.value.query.code).toBe('HT09-A1X')
   })
 
   it('renders the three reconcile views with delayed and recently-synced marks', async () => {

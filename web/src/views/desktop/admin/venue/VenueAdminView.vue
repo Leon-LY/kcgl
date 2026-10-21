@@ -6,17 +6,19 @@ import AppPageHeader from '@/components/AppPageHeader.vue'
 import { toDisplayMessage } from '@/utils/errors'
 import {
   createVenue,
+  deleteVenue,
   fetchVenues,
-  renameVenue,
   setVenueStatus,
+  updateVenue,
 } from '@/utils/api'
 import type { Venue } from '@/utils/api'
 
 /**
  * 会场管理页（/admin/venues，M2-8b-2）：列表全员相关页 E+ 可达——
- * 创建/改名=编辑者以上（现场遇到日历外新拍卖会自救），停用/启用=仅管理员。
- * code 两位大写拉丁=管理号前两位快照来源，锁定不可改（只提供改名）。
- * 只停用不物理删（历史引用），停用可逆故无二次确认。
+ * 创建/改名改码=编辑者以上（现场遇到日历外新拍卖会自救），停用/启用/删除=仅管理员。
+ * code 为半角英数字 1-8 位（D-165），嵌在管理号开头；改码只影响今后生成的管理号，
+ * 已录入商品里是当时的快照（D-166）。删除不可逆故要求逐字输入会场码双重确认，
+ * 且商品引用过的会场只能停用（后端 409017 拦，前端文案引导）。
  */
 
 const { t } = useI18n()
@@ -46,40 +48,40 @@ onMounted(() => {
   void load()
 })
 
-// ------------------------------------------------------------- 创建/改名弹层
+// ------------------------------------------------------------- 创建/编辑弹层
 
-const VENUE_CODE_PATTERN = /^[A-Z]{2}$/
+/** 半角英数字 1-8 位；i 标志让用户输小写也能过，提交前统一转大写。 */
+const VENUE_CODE_PATTERN = /^[A-Z0-9]{1,8}$/i
 
 const dialogOpen = ref(false)
-const dialogMode = ref<'create' | 'rename'>('create')
+const dialogMode = ref<'create' | 'edit'>('create')
 const dialogBusy = ref(false)
 const dialogError = ref('')
-/** code 只在创建时可填；改名时只改名称。 */
 const formCode = ref('')
 const formName = ref('')
-const renameTarget = ref<Venue | null>(null)
+const editTarget = ref<Venue | null>(null)
 
 function openCreate(): void {
   dialogMode.value = 'create'
   formCode.value = ''
   formName.value = ''
-  renameTarget.value = null
+  editTarget.value = null
   dialogError.value = ''
   dialogOpen.value = true
 }
 
-function openRename(venue: Venue): void {
-  dialogMode.value = 'rename'
+function openEdit(venue: Venue): void {
+  dialogMode.value = 'edit'
   formCode.value = venue.code
   formName.value = venue.name
-  renameTarget.value = venue
+  editTarget.value = venue
   dialogError.value = ''
   dialogOpen.value = true
 }
 
 /** 就地校验（两字段小表单不引 el-form 规则引擎，与录入页一致的手写校验）。 */
 function validate(): string {
-  if (dialogMode.value === 'create' && !VENUE_CODE_PATTERN.test(formCode.value)) {
+  if (!VENUE_CODE_PATTERN.test(formCode.value.trim())) {
     return t('admin.venue.codeInvalid')
   }
   if (formName.value.trim() === '') {
@@ -92,12 +94,14 @@ async function onSubmit(): Promise<void> {
   if (dialogBusy.value) return
   dialogError.value = validate()
   if (dialogError.value !== '') return
+  const code = formCode.value.trim().toUpperCase()
+  const name = formName.value.trim()
   dialogBusy.value = true
   try {
     if (dialogMode.value === 'create') {
-      await createVenue({ code: formCode.value, name: formName.value.trim() })
-    } else if (renameTarget.value !== null) {
-      await renameVenue(renameTarget.value.id, formName.value.trim())
+      await createVenue({ code, name })
+    } else if (editTarget.value !== null) {
+      await updateVenue(editTarget.value.id, { name, code })
     }
     dialogOpen.value = false
     await load()
@@ -106,6 +110,45 @@ async function onSubmit(): Promise<void> {
     dialogError.value = toDisplayMessage(error, t)
   } finally {
     dialogBusy.value = false
+  }
+}
+
+// ------------------------------------------------------------- 删除（仅管理员，输码双重确认）
+
+const deleteOpen = ref(false)
+const deleteTarget = ref<Venue | null>(null)
+const deleteTyped = ref('')
+const deleteBusy = ref(false)
+const deleteError = ref('')
+
+/** 逐字输入会场码才点亮确认键（大小写不敏感，与提交归一一致）。 */
+const deleteConfirmed = computed(
+  () =>
+    deleteTarget.value != null &&
+    deleteTyped.value.trim().toUpperCase() === deleteTarget.value.code,
+)
+
+function openDelete(venue: Venue): void {
+  if (!canToggle.value) return
+  deleteTarget.value = venue
+  deleteTyped.value = ''
+  deleteError.value = ''
+  deleteOpen.value = true
+}
+
+async function onDelete(): Promise<void> {
+  if (deleteTarget.value == null || !deleteConfirmed.value || deleteBusy.value) return
+  deleteBusy.value = true
+  deleteError.value = ''
+  try {
+    await deleteVenue(deleteTarget.value.id)
+    deleteOpen.value = false
+    await load()
+  } catch (error) {
+    // 409017 有商品引用：提示改走停用
+    deleteError.value = toDisplayMessage(error, t)
+  } finally {
+    deleteBusy.value = false
   }
 }
 
@@ -188,15 +231,15 @@ async function onToggle(venue: Venue): Promise<void> {
         </el-table-column>
         <el-table-column
           :label="t('admin.actions')"
-          width="220"
+          width="280"
         >
           <template #default="{ row }">
             <el-button
               link
               type="primary"
-              @click="openRename(row as Venue)"
+              @click="openEdit(row as Venue)"
             >
-              {{ t('admin.venue.renameButton') }}
+              {{ t('admin.venue.editButton') }}
             </el-button>
             <el-button
               v-if="canToggle"
@@ -206,6 +249,14 @@ async function onToggle(venue: Venue): Promise<void> {
               @click="onToggle(row as Venue)"
             >
               {{ row.enabled ? t('admin.disable') : t('admin.enable') }}
+            </el-button>
+            <el-button
+              v-if="canToggle"
+              link
+              type="danger"
+              @click="openDelete(row as Venue)"
+            >
+              {{ t('admin.venue.deleteButton') }}
             </el-button>
           </template>
         </el-table-column>
@@ -217,7 +268,7 @@ async function onToggle(venue: Venue): Promise<void> {
 
     <el-dialog
       v-model="dialogOpen"
-      :title="dialogMode === 'create' ? t('admin.venue.createTitle') : t('admin.venue.renameTitle')"
+      :title="dialogMode === 'create' ? t('admin.venue.createTitle') : t('admin.venue.editTitle')"
       width="420px"
       :close-on-click-modal="!dialogBusy"
     >
@@ -226,10 +277,11 @@ async function onToggle(venue: Venue): Promise<void> {
           <span class="admin-field-label">{{ t('admin.venue.code') }}</span>
           <el-input
             v-model="formCode"
-            :disabled="dialogMode === 'rename' || dialogBusy"
-            maxlength="2"
+            :disabled="dialogBusy"
+            maxlength="8"
             :placeholder="t('admin.venue.codePlaceholder')"
           />
+          <span class="admin-field-hint">{{ t('admin.venue.codeHint') }}</span>
         </label>
         <label class="admin-field">
           <span class="admin-field-label">{{ t('admin.venue.name') }}</span>
@@ -261,6 +313,52 @@ async function onToggle(venue: Venue): Promise<void> {
           @click="onSubmit"
         >
           {{ t('common.save') }}
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="deleteOpen"
+      :title="t('admin.venue.deleteTitle')"
+      width="440px"
+      :close-on-click-modal="!deleteBusy"
+    >
+      <div class="admin-form">
+        <p class="admin-delete-warning">
+          {{ t('admin.venue.deleteWarning', { code: deleteTarget?.code ?? '', name: deleteTarget?.name ?? '' }) }}
+        </p>
+        <label class="admin-field">
+          <span class="admin-field-label">{{ t('admin.venue.deleteConfirmLabel', { code: deleteTarget?.code ?? '' }) }}</span>
+          <el-input
+            v-model="deleteTyped"
+            :disabled="deleteBusy"
+            maxlength="8"
+            autocomplete="off"
+            :placeholder="deleteTarget?.code ?? ''"
+          />
+        </label>
+        <p
+          v-if="deleteError"
+          class="admin-form-error"
+          role="alert"
+        >
+          {{ deleteError }}
+        </p>
+      </div>
+      <template #footer>
+        <el-button
+          :disabled="deleteBusy"
+          @click="deleteOpen = false"
+        >
+          {{ t('common.cancel') }}
+        </el-button>
+        <el-button
+          type="danger"
+          :disabled="!deleteConfirmed"
+          :loading="deleteBusy"
+          @click="onDelete"
+        >
+          {{ t('admin.venue.deleteConfirmButton') }}
         </el-button>
       </template>
     </el-dialog>
@@ -317,6 +415,22 @@ async function onToggle(venue: Venue): Promise<void> {
 .admin-field-label {
   font-size: 0.85rem;
   color: var(--kcgl-color-text-sub);
+}
+
+.admin-field-hint {
+  font-size: 0.8rem;
+  color: var(--kcgl-color-text-faint);
+}
+
+.admin-delete-warning {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--kcgl-color-danger-border);
+  border-radius: var(--kcgl-radius-s);
+  background: var(--kcgl-color-danger-bg);
+  color: var(--kcgl-color-danger);
+  font-size: 0.85rem;
+  line-height: 1.6;
 }
 
 .admin-form-error {

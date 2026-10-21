@@ -84,7 +84,7 @@ const meViewer: MeResponse = {
 function item(overrides: Partial<ItemResponse> = {}): ItemResponse {
   return {
     id: 1,
-    itemCode: 'HT9-A1X',
+    itemCode: 'HT09-A1X',
     venueId: 1,
     venueCode: 'HT',
     buyMonth: 1,
@@ -228,7 +228,7 @@ describe('item detail view (M5-1)', () => {
       shelfNo: 'A-01',
     })
 
-    expect(wrapper.find('.itemd-code').text()).toBe('HT9-A1X')
+    expect(wrapper.find('.itemd-code').text()).toBe('HT09-A1X')
     // 标题行：移動中（中性）+落札済み（green）双标签
     expect(wrapper.find('.itemd-title .itemd-tag.is-neutral').text()).toBe('移動中')
     expect(wrapper.find('.itemd-title .itemd-tag.is-success').text()).toBe('落札済み')
@@ -382,9 +382,9 @@ describe('item detail view (M5-1)', () => {
     const { wrapper, router } = await mountView(2, {
       remark: '客からの預かり品',
       reEntryOf: 9,
-      reEntryOfCode: 'HT9-Z9X',
+      reEntryOfCode: 'HT09-Z9X',
       voidReEntry: 30,
-      voidReEntryCode: 'HT9-Z30X',
+      voidReEntryCode: 'HT09-Z30X',
     })
 
     // 备注是用户数据，不再被后端塞进「再登録元/先」日文标记
@@ -396,8 +396,8 @@ describe('item detail view (M5-1)', () => {
 
     const links = wrapper.findAll('.itemd-link')
     expect(links).toHaveLength(2)
-    expect(links[0].text()).toBe('HT9-Z9X')
-    expect(links[1].text()).toBe('HT9-Z30X')
+    expect(links[0].text()).toBe('HT09-Z9X')
+    expect(links[1].text()).toBe('HT09-Z30X')
 
     // 互链跳转：对端 id 进详情（同组件复用，参数变化触发重载）
     await links[1].trigger('click')
@@ -503,7 +503,7 @@ describe('item detail view (M5-1)', () => {
     expect(viewer.wrapper.findAll('button').filter((b) => b.text() === '編集する')).toHaveLength(0)
     expect(viewer.wrapper.findAll('button').filter((b) => b.text() === '取り消して再登録')).toHaveLength(0)
     expect(viewer.wrapper.findAll('button').filter((b) => b.text() === '削除する')).toHaveLength(0)
-    expect(viewer.wrapper.find('.itemd-code').text()).toBe('HT9-A1X')
+    expect(viewer.wrapper.find('.itemd-code').text()).toBe('HT09-A1X')
   })
 
   it('admin corrects status via the adjust dialog; editor and viewer get no button (D4)', async () => {

@@ -79,13 +79,28 @@ test.describe('dictionary admin (desktop-chromium)', () => {
     await expect(zzRow).toBeVisible()
     await expect(zzRow).toContainText('有効')
 
-    await zzRow.getByRole('button', { name: '名前を変更' }).click()
+    // 改名 + 改码（D-165/166）：会場コードも編集可（数字入り・複数桁）
+    await zzRow.getByRole('button', { name: '編集' }).click()
+    await page.locator('.el-dialog input').nth(0).fill('ZZ01')
     await page.locator('.el-dialog input').nth(1).fill('E2Eテスト会場（改）')
     await saveDialog(page)
-    await expect(zzRow).toContainText('E2Eテスト会場（改）')
+    const zz01Row = page.locator('.el-table__row', { hasText: 'ZZ01' })
+    await expect(zz01Row).toContainText('E2Eテスト会場（改）')
 
-    await zzRow.getByRole('button', { name: '停止する' }).click()
-    await expect(zzRow).toContainText('停止')
+    await zz01Row.getByRole('button', { name: '停止する' }).click()
+    await expect(zz01Row).toContainText('停止')
+
+    // 削除（D-166）：逐字输入会場コード才点亮确认键；删完列表消失
+    await fillCreateDialog(page, ['DV', 'E2E削除会場'])
+    const dvRow = page.locator('.el-table__row', { hasText: 'E2E削除会場' })
+    await dvRow.getByRole('button', { name: '削除' }).click()
+    const delDialog = page.locator('.el-dialog').filter({ hasText: '会場の削除' })
+    const delConfirm = delDialog.getByRole('button', { name: '削除する' })
+    await expect(delConfirm).toBeDisabled()
+    await delDialog.locator('input').fill('dv')
+    await expect(delConfirm).toBeEnabled()
+    await delConfirm.click()
+    await expect(page.locator('.el-table__row', { hasText: 'E2E削除会場' })).toHaveCount(0)
 
     // ---- 价格档位：新增 Z=5000円以上（无界上限）→ 人读区间 → 停用
     await nav.filter({ hasText: '価格帯' }).click()
@@ -150,10 +165,11 @@ test.describe('dictionary admin (desktop-chromium)', () => {
     // 编辑者大盘无 checklist 卡片（管理员引导）
     await expect(page.locator('.setup-card')).toHaveCount(0)
 
-    // 会场页可达：新增/改名可用，无停用按钮
+    // 会场页可达：新增/编辑可用，无停用/删除按钮
     await nav.filter({ hasText: '会場' }).click()
     await expect(page.locator('.page-header-actions button').first()).toBeVisible()
     await expect(page.getByRole('button', { name: '停止する' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: '削除' })).toHaveCount(0)
 
     // 直敲 URL → 路由守卫回大盘（服务端 403 二次兜底；桌面壳 '/' 即 dashboard）
     await page.goto('/admin/price-bands')

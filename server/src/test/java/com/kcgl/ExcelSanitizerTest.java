@@ -28,7 +28,7 @@ class ExcelSanitizerTest {
 
     @ParameterizedTest
     @ValueSource(strings = {
-            "HT9-A1X",
+            "HT09-A1X",
             "備考テキスト（１行目）",
             "1,000円",
             "'already-quoted",

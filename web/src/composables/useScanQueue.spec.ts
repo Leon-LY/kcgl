@@ -41,9 +41,9 @@ afterAll(async () => {
 
 describe('enqueue: stores offline scans and counts per stocktake', () => {
   it('persists the entry and exposes per-stocktake and total counts', async () => {
-    await queue.enqueue(7, 'HT9-A1X')
-    await queue.enqueue(7, 'HT9-A2X')
-    await queue.enqueue(8, 'HT9-B1X')
+    await queue.enqueue(7, 'HT09-A1X')
+    await queue.enqueue(7, 'HT09-A2X')
+    await queue.enqueue(8, 'HT09-B1X')
 
     await vi.waitFor(() => {
       expect(queue.pendingFor(7)).toBe(2)
@@ -57,17 +57,17 @@ describe('enqueue: stores offline scans and counts per stocktake', () => {
 
 describe('flush: ordered replay with idempotent-200 clearing', () => {
   it('replays FIFO, deletes on success (including repeated=true), and refreshes counts', async () => {
-    await seedScan(7, 'HT9-A1X', 1_000)
-    await seedScan(7, 'HT9-A2X', 2_000)
+    await seedScan(7, 'HT09-A1X', 1_000)
+    await seedScan(7, 'HT09-A2X', 2_000)
     apiMocks.scanStocktakeItem
-      .mockResolvedValueOnce({ ...scanResult('HT9-A1X'), repeated: true })
-      .mockResolvedValueOnce(scanResult('HT9-A2X'))
+      .mockResolvedValueOnce({ ...scanResult('HT09-A1X'), repeated: true })
+      .mockResolvedValueOnce(scanResult('HT09-A2X'))
 
     await queue.flush()
 
     // 按扫描序回放（先 A1 后 A2）
-    expect(apiMocks.scanStocktakeItem).toHaveBeenNthCalledWith(1, 7, 'HT9-A1X')
-    expect(apiMocks.scanStocktakeItem).toHaveBeenNthCalledWith(2, 7, 'HT9-A2X')
+    expect(apiMocks.scanStocktakeItem).toHaveBeenNthCalledWith(1, 7, 'HT09-A1X')
+    expect(apiMocks.scanStocktakeItem).toHaveBeenNthCalledWith(2, 7, 'HT09-A2X')
     expect(await db.scanActions.count()).toBe(0)
     await vi.waitFor(() => {
       expect(queue.state.pendingCount).toBe(0)
@@ -76,10 +76,10 @@ describe('flush: ordered replay with idempotent-200 clearing', () => {
   })
 
   it('stops at the first network error and keeps the remaining entries ordered', async () => {
-    await seedScan(7, 'HT9-A1X', 1_000)
-    await seedScan(7, 'HT9-A2X', 2_000)
-    await seedScan(7, 'HT9-A3X', 3_000)
-    apiMocks.scanStocktakeItem.mockResolvedValueOnce(scanResult('HT9-A1X'))
+    await seedScan(7, 'HT09-A1X', 1_000)
+    await seedScan(7, 'HT09-A2X', 2_000)
+    await seedScan(7, 'HT09-A3X', 3_000)
+    apiMocks.scanStocktakeItem.mockResolvedValueOnce(scanResult('HT09-A1X'))
     apiMocks.scanStocktakeItem.mockRejectedValueOnce(new ApiError(0, 'NETWORK_ERROR'))
 
     await queue.flush()
@@ -87,31 +87,31 @@ describe('flush: ordered replay with idempotent-200 clearing', () => {
     expect(apiMocks.scanStocktakeItem).toHaveBeenCalledTimes(2)
     // A1 出清，A2/A3 原序保留
     const remaining = await db.scanActions.orderBy('createdAt').toArray()
-    expect(remaining.map((entry) => entry.code)).toEqual(['HT9-A2X', 'HT9-A3X'])
+    expect(remaining.map((entry) => entry.code)).toEqual(['HT09-A2X', 'HT09-A3X'])
     await vi.waitFor(() => expect(queue.pendingFor(7)).toBe(2))
   })
 
   it('drops business rejections into failures instead of retrying forever', async () => {
-    await seedScan(7, 'HT9-VOID', 1_000)
-    await seedScan(7, 'HT9-OK', 2_000)
+    await seedScan(7, 'HT09-VOID', 1_000)
+    await seedScan(7, 'HT09-OK', 2_000)
     apiMocks.scanStocktakeItem
       .mockRejectedValueOnce(new ApiError(404001, 'item not found'))
-      .mockResolvedValueOnce(scanResult('HT9-OK'))
+      .mockResolvedValueOnce(scanResult('HT09-OK'))
 
     await queue.flush()
 
     expect(await db.scanActions.count()).toBe(0)
     expect(queue.state.failures).toHaveLength(1)
-    expect(queue.state.failures[0]).toMatchObject({ stocktakeId: 7, code: 'HT9-VOID' })
+    expect(queue.state.failures[0]).toMatchObject({ stocktakeId: 7, code: 'HT09-VOID' })
     expect(apiMocks.scanStocktakeItem).toHaveBeenCalledTimes(2)
   })
 
   it('is reentrant-safe: a second concurrent call returns without starting a second replay', async () => {
-    await seedScan(7, 'HT9-A1X')
+    await seedScan(7, 'HT09-A1X')
     let release: (() => void) | undefined
     apiMocks.scanStocktakeItem.mockImplementationOnce(
       () => new Promise((resolve) => {
-        release = () => resolve(scanResult('HT9-A1X'))
+        release = () => resolve(scanResult('HT09-A1X'))
       }),
     )
 
@@ -129,8 +129,8 @@ describe('flush: ordered replay with idempotent-200 clearing', () => {
 
 describe('init: restores counts and replays leftovers on reopen', () => {
   it('flushes entries persisted by a previous session', async () => {
-    await seedScan(7, 'HT9-A1X')
-    apiMocks.scanStocktakeItem.mockResolvedValue(scanResult('HT9-A1X'))
+    await seedScan(7, 'HT09-A1X')
+    apiMocks.scanStocktakeItem.mockResolvedValue(scanResult('HT09-A1X'))
 
     await queue.init()
     await vi.waitFor(() => expect(apiMocks.scanStocktakeItem).toHaveBeenCalledTimes(1))

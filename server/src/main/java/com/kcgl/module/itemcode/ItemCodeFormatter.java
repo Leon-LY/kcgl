@@ -4,18 +4,20 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 管理号格式与进制逻辑（docs/01 7.1 唯一定义节；D-068 去年代号）。
- * 格式：{会场2}{月1-2不补零}-{流水前缀}{1-99}{价格码1?}
- * 例：HT9-A1X = 会场 HT + 9 月 + 前缀 A + 流水 1 + 价格档 X。
- * 会场码恒 2 字母定长，去年代号后无前缀碰撞歧义；桶=(会场,月)跨年连续。
- * 前缀 base-26 递进：A→Z→AA→AAA（覆盖单桶 180 万+ 号，远超业务上限）。
+ * 管理号格式与进制逻辑（docs/01 7.1 唯一定义节；D-068 去年代号；D-165 放宽会场码）。
+ * 格式：{会场1-8字母数字}{月2补零}-{流水前缀}{1-99}{价格码1?}
+ * 例：HT09-A1X = 会场 HT + 9 月 + 前缀 A + 流水 1 + 价格档 X。
+ * 会场码由定长2字母放开为 1-8 位字母数字后，月段必须补零成固定2位——否则
+ * 变长会场段与月段无法切分（HT9 既可读作「会场HT+月9」也可读作「会场HT9+月?」）。
+ * 月恒2位时贪心匹配的切点永远落在倒数第2位，拆解无歧义。
+ * 桶=(会场,月)跨年连续。前缀 base-26 递进：A→Z→AA→AAA（覆盖单桶 180 万+ 号）。
  * includePriceCode=false 时省略末位价格码（A1 口径，application.yml 配置）。
  */
 public final class ItemCodeFormatter {
 
-    /** 拆装用完整正则（锚定）：五段分组，价格码可选。 */
+    /** 拆装用完整正则（锚定）：五段分组，价格码可选；会场段 1-8 位字母数字，月段固定2位。 */
     static final Pattern CODE_PATTERN = Pattern.compile(
-            "^([A-Z]{2})(1[0-2]|[1-9])-([A-Z]{1,3})([1-9][0-9]?)([A-Z])?$");
+            "^([A-Z0-9]{1,8})(0[1-9]|1[0-2])-([A-Z]{1,3})([1-9][0-9]?)([A-Z])?$");
 
     /** 管理号形态校验（CSV 清洗/搜索快路径共用）：完整正则锚定匹配。 */
     public static boolean matches(String code) {
@@ -25,11 +27,12 @@ public final class ItemCodeFormatter {
     private ItemCodeFormatter() {
     }
 
-    /** 组装管理号。month 不补零（1-9 单字符、10-12 双字符）；seq 不补零（1-99）。 */
+    /** 组装管理号。month 补零恒2位（01-12，变长会场码切分所需）；seq 不补零（1-99）。 */
     public static String format(String venueCode, int month,
             String prefix, int seq, String bandCode, boolean includePriceCode) {
         String tail = includePriceCode ? prefix + seq + bandCode : prefix + seq;
-        return venueCode + month + "-" + tail;
+        String mm = month < 10 ? "0" + month : String.valueOf(month);
+        return venueCode + mm + "-" + tail;
     }
 
     /** 前缀 base-26 进位：A→B、Z→AA、AZ→BA、ZZ→AAA（大端 26 进制 +1）。 */

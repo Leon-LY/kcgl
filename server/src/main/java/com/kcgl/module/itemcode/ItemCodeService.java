@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Supplier;
 
 /**
  * 管理号引擎·外层（无 @Transactional）：重试在事务边界之外——每次经独立事务代理
@@ -41,12 +42,15 @@ public class ItemCodeService {
     }
 
     public ItemEntity create(CreateItemCommand cmd) {
-        ItemEntity item = createWithRetry(cmd);
-        // 提交后广播（事务边界之外，同 InventoryActionService 模式）：他端的
-        // 在途清单/本日会话按 ITEM 域失效重取。重放读回同样走到这里——
-        // 多一次广播=他端多一次无害重取，不为省它给事务体加签名
-        sseHub.broadcast(SyncEvent.TYPE_ITEM, item.getItemCode(), cmd.operatorId());
-        return item;
+        return createAndBroadcast(() -> txService.allocateAndInsert(cmd), cmd);
+    }
+
+    /**
+     * 手填管理号录入（D-167）：重试/广播语义与 {@link #create} 完全一致，差异仅在
+     * 事务体走 {@link ItemCodeTxService#insertManualCode}（用显式号而非自动取号）。
+     */
+    public ItemEntity createWithManualCode(CreateItemCommand cmd, String manualCode) {
+        return createAndBroadcast(() -> txService.insertManualCode(cmd, manualCode), cmd);
     }
 
     /**
@@ -55,13 +59,22 @@ public class ItemCodeService {
      * 重试/幂等语义与 {@link #create} 完全一致。
      */
     public ItemEntity createQuietly(CreateItemCommand cmd) {
-        return createWithRetry(cmd);
+        return createWithRetry(() -> txService.allocateAndInsert(cmd), cmd);
     }
 
-    private ItemEntity createWithRetry(CreateItemCommand cmd) {
+    private ItemEntity createAndBroadcast(Supplier<ItemEntity> action, CreateItemCommand cmd) {
+        ItemEntity item = createWithRetry(action, cmd);
+        // 提交后广播（事务边界之外，同 InventoryActionService 模式）：他端的
+        // 在途清单/本日会话按 ITEM 域失效重取。重放读回同样走到这里——
+        // 多一次广播=他端多一次无害重取，不为省它给事务体加签名
+        sseHub.broadcast(SyncEvent.TYPE_ITEM, item.getItemCode(), cmd.operatorId());
+        return item;
+    }
+
+    private ItemEntity createWithRetry(Supplier<ItemEntity> action, CreateItemCommand cmd) {
         for (int attempt = 1; ; attempt++) {
             try {
-                return txService.allocateAndInsert(cmd);
+                return action.get();
             } catch (DuplicateKeyException | CannotAcquireLockException
                     | DeadlockLoserDataAccessException e) {
                 if (attempt >= MAX_ATTEMPTS) {

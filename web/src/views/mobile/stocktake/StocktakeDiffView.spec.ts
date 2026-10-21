@@ -94,7 +94,7 @@ function diffRow(overrides: Partial<StocktakeDiffRow> = {}): StocktakeDiffRow {
   return {
     id: 11,
     itemId: 201,
-    itemCode: 'HT9-A1X',
+    itemCode: 'HT09-A1X',
     diffType: 1,
     expectedWarehouse: 1,
     actualWarehouse: null,

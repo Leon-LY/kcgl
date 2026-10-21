@@ -32,16 +32,25 @@ export function fetchPriceBands(): Promise<PriceBand[]> {
 
 // ------------------------------------------------------------------ 字典管理（M2-8b-2）
 
-/** 会场创建（E+，现场自救）/改名（code 是管理号快照来源，锁定不可改）。 */
+/** 会场创建（E+，现场自救）。 */
 export function createVenue(payload: { code: string; name: string }): Promise<Venue> {
   return request('/api/venues', jsonInit('POST', payload))
 }
 
-export function renameVenue(id: number, name: string): Promise<Venue> {
-  return request(`/api/venues/${id}`, jsonInit('PUT', { name }))
+/**
+ * 会场改名 + 改码（D-166）。code 只影响今后生成的管理号——已录入商品里是快照，不变。
+ * code 传空串/省略表示不改码。
+ */
+export function updateVenue(id: number, payload: { name: string; code?: string }): Promise<Venue> {
+  return request(`/api/venues/${id}`, jsonInit('PUT', payload))
 }
 
-/** 会场停用/启用（仅管理员；只停用不物理删——历史引用仍在）。 */
+/** 会场删除（仅管理员；有商品引用时后端拒绝，引导走停用）。 */
+export function deleteVenue(id: number): Promise<void> {
+  return request(`/api/venues/${id}`, { method: 'DELETE' })
+}
+
+/** 会场停用/启用（仅管理员；有历史引用时用停用代替删除）。 */
 export function setVenueStatus(id: number, enabled: boolean): Promise<Venue> {
   return request(`/api/venues/${id}/status`, jsonInit('PATCH', { enabled: enabled ? 1 : 0 }))
 }

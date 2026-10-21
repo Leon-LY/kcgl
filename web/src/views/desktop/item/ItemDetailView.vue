@@ -88,7 +88,8 @@ function goBack(): void {
 
 // ------------------------------------------------------------- 分歧徽标（号内快照 vs 现值）
 
-const ITEM_CODE_PATTERN = /^([A-Z]{2})(1[0-2]|[1-9])-([A-Z]{1,3})([1-9][0-9]?)([A-Z])?$/
+// 会场码变长后月恒 2 位补零（D-165）：HT09-A1X，分组 5 仍是价格档位字母
+const ITEM_CODE_PATTERN = /^([A-Z0-9]{1,8})(0[1-9]|1[0-2])-([A-Z]{1,3})([1-9][0-9]?)([A-Z])?$/
 
 const diverged = computed(() => {
   const current = item.value

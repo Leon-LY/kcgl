@@ -95,14 +95,14 @@ class YahooOrderParserTest {
     @Test
     void parse_multiCodeOrder_splitsPerItem_soldPriceLeftBlank() {
         RowOutcome outcome = YahooOrderParser.parse(row(
-                0, "10004900", 1, "HT9-A1X\nHT9-A2X", 2, 46283.5,
+                0, "10004900", 1, "HT09-A1X\nHT09-A2X", 2, 46283.5,
                 3, "x1243954505", 15, 12595d));
 
         assertThat(outcome).isInstanceOf(RowOutcome.Ok.class);
         List<ParsedRow> rows = ((RowOutcome.Ok) outcome).rows();
         assertThat(rows).hasSize(2);
-        assertThat(rows.get(0).itemCode()).isEqualTo("HT9-A1X");
-        assertThat(rows.get(1).itemCode()).isEqualTo("HT9-A2X");
+        assertThat(rows.get(0).itemCode()).isEqualTo("HT09-A1X");
+        assertThat(rows.get(1).itemCode()).isEqualTo("HT09-A2X");
         assertThat(rows).allSatisfy(parsed -> {
             assertThat(parsed.multiItem()).isTrue();
             assertThat(parsed.soldPrice()).isNull(); // 合计价无拆分依据，手填后补
@@ -124,10 +124,10 @@ class YahooOrderParserTest {
     @Test
     void parse_fullWidthNewCode_normalizedAndMatched() {
         RowOutcome outcome = YahooOrderParser.parse(row(
-                1, "ｈｔ９－ａ１Ｘ", 3, "e1", 2, 46283d, 15, "￥12,000"));
+                1, "ｈｔ０９－ａ１Ｘ", 3, "e1", 2, 46283d, 15, "￥12,000"));
 
         List<ParsedRow> rows = ((RowOutcome.Ok) outcome).rows();
-        assertThat(rows.get(0).itemCode()).isEqualTo("HT9-A1X");
+        assertThat(rows.get(0).itemCode()).isEqualTo("HT09-A1X");
         assertThat(rows.get(0).soldPrice()).isEqualTo(12000L);
     }
 
@@ -209,11 +209,13 @@ class YahooOrderParserTest {
 
     @Test
     void itemCodePattern_validCodes() {
-        assertThat(ItemCodeFormatter.matches("HT9-A1X")).isTrue();
+        assertThat(ItemCodeFormatter.matches("HT09-A1X")).isTrue();
         assertThat(ItemCodeFormatter.matches("HT12-BB10X")).isTrue();
-        assertThat(ItemCodeFormatter.matches("HT9-A1")).isTrue(); // 不含价格码模式
+        assertThat(ItemCodeFormatter.matches("HT09-A1")).isTrue(); // 不含价格码模式
+        assertThat(ItemCodeFormatter.matches("T109-A1X")).isTrue(); // 变长会场（D-165）
         assertThat(ItemCodeFormatter.matches("M-A8-F9")).isFalse(); // 甲方旧码
         assertThat(ItemCodeFormatter.matches("htk9-a1x")).isFalse();
+        assertThat(ItemCodeFormatter.matches("HT9-A1X")).isFalse(); // 月不补零的旧格式
     }
 
     // ------------------------------------------------------------- 真实样张契约锁定

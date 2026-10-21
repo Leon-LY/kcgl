@@ -12,6 +12,12 @@ import { JST_TZ, dayjs } from '@/utils/format'
 // 落札日历下界 2016（业务起点防误选）；Vant 日历边界取本地语义的日历日（列渲染读本地 Y/M/D）
 export const MIN_DATE = dayjs('2016-01-01').toDate()
 
+/**
+ * 入库日下界：近 3 个月（D-168）。入库是近期作业，能翻到 2016 只会让长列表难选。
+ * 只用于入库日——落札日可能早于 3 个月、拍照日也可补登，二者仍用 MIN_DATE。
+ */
+export const IN_DATE_MIN = dayjs().tz(JST_TZ).subtract(3, 'month').startOf('day').toDate()
+
 /** JST 今日（YYYY-MM-DD）。 */
 export function todayJst(): string {
   return dayjs().tz(JST_TZ).format('YYYY-MM-DD')

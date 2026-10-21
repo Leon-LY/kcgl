@@ -13,9 +13,9 @@
       "image": "06-admin/venues.jpg",
       "title": { "ja": "会場を登録する", "zh": "登记会场", "en": "Register venues" },
       "intro": {
-        "ja": "落札した場所のことです。会場コードは管理番号の先頭2文字になるので、最初に決めてください。",
-        "zh": "会场就是落札的地点。会场代码会成为管理号的前两位，请最先确定。",
-        "en": "A venue is where you won items. Its code becomes the first two characters of item codes, so settle it first."
+        "ja": "落札した場所のことです。会場コードは管理番号の先頭に入るので、最初に決めてください。半角英数字1〜8桁です。",
+        "zh": "会场就是落札的地点。会场代码会成为管理号的开头部分，请最先确定。用 1～8 位半角字母或数字。",
+        "en": "A venue is where you won items. Its code goes at the start of item codes, so settle it first. Use 1 to 8 letters or digits."
       },
       "roles": [1, 2],
       "steps": [
@@ -26,21 +26,21 @@
             "en": "Select Add venue"
           },
           "body": {
-            "ja": "会場コード（半角英字2桁、例：AB）と会場名（例：飛騨古民具市）を入れます。",
-            "zh": "输入会场代码（2 位大写英文字母，如 AB）与会场名称（如 飞驒古民具市）。",
-            "en": "Enter the code (two uppercase letters, for example AB) and the venue name."
+            "ja": "会場コード（半角英数字1〜8桁、例：AB、TK01）と会場名（例：飛騨古民具市）を入れます。小文字で入れても、自動で大文字になります。",
+            "zh": "输入会场代码（1～8 位半角字母或数字，如 AB、TK01）与会场名称（如 飞驒古民具市）。输入小写也会自动转成大写。",
+            "en": "Enter the code (1 to 8 letters or digits, for example AB or TK01) and the venue name. Lowercase input is converted to uppercase automatically."
           }
         },
         {
           "title": {
-            "ja": "コードは後から変えられません",
-            "zh": "代码之后不能修改",
-            "en": "The code cannot be changed later"
+            "ja": "コードは後から変えられます",
+            "zh": "代码之后可以修改",
+            "en": "The code can be changed later"
           },
           "body": {
-            "ja": "発行済みの管理番号に使われているためです。名前は後から変更できます。",
-            "zh": "因为它已被已签发的管理号使用。名称之后可以修改。",
-            "en": "It is already used in issued item codes. The name can be changed later."
+            "ja": "会場の編集画面で変えられます。すでに発行した管理番号はそのまま残り、これから登録する商品に新しいコードが使われます。",
+            "zh": "在会场的编辑页面可以改。已经签发的管理号原样保留，今后登记的商品会使用新代码。",
+            "en": "Change it from the venue edit screen. Codes already issued stay as they are; new entries use the new code."
           }
         },
         {
@@ -53,6 +53,19 @@
             "ja": "停止すると、登録時の選択肢に出なくなります。過去の商品の記録はそのまま残ります。",
             "zh": "停用后在登记时不再出现为选项，过去商品的记录原样保留。",
             "en": "A disabled venue no longer appears when registering. Past item records stay unchanged."
+          },
+          "roles": [1]
+        },
+        {
+          "title": {
+            "ja": "使わなくなった会場を削除する",
+            "zh": "删除不再使用的会场",
+            "en": "Delete a venue you no longer use"
+          },
+          "body": {
+            "ja": "商品が1件も登録されていない会場だけ削除できます。会場コードを入力すると、削除ボタンが押せるようになります。商品が残っている会場は削除できませんので、「停止」にしてください。",
+            "zh": "只有一件商品都没登记过的会场才能删除。输入会场代码后，删除按钮才可点击。已有商品的会场无法删除，请改用「停用」。",
+            "en": "Only a venue with no items at all can be deleted. Type the venue code to enable the delete button. If items still exist, use Disable instead."
           },
           "roles": [1]
         }

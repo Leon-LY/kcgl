@@ -50,12 +50,14 @@ test.describe('continuous entry (desktop-chromium)', () => {
     await priceInput.blur()
     await expect(priceInput).toHaveValue('1000')
 
-    // 两级预览：本地档位 X + 防抖后的完整号目安（预览≠保留文案在场）
+    // 两级预览：本地档位 X + 防抖后的完整号目安（空欄=自動，目安在输入框占位符上）
     await expect(page.locator('.entry-band')).toContainText('X')
-    await expect(page.locator('.entry-preview-code')).toHaveText(/^HT\d{1,2}-A1X$/, {
+    await expect(page.locator('#entry-manual-code')).toHaveAttribute('placeholder', /^HT\d{2}-A1X$/, {
       timeout: 5000,
     })
-    await expect(page.locator('.entry-preview-note')).toContainText('確定番号は保存時に発行されます')
+    await expect(page.locator('.entry-preview-note')).toContainText(
+      '空欄のままにすると、保存時に自動で番号が付きます',
+    )
 
     // 相机入口选 1 张（7.5 全链路：浏览器压缩→Dexie→保存后绑定续传→后端校验重编码落盘）
     // 压缩在 Web Worker 内执行，全套件并发/IDE 负载下可能超默认 5s——显式放宽
@@ -80,7 +82,7 @@ test.describe('continuous entry (desktop-chromium)', () => {
     // 保存 → 成功页：最终管理号与预览一致（单写者场景）+ QR + 本日 1 件目
     await page.locator('button[type="submit"]').click()
     await expect(page.locator('.entry-success-code')).toBeVisible()
-    await expect(page.locator('.entry-success-code')).toHaveText(/^HT\d{1,2}-A1X$/)
+    await expect(page.locator('.entry-success-code')).toHaveText(/^HT\d{2}-A1X$/)
     await expect(page.locator('.entry-success-qr')).toBeVisible()
     await expect(page.locator('.entry-success-count')).toContainText('1')
     await expect(page.locator('.entry-success-guide')).toContainText('油性ペン')
@@ -216,5 +218,35 @@ test.describe('continuous entry (desktop-chromium)', () => {
     await expect(page.locator('.print-label')).toHaveCount(1)
     await expect(page.locator('.print-count')).toContainText('1件・1枚')
     expect(await decodeQr(page, 0)).toBe(target)
+  })
+
+  test('manually typed item code is used as-is, and auto numbering continues after it (D-167)', async ({ page }) => {
+    await login(page, 'editor')
+    await page.goto('/entry')
+
+    await page.locator('.van-field').first().click()
+    await page.locator('.van-picker__confirm').click()
+    await page.locator('.van-field input').nth(2).fill('1000')
+
+    const month = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo', month: '2-digit' })
+      .format(new Date())
+      .replace(/[^0-9]/g, '')
+      .padStart(2, '0')
+    const manual = `HT${month}-M50X`
+
+    const codeInput = page.locator('#entry-manual-code')
+    await codeInput.fill(manual.toLowerCase())
+    await codeInput.blur()
+    await expect(codeInput).toHaveValue(manual)
+    await expect(page.locator('.entry-preview-error')).toHaveCount(0)
+
+    await page.locator('button[type="submit"]').click()
+    await expect(page.locator('.entry-success-code')).toHaveText(manual)
+
+    // 继续录入：自动发号从手填位置之后继续（计数器只前进不后退）
+    await page.getByRole('button', { name: '続けて登録する' }).click()
+    await expect(page.locator('.van-field input').first()).toHaveValue('飛騨古民具市')
+    await page.locator('button[type="submit"]').click()
+    await expect(page.locator('.entry-success-code')).toHaveText(new RegExp(`^HT${month}-M5[1-9]X$`))
   })
 })

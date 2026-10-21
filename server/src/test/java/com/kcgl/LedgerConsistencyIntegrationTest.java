@@ -177,7 +177,7 @@ class LedgerConsistencyIntegrationTest {
         assertThat(r.drifts()).hasSize(1);
         LedgerConsistencyService.ItemDrift drift = r.drifts().get(0);
         assertThat(drift.itemId()).isEqualTo(a);
-        assertThat(drift.itemCode()).isEqualTo("HT9-A1X");
+        assertThat(drift.itemCode()).isEqualTo("HT09-A1X");
         // 流水头寸说它在仓1，行状态说它在仓2
         assertThat(drift.ledgerPositions()).containsEntry(1, 1L);
         assertThat(drift.itemWarehouse()).isEqualTo(2);

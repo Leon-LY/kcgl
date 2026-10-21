@@ -76,8 +76,8 @@ class ItemCodeNoPriceCodeIntegrationTest {
     void create_codeExcludesBandLetter_bandSnapshotStillPersisted() {
         ItemEntity first = itemCodeService.create(command("npc-1"));
         ItemEntity second = itemCodeService.create(command("npc-2"));
-        assertThat(first.getItemCode()).isEqualTo("HT9-A1");
-        assertThat(second.getItemCode()).isEqualTo("HT9-A2");
+        assertThat(first.getItemCode()).isEqualTo("HT09-A1");
+        assertThat(second.getItemCode()).isEqualTo("HT09-A2");
         // 档位照常推导（供内部展示与导出），仅不进号
         assertThat(first.getPriceBandCode()).isEqualTo("X");
     }

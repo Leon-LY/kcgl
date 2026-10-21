@@ -112,7 +112,7 @@ class ItemControllerIntegrationTest {
                         .content(body("api-1", "2026-09-15", "1000", "1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data.itemCode").value("HT9-A1X"))
+                .andExpect(jsonPath("$.data.itemCode").value("HT09-A1X"))
                 .andExpect(jsonPath("$.data.priceBandCode").value("X"))
                 .andExpect(jsonPath("$.data.stockStatus").value(0))
                 .andExpect(jsonPath("$.data.voided").value(false))
@@ -220,7 +220,7 @@ class ItemControllerIntegrationTest {
                         .param("buyDate", "2026-09-15")
                         .param("price", "1000"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.code").value("HT9-A1X"))
+                .andExpect(jsonPath("$.data.code").value("HT09-A1X"))
                 .andExpect(jsonPath("$.data.seqPrefix").value("A"))
                 .andExpect(jsonPath("$.data.seqNo").value(1));
         mockMvc.perform(post("/api/items").session(editor)
@@ -233,7 +233,7 @@ class ItemControllerIntegrationTest {
                         .param("buyDate", "2026-09-15")
                         .param("price", "1000"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.code").value("HT9-A2X"));
+                .andExpect(jsonPath("$.data.code").value("HT09-A2X"));
         // 月不补零
         mockMvc.perform(get("/api/item-codes/preview").session(editor)
                         .param("venueId", String.valueOf(venueId))
@@ -305,14 +305,14 @@ class ItemControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.total").value(3))
                 .andExpect(jsonPath("$.data.size").value(2))
                 .andExpect(jsonPath("$.data.rows", hasSize(2)))
-                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HT9-A1X"))
-                .andExpect(jsonPath("$.data.rows[1].itemCode").value("HT9-A2X"));
+                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HT09-A1X"))
+                .andExpect(jsonPath("$.data.rows[1].itemCode").value("HT09-A2X"));
         mockMvc.perform(get("/api/items").session(editor)
                         .param("createdFrom", todayParam(-1)).param("createdTo", todayParam(1))
                         .param("size", "2").param("page", "2"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.rows", hasSize(1)))
-                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HT9-A3X"));
+                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HT09-A3X"));
         // size 钳制到 100（响应回显钳后值）
         mockMvc.perform(get("/api/items").session(editor)
                         .param("createdFrom", todayParam(-1)).param("createdTo", todayParam(1))
@@ -391,33 +391,33 @@ class ItemControllerIntegrationTest {
     @Test
     void list_codeFilter_exactMatchWithNormalization() throws Exception {
         MockHttpSession editor = loginAs("eichi");
-        createItem(editor, "code-a"); // HT9-A1X
-        createItem(editor, "code-b"); // HT9-A2X
+        createItem(editor, "code-a"); // HT09-A1X
+        createItem(editor, "code-b"); // HT09-A2X
         // 半角小写 → 精确命中 1 件
         mockMvc.perform(get("/api/items").session(editor)
                         .param("createdFrom", todayParam(-1)).param("createdTo", todayParam(1))
-                        .param("code", "ht9-a2x"))
+                        .param("code", "ht09-a2x"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HT9-A2X"));
+                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HT09-A2X"));
         // 全角（IME 想定）→ NFKC+大写化后同命中
         mockMvc.perform(get("/api/items").session(editor)
                         .param("createdFrom", todayParam(-1)).param("createdTo", todayParam(1))
-                        .param("code", "ＨＴ９－Ａ２Ｘ"))
+                        .param("code", "ＨＴ０９－Ａ２Ｘ"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HT9-A2X"));
+                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HT09-A2X"));
         // code 优先于日期条件（重打不看创建日——旧标签补打场景）
         mockMvc.perform(get("/api/items").session(editor)
                         .param("createdFrom", "2020-01-01").param("createdTo", "2020-01-31")
-                        .param("code", "HT9-A1X"))
+                        .param("code", "HT09-A1X"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HT9-A1X"));
+                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HT09-A1X"));
         // 不存在 → 0 件（前端据此显示「找不到」而非空列表）
         mockMvc.perform(get("/api/items").session(editor)
                         .param("createdFrom", todayParam(-1)).param("createdTo", todayParam(1))
-                        .param("code", "HT9-Z99X"))
+                        .param("code", "HT09-Z99X"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(0));
     }
@@ -433,7 +433,7 @@ class ItemControllerIntegrationTest {
         // 作废件不可重打（打印语义=作废标签须撕除/划掉，补打会复活旧号）
         mockMvc.perform(get("/api/items").session(editor)
                         .param("createdFrom", todayParam(-1)).param("createdTo", todayParam(1))
-                        .param("code", "HT9-A1X"))
+                        .param("code", "HT09-A1X"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(0));
     }

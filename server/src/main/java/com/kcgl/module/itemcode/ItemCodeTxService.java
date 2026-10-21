@@ -227,6 +227,60 @@ public class ItemCodeTxService {
     }
 
     /**
+     * 手填管理号（录入页「次の管理番号（目安）」可改，D-167）：与旧号导入同一套
+     * 校验/落库/流水/审计内部件，差异仅在会场来源——取请求 venueId（导入取号内会场段）。
+     * 手填号仍须与所选会场、落札月一致（号内嵌会场+月，结构决定），故不支持再登録。
+     */
+    @Transactional
+    public ItemEntity insertManualCode(CreateItemCommand cmd, String manualCode) {
+        ItemEntity replayed = findReplayedCreate(cmd.clientReqId());
+        if (replayed != null) {
+            return replayed;
+        }
+        if (cmd.reEntryOf() != null) {
+            throw new BizException(ErrorCode.VALIDATION, "再登録では管理番号を指定できません");
+        }
+
+        String normalized = CodeNormalizer.normalize(manualCode);
+        ItemCodeFormatter.ParsedCode parsed;
+        try {
+            parsed = ItemCodeFormatter.parse(normalized);
+        } catch (IllegalArgumentException e) {
+            throw new BizException(ErrorCode.ITEM_CODE_INVALID);
+        }
+        VenueEntity venue = requireVenue(cmd.venueId());
+        if (!parsed.venueCode().equals(venue.getCode())) {
+            throw new BizException(ErrorCode.ITEM_CODE_INVALID);
+        }
+        if (parsed.month() != cmd.buyDate().getMonthValue()) {
+            throw new BizException(ErrorCode.ITEM_CODE_INVALID);
+        }
+        PriceBandResponse band = priceBandService.match(cmd.purchasePrice());
+
+        SeqItemCodeEntity bucket = lockOrCreateBucket(venue.getId(), parsed.month());
+        if (!codeIsFree(normalized)) {
+            throw new BizException(ErrorCode.ITEM_CODE_CONFLICT);
+        }
+        advanceCounterForImport(bucket, parsed.prefix(), parsed.seq());
+
+        ItemEntity item = buildItem(cmd, venue, band, normalized,
+                parsed.prefix(), parsed.seq(), parsed.month());
+        itemMapper.insert(item);
+        ledgerMapper.insert(buildCreateLedger(cmd, item));
+        audit("ITEM_CREATE", "item", item.getId(), Map.of(
+                "itemCode", normalized,
+                "venueCode", venue.getCode(),
+                "buyMonth", parsed.month(),
+                "seqPrefix", parsed.prefix(),
+                "seqNo", parsed.seq(),
+                "priceBand", band.code(),
+                "purchasePrice", cmd.purchasePrice(),
+                "manual", true), cmd);
+        // 生成列（total_cost/profit）由 DB 计算，重读回填
+        return itemMapper.selectById(item.getId());
+    }
+
+    /**
      * 预览号（无锁只读，E+）：计数器现值+1 推算，不做存在性检查（预览≠保留——
      * 两人可能同见一个号，先保存者得之，后者保存时引擎落库取新号；前端文案须明示以保存为准）。
      */

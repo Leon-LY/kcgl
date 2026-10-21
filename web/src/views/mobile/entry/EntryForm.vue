@@ -9,7 +9,14 @@ import { toDisplayMessage } from '@/utils/errors'
 import { JST_TZ, dayjs } from '@/utils/format'
 import { newClientId } from '@/utils/id'
 import { normalizeNumericText, parseAmount, trimText } from '@/utils/normalize'
-import { MIN_DATE, fromPickerValues, jstTodayEnd, toPickerValues, todayJst } from './entryShared'
+import {
+  IN_DATE_MIN,
+  MIN_DATE,
+  fromPickerValues,
+  jstTodayEnd,
+  toPickerValues,
+  todayJst,
+} from './entryShared'
 import EntryCodePreview from './EntryCodePreview.vue'
 import EntryPhotoField from './EntryPhotoField.vue'
 
@@ -136,6 +143,10 @@ const buyDateDisplay = computed(() => buyDate.value.replaceAll('-', '/'))
  */
 const photoField = ref<InstanceType<typeof EntryPhotoField> | null>(null)
 
+/** 管理号手填（D-167）：空=自动；重录禁用（服务端不接受手填号 + reEntryOf）。 */
+const manualCode = ref('')
+const codePreview = ref<InstanceType<typeof EntryCodePreview> | null>(null)
+
 onMounted(() => {
   // 重录时读回原件图片（只读展示）；失败不阻断——服务端保存时自会整组复制
   void photoField.value?.loadInherited()
@@ -165,6 +176,13 @@ async function onSubmit(): Promise<void> {
   if (venueId.value == null || price == null || price < 1) {
     return // van-form 规则已拦，此为类型收窄兜底
   }
+  const manualError = codePreview.value?.manualError ?? null
+  if (manualError != null) {
+    // 就地报错已在管理号卡片里展示，这里同步到流程错误区并中止
+    saveError.value = manualError
+    saveErrorId.value = null
+    return
+  }
   if (!clientReqId) {
     clientReqId = newClientId()
   }
@@ -187,6 +205,7 @@ async function onSubmit(): Promise<void> {
       warehouseInDate: warehouseInDate.value || undefined,
       groupNo: trimText(groupNo.value) || undefined,
       remark: trimText(remark.value) || undefined,
+      manualCode: trimText(manualCode.value) || undefined,
     })
     // 照片绑定新商品（孤儿 pending_bind → pending），随后后台续传；失败保留 clientReqId
     const boundCount = await uploadQueue.bindItem(item.id)
@@ -338,9 +357,12 @@ async function onSubmit(): Promise<void> {
     />
 
     <EntryCodePreview
+      ref="codePreview"
+      v-model:manual="manualCode"
       :venue-id="venueId"
       :buy-date="buyDate"
       :price="priceValue"
+      :manual-enabled="reEntry == null"
     />
 
     <van-cell-group
@@ -404,7 +426,7 @@ async function onSubmit(): Promise<void> {
         >
           <van-date-picker
             :model-value="toPickerValues(warehouseInDate)"
-            :min-date="MIN_DATE"
+            :min-date="IN_DATE_MIN"
             :max-date="inDateMax"
             :title="t('entry.warehouseInDate')"
             @confirm="onInDateConfirm"

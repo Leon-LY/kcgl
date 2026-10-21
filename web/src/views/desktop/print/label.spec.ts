@@ -8,7 +8,7 @@ import { customPreset, LABEL_PRESETS, chunkSheets, splitItemCode, type LabelEntr
 
 function entry(id: number): LabelEntry {
   return {
-    item: { id, itemCode: `HT9-A${id}X`, buyDate: '2026-09-15', venueCode: 'HT', thumbUrl: null },
+    item: { id, itemCode: `HT09-A${id}X`, buyDate: '2026-09-15', venueCode: 'HT', thumbUrl: null },
     qr: 'data:image/png;base64,QR',
   }
 }
@@ -61,12 +61,12 @@ describe('chunkSheets sheet splitting', () => {
 })
 
 describe('splitItemCode human-readable code segmentation', () => {
-  it('keeps the hyphen with the venue/date head and separates the sequence tail (HT9-A1X)', () => {
-    expect(splitItemCode('HT9-A1X')).toEqual({ head: 'HT9-', tail: 'A1X' })
+  it('keeps the hyphen with the venue/date head and separates the sequence tail (HT09-A1X)', () => {
+    expect(splitItemCode('HT09-A1X')).toEqual({ head: 'HT09-', tail: 'A1X' })
   })
 
-  it('splits multi-letter prefixes (HT9-AA12X) at the first hyphen only', () => {
-    expect(splitItemCode('HT9-AA12X')).toEqual({ head: 'HT9-', tail: 'AA12X' })
+  it('splits multi-letter prefixes (HT09-AA12X) at the first hyphen only', () => {
+    expect(splitItemCode('HT09-AA12X')).toEqual({ head: 'HT09-', tail: 'AA12X' })
   })
 
   it('returns hyphen-less malformed input as-is without throwing', () => {

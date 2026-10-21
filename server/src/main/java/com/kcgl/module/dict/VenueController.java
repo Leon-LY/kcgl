@@ -5,10 +5,11 @@ import com.kcgl.common.sse.SyncEvent;
 import com.kcgl.common.web.ApiResponse;
 import com.kcgl.module.dict.dto.StatusRequest;
 import com.kcgl.module.dict.dto.VenueCreateRequest;
-import com.kcgl.module.dict.dto.VenueRenameRequest;
 import com.kcgl.module.dict.dto.VenueResponse;
+import com.kcgl.module.dict.dto.VenueUpdateRequest;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,9 +23,9 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * 会场字典端点（docs/01 六节）：查询全员；创建/改名=可编辑及以上（现场自救）；
- * 停用=管理员。只停用不物理删。变更后广播 DICT——他端录入页的会场下拉靠
- * dicts 缓存失效重取（服务 @Transactional 返回=已提交，控制器层=天然提交后广播点）。
+ * 会场字典端点（docs/01 六节）：查询全员；创建/编辑（改名/改码）=可编辑及以上（现场自救）；
+ * 停用/删除=管理员。删除仅限无商品引用（D-166）。变更后广播 DICT——他端录入页的
+ * 会场下拉靠 dicts 缓存失效重取（服务 @Transactional 返回=已提交，控制器层=天然提交后广播点）。
  */
 @RestController
 @RequestMapping("/api/venues")
@@ -53,10 +54,19 @@ public class VenueController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','EDITOR')")
-    public ApiResponse<VenueResponse> rename(@PathVariable Long id, @Valid @RequestBody VenueRenameRequest req) {
-        VenueResponse venue = venueService.rename(id, req);
+    public ApiResponse<VenueResponse> update(@PathVariable Long id, @Valid @RequestBody VenueUpdateRequest req) {
+        VenueResponse venue = venueService.update(id, req);
         sseHub.broadcast(SyncEvent.TYPE_DICT, "venue:" + venue.code(), null);
         return ApiResponse.ok(venue);
+    }
+
+    /** 删除（D-166）：管理员专属；有商品引用时 409017 引导停用。 */
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<Void> delete(@PathVariable Long id) {
+        VenueResponse venue = venueService.delete(id);
+        sseHub.broadcast(SyncEvent.TYPE_DICT, "venue:" + venue.code(), null);
+        return ApiResponse.ok();
     }
 
     @PatchMapping("/{id}/status")

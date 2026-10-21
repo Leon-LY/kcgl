@@ -67,7 +67,7 @@ const meViewer: MeResponse = {
 function row(overrides: Partial<ItemSearchRow> = {}): ItemSearchRow {
   return {
     id: 1,
-    itemCode: 'HT9-A1X',
+    itemCode: 'HT09-A1X',
     thumbUrl: null,
     itemName: null,
     venueName: '飛騨古美術市',
@@ -93,7 +93,7 @@ function result(overrides: Partial<ItemSearchResult> = {}): ItemSearchResult {
 function recycleRow(overrides: Partial<RecycleBinRow> = {}): RecycleBinRow {
   return {
     id: 901,
-    itemCode: 'HT9-A9X',
+    itemCode: 'HT09-A9X',
     thumbUrl: null,
     itemName: null,
     venueName: '飛騨古美術市',
@@ -193,7 +193,7 @@ describe('items view (M5-1)', () => {
     const rows = wrapper.findAll('#pane-list .el-table__row')
     expect(rows).toHaveLength(2)
     expect(wrapper.find('.kcgl-list-count').text()).toBe('全 2 件')
-    expect(rows[0]!.text()).toContain('HT9-A1X')
+    expect(rows[0]!.text()).toContain('HT09-A1X')
     expect(rows[0]!.text()).toContain('長期滞留')
     expect(rows[0]!.find('.kcgl-tag.is-success').exists()).toBe(true) // 落札済み=green
     // venueName null → 占位符；仓 2 名古屋→福岡标签映射
@@ -224,11 +224,11 @@ describe('items view (M5-1)', () => {
 
     // kw 输入 → 検索按钮：trim 后携带
     const kwInput = wrapper.find('.items-search input')
-    await kwInput.setValue('  HT9-A1X ')
+    await kwInput.setValue('  HT09-A1X ')
     await wrapper.findAll('button').find((b) => b.text() === '検索')!.trigger('click')
     await flushPromises()
     expect(apiMocks.searchItems).toHaveBeenLastCalledWith(
-      expect.objectContaining({ kw: 'HT9-A1X', page: 1, size: 20 }),
+      expect.objectContaining({ kw: 'HT09-A1X', page: 1, size: 20 }),
     )
 
     // 仓库下拉变更（el-select v-model + @change 双事件模拟）→ 立即搜索
@@ -266,7 +266,7 @@ describe('items view (M5-1)', () => {
 
     expect(wrapper.find('#pane-recycle').exists()).toBe(true)
     const recycleRow_ = wrapper.find('#pane-recycle .el-table__row')
-    expect(recycleRow_.text()).toContain('HT9-A9X')
+    expect(recycleRow_.text()).toContain('HT09-A9X')
     expect(recycleRow_.text()).toContain('E2E整理')
 
     apiMocks.restoreItem.mockResolvedValue(recycleRow({}))
@@ -380,7 +380,7 @@ describe('items list state in the URL (C1)', () => {
     expect(router.currentRoute.value.fullPath).toBe('/items')
 
     // 未按「検索」的输入不算列表态：URL 只投影已发出的检索参数
-    await wrapper.find('.items-search input').setValue('HT9-A1X')
+    await wrapper.find('.items-search input').setValue('HT09-A1X')
     await flushPromises()
     expect(router.currentRoute.value.fullPath).toBe('/items')
   })
@@ -388,17 +388,17 @@ describe('items list state in the URL (C1)', () => {
   it('projects the applied keyword and page into the query', async () => {
     const { wrapper, router } = await mountView()
 
-    await wrapper.find('.items-search input').setValue('  HT9-A1X ')
+    await wrapper.find('.items-search input').setValue('  HT09-A1X ')
     await wrapper.findAll('button').find((b) => b.text() === '検索')!.trigger('click')
     await flushPromises()
-    expect(router.currentRoute.value.query.kw).toBe('HT9-A1X')
+    expect(router.currentRoute.value.query.kw).toBe('HT09-A1X')
 
     wrapper.findComponent({ name: 'ElPagination' }).vm.$emit('current-change', 2)
     await flushPromises()
     expect(apiMocks.searchItems).toHaveBeenLastCalledWith(
-      expect.objectContaining({ kw: 'HT9-A1X', page: 2 }),
+      expect.objectContaining({ kw: 'HT09-A1X', page: 2 }),
     )
-    expect(router.currentRoute.value.query).toEqual({ kw: 'HT9-A1X', page: '2' })
+    expect(router.currentRoute.value.query).toEqual({ kw: 'HT09-A1X', page: '2' })
 
     // 条件クリア → 回到默认态即抹掉 query
     await wrapper.findAll('button').find((b) => b.text() === '条件をクリア')!.trigger('click')
@@ -409,7 +409,7 @@ describe('items list state in the URL (C1)', () => {
   it('writes filter changes with replace so the back key leaves the list in one step', async () => {
     const { wrapper, router } = await mountView()
 
-    await wrapper.find('.items-search input').setValue('HT9-A1X')
+    await wrapper.find('.items-search input').setValue('HT09-A1X')
     await wrapper.findAll('button').find((b) => b.text() === '検索')!.trigger('click')
     await flushPromises()
 
@@ -546,7 +546,7 @@ describe('items row status actions (D-129)', () => {
 
   it('管理员菜单＝合法动作 + 状態修正 + 削除', async () => {
     const { wrapper } = await mountView(1)
-    expect(rowDropdown(wrapper, 'HT9-A1X')?.exists()).toBe(true)
+    expect(rowDropdown(wrapper, 'HT09-A1X')?.exists()).toBe(true)
 
     // 在庫・未上架 的合法动作按现场频率：売却/移動/廃棄/出品済みにする/会場へ返す
     expect(menuItems()).toEqual([
@@ -564,7 +564,7 @@ describe('items row status actions (D-129)', () => {
 
   it('编辑者只拿到合法动作，没有削除与状態修正（两者都是 A-only）', async () => {
     const { wrapper } = await mountView(2)
-    expect(rowDropdown(wrapper, 'HT9-A1X')?.exists()).toBe(true)
+    expect(rowDropdown(wrapper, 'HT09-A1X')?.exists()).toBe(true)
 
     const items = menuItems()
     expect(items).toContain('廃棄')
@@ -574,14 +574,14 @@ describe('items row status actions (D-129)', () => {
 
   it('浏览者没有操作列，也不该看到操作入口', async () => {
     const { wrapper } = await mountView(3)
-    expect(rowDropdown(wrapper, 'HT9-A1X')?.exists()).toBe(false)
+    expect(rowDropdown(wrapper, 'HT09-A1X')?.exists()).toBe(false)
     expect(wrapper.findAll('#pane-list .items-actions')).toHaveLength(0)
   })
 
   it('菜单里选一个动作即打开弹层，确认后按幂等键提交并刷新列表', async () => {
     apiMocks.sellItem.mockResolvedValue({
       itemId: 1,
-      itemCode: 'HT9-A1X',
+      itemCode: 'HT09-A1X',
       stockStatus: 2,
       saleStatus: 2,
       warehouse: 1,
@@ -589,7 +589,7 @@ describe('items row status actions (D-129)', () => {
     const { wrapper } = await mountView(1)
     const listCalls = apiMocks.searchItems.mock.calls.length
 
-    rowDropdown(wrapper, 'HT9-A1X')!.vm.$emit('command', 'sell')
+    rowDropdown(wrapper, 'HT09-A1X')!.vm.$emit('command', 'sell')
     await flushPromises()
 
     // 落札価格は任意項目：空のままでも落札として記録できる
@@ -605,14 +605,14 @@ describe('items row status actions (D-129)', () => {
     // 列表重取 + 回执（这一行可能因筛选不再命中而整行消失，回执是唯一落点）
     expect(apiMocks.searchItems.mock.calls.length).toBeGreaterThan(listCalls)
     const notice = wrapper.find('#pane-list .kcgl-batch-result')
-    expect(notice.text()).toContain('HT9-A1X')
+    expect(notice.text()).toContain('HT09-A1X')
     expect(notice.text()).toContain('売却を記録しました')
   })
 
   it('报废未填理由时不发请求，错误留在弹层里（弹层不关）', async () => {
     const { wrapper } = await mountView(1)
 
-    rowDropdown(wrapper, 'HT9-A1X')!.vm.$emit('command', 'scrap')
+    rowDropdown(wrapper, 'HT09-A1X')!.vm.$emit('command', 'scrap')
     await flushPromises()
     await clickActionDialog(wrapper, '廃棄する')
 

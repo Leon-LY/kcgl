@@ -34,5 +34,10 @@ public record CreateItemRequest(
         @Size(max = 128) String authorKiln,
         @Size(max = 64) String sizeText,
         @Min(1) @Max(2_000_000) Integer weightG,
-        @Size(max = 32) String salesChannel) {
+        @Size(max = 32) String salesChannel,
+        /**
+         * 手填管理号（D-167，可空=自动发号）：须与会场码、落札月一致且未被占用；
+         * 为空或空白时走自动取号。再登録不支持手填（后端拒绝）。
+         */
+        @Size(max = 32) String manualCode) {
 }

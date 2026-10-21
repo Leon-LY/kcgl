@@ -17,6 +17,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.mysql.MySQLContainer;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -61,6 +62,8 @@ class DictIntegrationTest {
                 INSERT INTO sys_user(username, password_hash, display_name, role, enabled, must_change_pwd)
                 VALUES ('boss', ?, '管理者', 1, 1, 0), ('eichi', ?, '編集者', 2, 1, 0), ('miru', ?, '閲覧者', 3, 1, 0)
                 """, ENCODER.encode(PASSWORD), ENCODER.encode(PASSWORD), ENCODER.encode(PASSWORD));
+        jdbcTemplate.update("DELETE FROM seq_item_code");
+        jdbcTemplate.update("DELETE FROM item");
         jdbcTemplate.update("DELETE FROM auction_venue");
         jdbcTemplate.update("DELETE FROM price_band");
     }
@@ -140,15 +143,108 @@ class DictIntegrationTest {
     }
 
     @Test
-    void createVenue_lowercaseCode_400() throws Exception {
+    void createVenue_lettersAndDigits_upTo8_normalizedToUpperCase() throws Exception {
+        // D-165：会场码放开为英数字 1-8 位；小写输入归一为大写（管理号全大写）
         MockHttpSession editor = loginAs("eichi");
         mockMvc.perform(post("/api/venues").session(editor)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"code":"ht","name":"小文字"}
+                                {"code":"tk01","name":"東京01"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.code").value("TK01"));
+    }
+
+    @Test
+    void createVenue_codeWithSymbolOrOver8Chars_400() throws Exception {
+        MockHttpSession editor = loginAs("eichi");
+        mockMvc.perform(post("/api/venues").session(editor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"code":"HT-1","name":"記号入り"}
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(400001));
+        mockMvc.perform(post("/api/venues").session(editor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"code":"ABCDEFGHI","name":"9桁"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400001));
+    }
+
+    @Test
+    void updateVenue_changeCode_allowedAndAudited() throws Exception {
+        // D-166：改码恒允许——历史商品里的 venue_code 是快照，改码只影响今后
+        MockHttpSession editor = loginAs("eichi");
+        String body = mockMvc.perform(post("/api/venues").session(editor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"code":"NG","name":"名古屋市"}
+                                """))
+                .andReturn().getResponse().getContentAsString();
+        long id = extractId(body);
+
+        mockMvc.perform(put("/api/venues/" + id).session(editor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"名古屋市","code":"ng2"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.code").value("NG2"));
+        assertThat(auditCount("VENUE_UPDATE", id)).isEqualTo(1);
+    }
+
+    @Test
+    void deleteVenue_withoutReferences_removesVenueAndCounterBucket() throws Exception {
+        MockHttpSession admin = loginAs("boss");
+        String body = mockMvc.perform(post("/api/venues").session(admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"code":"FK","name":"福岡市"}
+                                """))
+                .andReturn().getResponse().getContentAsString();
+        long id = extractId(body);
+        jdbcTemplate.update("INSERT INTO seq_item_code(venue_id, month, cur_prefix, cur_seq) VALUES (?, 9, 'A', 5)", id);
+
+        mockMvc.perform(delete("/api/venues/" + id).session(admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM auction_venue WHERE id = ?", Long.class, id))
+                .isZero();
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM seq_item_code WHERE venue_id = ?", Long.class, id))
+                .isZero();
+        assertThat(auditCount("VENUE_DELETE", id)).isEqualTo(1);
+    }
+
+    @Test
+    void deleteVenue_referencedByItem_409017_andEditor403() throws Exception {
+        MockHttpSession admin = loginAs("boss");
+        MockHttpSession editor = loginAs("eichi");
+        String body = mockMvc.perform(post("/api/venues").session(admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"code":"HT","name":"飛騨古民具市"}
+                                """))
+                .andReturn().getResponse().getContentAsString();
+        long id = extractId(body);
+        jdbcTemplate.update("""
+                INSERT INTO item(item_code, venue_id, venue_code, buy_month,
+                    seq_prefix, seq_no, buy_date, purchase_price, price_band_code, warehouse, created_by)
+                VALUES ('HT09-A1X', ?, 'HT', 9, 'A', 1, '2026-09-15', 1000, 'X', 1,
+                    (SELECT id FROM sys_user WHERE username = 'boss'))
+                """, id);
+
+        // 删除是管理员专属
+        mockMvc.perform(delete("/api/venues/" + id).session(editor))
+                .andExpect(status().isForbidden());
+        // 有商品引用 → 409017 引导停用
+        mockMvc.perform(delete("/api/venues/" + id).session(admin))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(409017));
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM auction_venue WHERE id = ?", Long.class, id))
+                .isEqualTo(1);
     }
 
     @Test
@@ -170,7 +266,7 @@ class DictIntegrationTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.name").value("名古屋市大須"));
-        assertThat(auditCount("VENUE_RENAME", id)).isEqualTo(1);
+        assertThat(auditCount("VENUE_UPDATE", id)).isEqualTo(1);
 
         // 停用是管理员专属
         mockMvc.perform(patch("/api/venues/" + id + "/status").session(editor)

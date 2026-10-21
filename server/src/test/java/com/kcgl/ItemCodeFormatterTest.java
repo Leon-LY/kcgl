@@ -11,19 +11,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * 管理号纯逻辑单测（docs/01 7.1；D-068 去年代号）：组号/月不补零/进位/
- * 含价格码双态/拆装往返/旧格式拒绝。
+ * 管理号纯逻辑单测（docs/01 7.1；D-068 去年代号；D-165 会场放宽+月补零）：
+ * 组号/月补零恒2位/变长会场/进位/含价格码双态/拆装往返/旧格式拒绝。
  */
 class ItemCodeFormatterTest {
 
     @ParameterizedTest
     @CsvSource({
-            "HT, 1,  A, 1,  X, HT1-A1X",
-            "HT, 9,  A, 1,  X, HT9-A1X",
+            "HT, 1,  A, 1,  X, HT01-A1X",
+            "HT, 9,  A, 1,  X, HT09-A1X",
             "HT, 10, A, 12, X, HT10-A12X",
             "HT, 12, A, 99, X, HT12-A99X",
             "NG, 12, AA, 5,  Q, NG12-AA5Q",
-            "FK, 2,  ZZ, 9,  B, FK2-ZZ9B",
+            "FK, 2,  ZZ, 9,  B, FK02-ZZ9B",
+            // 变长会场（D-165）：单字符、含数字、满 8 位
+            "A,  9,  A, 1,  X, A09-A1X",
+            "T1, 9,  A, 1,  X, T109-A1X",
+            "NAGOYA2, 12, A, 1, X, NAGOYA212-A1X",
     })
     void format_withPriceCode_producesExpectedCode(String venue, int month, String prefix, int seq,
             String band, String expected) {
@@ -34,7 +38,7 @@ class ItemCodeFormatterTest {
     @Test
     void format_withoutPriceCode_omitsBandSuffix() {
         assertThat(ItemCodeFormatter.format("HT", 9, "A", 1, "X", false))
-                .isEqualTo("HT9-A1");
+                .isEqualTo("HT09-A1");
     }
 
     @ParameterizedTest
@@ -47,8 +51,9 @@ class ItemCodeFormatterTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"HT9-A1X", "HT1-A1X", "HT10-A12X", "HT12-A99X",
-            "NG12-AA5Q", "FK2-ZZ9B", "HT9-A1", "HT9-AA99"})
+    @ValueSource(strings = {"HT09-A1X", "HT01-A1X", "HT10-A12X", "HT12-A99X",
+            "NG12-AA5Q", "FK02-ZZ9B", "HT09-A1", "HT09-AA99",
+            "A09-A1X", "T109-A1X", "NAGOYA212-A1X"})
     void parseFormat_roundTrip_withAndWithoutPriceCode(String code) {
         ParsedCode parsed = ItemCodeFormatter.parse(code);
         String band = parsed.bandCode();
@@ -59,16 +64,22 @@ class ItemCodeFormatterTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"ht9-A1X", "HT0-A1X", "HT13-A1X", "HT9-A0X", "HT9-A100X",
-            "HT9-A1XY", "HT9A1X", "HTX9-A1X", "", "HT9-A01"})
+    @ValueSource(strings = {"ht09-A1X", "HT00-A1X", "HT13-A1X", "HT09-A0X", "HT09-A100X",
+            "HT09-A1XY", "HT09A1X", "HT09-A01", "",
+            // D-165 回归：月不补零的旧（D-068）格式必须拒绝，防新旧混录
+            "HT9-A1X", "HT1-A1X", "HT9-A1"})
     void parse_invalidCode_throwsIllegalArgumentException(String code) {
         assertThatThrownBy(() -> ItemCodeFormatter.parse(code))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
-    /** D-068 回归：旧三段格式（会场+年代号+月）已退役，解析必须拒绝防新旧混录。 */
+    /**
+     * 旧三段格式（会场2字母+年代号+月，如 HTA9-A1X）已退役，解析必须拒绝防新旧混录。
+     * 注意：会场放宽为 1-8 位后，「会场+数字」形式本身合法，故只保留不会与新格式
+     * 撞形的旧例（NGA12-AA5Q 现读作会场 NGA+月12，已不再是「必须拒绝」的样本）。
+     */
     @ParameterizedTest
-    @ValueSource(strings = {"HTK9-A1X", "HTL5-A2X", "NGA12-AA5Q"})
+    @ValueSource(strings = {"HTA9-A1X", "HTB5-A2X"})
     void parse_legacyYearCodeFormat_rejected(String code) {
         assertThat(ItemCodeFormatter.matches(code)).isFalse();
         assertThatThrownBy(() -> ItemCodeFormatter.parse(code))

@@ -95,7 +95,7 @@ function summary(overrides: Partial<StocktakeSummary> = {}): StocktakeSummary {
 function item(overrides: Partial<ItemResponse> = {}): ItemResponse {
   return {
     id: 201,
-    itemCode: 'HT9-A1X',
+    itemCode: 'HT09-A1X',
     venueId: 1,
     venueCode: 'HT',
     buyMonth: 9,
@@ -173,14 +173,14 @@ describe('stocktake session (M3-6)', () => {
     })
     const wrapper = await mountView()
 
-    await wrapper.find('#stocktake-manual-input').setValue(' ht9-a1x ')
+    await wrapper.find('#stocktake-manual-input').setValue(' ht09-a1x ')
     await wrapper.find('.session-manual').trigger('submit')
     await flushPromises()
 
     // 手动输入提交前归一化（NFKC+大写+去空白）；乐观计数 3→4
-    expect(apiMocks.scanStocktakeItem).toHaveBeenCalledWith(5, 'HT9-A1X')
+    expect(apiMocks.scanStocktakeItem).toHaveBeenCalledWith(5, 'HT09-A1X')
     expect(wrapper.text()).toContain('スキャン済み 4 件')
-    expect(wrapper.text()).toContain('HT9-A1X')
+    expect(wrapper.text()).toContain('HT09-A1X')
     expect(wrapper.find('.session-card img').attributes('src')).toBe('/img/thumb/2026/09/a.jpg')
   })
 
@@ -193,7 +193,7 @@ describe('stocktake session (M3-6)', () => {
     })
     const wrapper = await mountView()
 
-    await wrapper.find('#stocktake-manual-input').setValue('HT9-A1X')
+    await wrapper.find('#stocktake-manual-input').setValue('HT09-A1X')
     await wrapper.find('.session-manual').trigger('submit')
     await flushPromises()
 
@@ -216,7 +216,7 @@ describe('stocktake session (M3-6)', () => {
       })
       const wrapper = await mountView()
 
-      await wrapper.find('#stocktake-manual-input').setValue('HT9-A1X')
+      await wrapper.find('#stocktake-manual-input').setValue('HT09-A1X')
       await wrapper.find('.session-manual').trigger('submit')
       await flushPromises()
 
@@ -298,14 +298,14 @@ describe('stocktake offline queue (M6-2)', () => {
     apiMocks.scanStocktakeItem.mockRejectedValue(new ApiError(0, 'NETWORK_ERROR'))
     const wrapper = await mountView()
 
-    await wrapper.find('#stocktake-manual-input').setValue('HT9-A1X')
+    await wrapper.find('#stocktake-manual-input').setValue('HT09-A1X')
     await wrapper.find('.session-manual').trigger('submit')
 
     // 离线卡：码 + 待送信提示；详情/缩略图离线拿不到（只显码）
     await vi.waitFor(() => {
       expect(wrapper.text()).toContain('オフラインで記録しました')
     })
-    expect(wrapper.text()).toContain('HT9-A1X')
+    expect(wrapper.text()).toContain('HT09-A1X')
     expect(wrapper.find('.session-card img').exists()).toBe(false)
     // 计数口径=服务端 3 + 队列 1
     await vi.waitFor(() => {
@@ -325,7 +325,7 @@ describe('stocktake offline queue (M6-2)', () => {
       .mockResolvedValueOnce({ repeated: false, item: item(), thumbUrl: null })
     const wrapper = await mountView()
 
-    await wrapper.find('#stocktake-manual-input').setValue('HT9-A1X')
+    await wrapper.find('#stocktake-manual-input').setValue('HT09-A1X')
     await wrapper.find('.session-manual').trigger('submit')
     await vi.waitFor(() => {
       expect(wrapper.find('.session-actions .kcgl-btn-primary').attributes('disabled')).toBeDefined()
@@ -352,7 +352,7 @@ describe('stocktake offline queue (M6-2)', () => {
       .mockRejectedValueOnce(new ApiError(404001, 'NOT_FOUND')) // 回放被拒（码不存在）
     const wrapper = await mountView()
 
-    await wrapper.find('#stocktake-manual-input').setValue('HT9-XXX')
+    await wrapper.find('#stocktake-manual-input').setValue('HT09-XXX')
     await wrapper.find('.session-manual').trigger('submit')
     await vi.waitFor(() => {
       expect(wrapper.text()).toContain('オフラインで記録しました')
@@ -362,7 +362,7 @@ describe('stocktake offline queue (M6-2)', () => {
     await vi.waitFor(() => {
       expect(wrapper.text()).toContain('送信できなかったスキャン')
     })
-    expect(wrapper.text()).toContain('HT9-XXX')
+    expect(wrapper.text()).toContain('HT09-XXX')
     // 业务拒绝即出清（不无限重试）：close 不再被拦，计数回落服务端口径
     await vi.waitFor(() => {
       expect(wrapper.find('.session-actions .kcgl-btn-primary').attributes('disabled')).toBeUndefined()
@@ -389,7 +389,7 @@ describe('stocktake scan gate and refresh sequencing (C2/C3)', () => {
 
     // 入队必须在挂载**之后**：init() 见队列非空会自己冲一次（fire-and-forget），
     // 那次回放会抢在下面装的在途桩之前消耗 mockImplementationOnce，时序就不再受控
-    await scanQueue.enqueue(5, 'HT9-A2Y')
+    await scanQueue.enqueue(5, 'HT09-A2Y')
     await flushPromises()
     expect(wrapper.text()).toContain('スキャン済み 4 件')
 
@@ -404,7 +404,7 @@ describe('stocktake scan gate and refresh sequencing (C2/C3)', () => {
       )
       .mockResolvedValue({ repeated: false, item: item(), thumbUrl: null })
 
-    await wrapper.find('#stocktake-manual-input').setValue('HT9-A1X')
+    await wrapper.find('#stocktake-manual-input').setValue('HT09-A1X')
     void wrapper.find('.session-manual').trigger('submit')
     await vi.waitFor(() => {
       expect(apiMocks.scanStocktakeItem).toHaveBeenCalledTimes(1)
@@ -435,14 +435,14 @@ describe('stocktake scan gate and refresh sequencing (C2/C3)', () => {
     const wrapper = await mountView()
     const camera = wrapper.findComponent({ name: 'QrcodeStream' })
 
-    camera.vm.$emit('detect', [{ rawValue: 'HT9-XXX' }])
+    camera.vm.$emit('detect', [{ rawValue: 'HT09-XXX' }])
     await vi.waitFor(() => {
       expect(wrapper.find('.session-error').exists()).toBe(true)
     })
 
     // 同码即时重扫（间隔远小于 3s 同码窗）必须真打端点——否则操作员听不到提示音、
     // 报错也不刷新，只会以为扫码枪失效
-    camera.vm.$emit('detect', [{ rawValue: 'HT9-XXX' }])
+    camera.vm.$emit('detect', [{ rawValue: 'HT09-XXX' }])
     await vi.waitFor(() => {
       expect(apiMocks.scanStocktakeItem).toHaveBeenCalledTimes(2)
     })
@@ -458,13 +458,13 @@ describe('stocktake scan gate and refresh sequencing (C2/C3)', () => {
     const wrapper = await mountView()
     const camera = wrapper.findComponent({ name: 'QrcodeStream' })
 
-    camera.vm.$emit('detect', [{ rawValue: 'HT9-A1X' }])
+    camera.vm.$emit('detect', [{ rawValue: 'HT09-A1X' }])
     await vi.waitFor(() => {
       expect(wrapper.find('.session-card').exists()).toBe(true)
     })
 
     // 成功路径不解锁：同码短窗重扫是扫码枪回声，仍须抑制
-    camera.vm.$emit('detect', [{ rawValue: 'HT9-A1X' }])
+    camera.vm.$emit('detect', [{ rawValue: 'HT09-A1X' }])
     await flushPromises()
     expect(apiMocks.scanStocktakeItem).toHaveBeenCalledTimes(1)
   })

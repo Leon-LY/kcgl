@@ -35,8 +35,8 @@ public final class ExcelRowParser {
     private static final int LEN_CATEGORY = 64;
     private static final int LEN_AUTHOR = 128;
     private static final int LEN_SIZE = 64;
-    /** 会场码形态（V1 DDL auction_venue.code CHAR(2) [A-Z]{2}）。 */
-    private static final Pattern VENUE_CODE = Pattern.compile("^[A-Z]{2}$");
+    /** 会场码形态（V8 DDL auction_venue.code VARCHAR(8) [A-Z0-9]{1,8}；入参已 normalize 大写）。 */
+    private static final Pattern VENUE_CODE = Pattern.compile("^[A-Z0-9]{1,8}$");
 
     /**
      * 行错误 reason 内嵌单元格原文上限（xlsx 单格 ≤32767 字）。不截断则错误采样随行数
@@ -173,7 +173,7 @@ public final class ExcelRowParser {
         String venueCode = CodeNormalizer.normalize(rawVenue);
         if (!VENUE_CODE.matcher(venueCode).matches()) {
             throw rowError("imports.reason.venueCodeFormat", Map.of("raw", shortRaw(rawVenue)),
-                    "会場コードは半角英字2桁で入力してください: " + shortRaw(rawVenue));
+                    "会場コードは半角英数字1〜8桁で入力してください: " + shortRaw(rawVenue));
         }
 
         LocalDate buyDate = requiredDateCell(cell(cells, 2), props.columns().buyDate());

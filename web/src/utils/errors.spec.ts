@@ -184,8 +184,8 @@ describe('system.alert ja 值与后端兜底原文逐字一致', () => {
   const cases = [
     {
       key: 'system.alert.ledgerDrift',
-      params: { count: 2, samples: 'HT9-A1X、HT9-A2X' },
-      text: '帳実不一致が検出されました：2件（例: HT9-A1X、HT9-A2X）',
+      params: { count: 2, samples: 'HT09-A1X、HT09-A2X' },
+      text: '帳実不一致が検出されました：2件（例: HT09-A1X、HT09-A2X）',
     },
     {
       key: 'system.alert.counterMismatch',

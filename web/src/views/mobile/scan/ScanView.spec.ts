@@ -71,7 +71,7 @@ function itemByCode(
   return {
     item: {
       id: 201,
-      itemCode: 'HT9-A1X',
+      itemCode: 'HT09-A1X',
       venueId: 1,
       venueCode: 'HT',
       buyMonth: 9,
@@ -158,10 +158,10 @@ describe('scan locate (M3-④)', () => {
     apiMocks.fetchItemByCode.mockResolvedValue(itemByCode())
     const wrapper = await mountView()
 
-    await locateByHand(wrapper, 'ｈｔ９－ａ１ｘ')
+    await locateByHand(wrapper, 'ｈｔ０９－ａ１ｘ')
 
-    expect(apiMocks.fetchItemByCode).toHaveBeenCalledWith('HT9-A1X')
-    expect(wrapper.find('.scan-code').text()).toBe('HT9-A1X')
+    expect(apiMocks.fetchItemByCode).toHaveBeenCalledWith('HT09-A1X')
+    expect(wrapper.find('.scan-code').text()).toBe('HT09-A1X')
     expect(wrapper.find('.scan-thumb img').attributes('src')).toBe('/img/thumb/2026/09/a_t.jpg')
     expect(wrapper.text()).toContain('名古屋倉庫')
     expect(wrapper.text()).toContain('在庫')
@@ -182,10 +182,10 @@ describe('scan locate (M3-④)', () => {
 
   it('深链 ?code= 进页即定位该件（出荷待ち直达，全角归一）', async () => {
     apiMocks.fetchItemByCode.mockResolvedValue(itemByCode())
-    const wrapper = await mountView(2, { code: 'ｈｔ９－ａ１ｘ' })
+    const wrapper = await mountView(2, { code: 'ｈｔ０９－ａ１ｘ' })
 
-    expect(apiMocks.fetchItemByCode).toHaveBeenCalledWith('HT9-A1X')
-    expect(wrapper.find('.scan-code').text()).toBe('HT9-A1X')
+    expect(apiMocks.fetchItemByCode).toHaveBeenCalledWith('HT09-A1X')
+    expect(wrapper.find('.scan-code').text()).toBe('HT09-A1X')
     expect(wrapper.find('.scan-card').exists()).toBe(true)
   })
 
@@ -193,15 +193,15 @@ describe('scan locate (M3-④)', () => {
     apiMocks.fetchItemByCode.mockResolvedValue(
       itemByCode(
         { voided: true, voidReason: '価格ミス' },
-        { reEntry: { itemId: 301, itemCode: 'HT9-A2X' } },
+        { reEntry: { itemId: 301, itemCode: 'HT09-A2X' } },
       ),
     )
     const wrapper = await mountView()
 
-    await locateByHand(wrapper, 'HT9-A1X')
+    await locateByHand(wrapper, 'HT09-A1X')
 
     expect(wrapper.text()).toContain('取り消し済み')
-    expect(wrapper.text()).toContain('再登録後の管理番号は HT9-A2X です')
+    expect(wrapper.text()).toContain('再登録後の管理番号は HT09-A2X です')
     expect(actionButtons(wrapper)).toHaveLength(0)
   })
 
@@ -209,7 +209,7 @@ describe('scan locate (M3-④)', () => {
     apiMocks.fetchItemByCode.mockResolvedValue(itemByCode({ voided: true }))
     const wrapper = await mountView()
 
-    await locateByHand(wrapper, 'HT9-A1X')
+    await locateByHand(wrapper, 'HT09-A1X')
 
     expect(wrapper.text()).toContain('再登録されていません')
     expect(actionButtons(wrapper)).toHaveLength(0)
@@ -219,7 +219,7 @@ describe('scan locate (M3-④)', () => {
     apiMocks.fetchItemByCode.mockResolvedValue(itemByCode())
     const wrapper = await mountView(3)
 
-    await locateByHand(wrapper, 'HT9-A1X')
+    await locateByHand(wrapper, 'HT09-A1X')
 
     expect(wrapper.text()).toContain('在庫操作には編集者以上の権限が必要です')
     expect(actionButtons(wrapper)).toHaveLength(0)
@@ -231,7 +231,7 @@ describe('scan action menu (边表前端镜像)', () => {
     apiMocks.fetchItemByCode.mockResolvedValue(itemByCode())
     const wrapper = await mountView()
 
-    await locateByHand(wrapper, 'HT9-A1X')
+    await locateByHand(wrapper, 'HT09-A1X')
 
     const labels = actionButtons(wrapper).map((button) => button.text())
     expect(labels).toEqual(['売却', '移動', '廃棄', '出品済みにする', '会場へ返す'])
@@ -241,7 +241,7 @@ describe('scan action menu (边表前端镜像)', () => {
     apiMocks.fetchItemByCode.mockResolvedValue(itemByCode({ saleStatus: 1 }))
     const wrapper = await mountView()
 
-    await locateByHand(wrapper, 'HT9-A1X')
+    await locateByHand(wrapper, 'HT09-A1X')
 
     expect(actionButtons(wrapper).map((b) => b.text()))
       .toEqual(['売却', '移動', '廃棄', '出品取り消し', '会場へ返す'])
@@ -251,7 +251,7 @@ describe('scan action menu (边表前端镜像)', () => {
     apiMocks.fetchItemByCode.mockResolvedValue(itemByCode({ stockStatus: 2, saleStatus: 2 }))
     const wrapper = await mountView()
 
-    await locateByHand(wrapper, 'HT9-A1X')
+    await locateByHand(wrapper, 'HT09-A1X')
 
     expect(actionButtons(wrapper).map((b) => b.text())).toEqual(['返品を受け取る'])
   })
@@ -260,7 +260,7 @@ describe('scan action menu (边表前端镜像)', () => {
     apiMocks.fetchItemByCode.mockResolvedValue(itemByCode({ stockStatus: 2, saleStatus: 3 }))
     const wrapper = await mountView()
 
-    await locateByHand(wrapper, 'HT9-A1X')
+    await locateByHand(wrapper, 'HT09-A1X')
 
     expect(actionButtons(wrapper)).toHaveLength(0)
     expect(wrapper.find('.scan-no-actions').text()).toBe('現在の状態では操作できません')
@@ -277,7 +277,7 @@ describe('scan action dialogs (幂等键契约 docs/01 7.0)', () => {
     apiMocks.scrapItem.mockResolvedValue(actionResult(after))
     const wrapper = await mountView()
 
-    await locateByHand(wrapper, 'HT9-A1X')
+    await locateByHand(wrapper, 'HT09-A1X')
     await actionButtons(wrapper)[2].trigger('click') // 廃棄
     await flushPromises()
 
@@ -308,7 +308,7 @@ describe('scan action dialogs (幂等键契约 docs/01 7.0)', () => {
       .mockResolvedValueOnce(actionResult(itemByCode({ stockStatus: 2, saleStatus: 3 })))
     const wrapper = await mountView()
 
-    await locateByHand(wrapper, 'HT9-A1X')
+    await locateByHand(wrapper, 'HT09-A1X')
     await actionButtons(wrapper)[2].trigger('click')
     await wrapper.find('#scan-scrap-reason').setValue('破損のため')
 
@@ -332,7 +332,7 @@ describe('scan action dialogs (幂等键契约 docs/01 7.0)', () => {
     apiMocks.sellItem.mockResolvedValue(actionResult(itemByCode({ stockStatus: 2, saleStatus: 2 })))
     const wrapper = await mountView()
 
-    await locateByHand(wrapper, 'HT9-A1X')
+    await locateByHand(wrapper, 'HT09-A1X')
     await actionButtons(wrapper)[0].trigger('click') // 売却
 
     await wrapper.find('#scan-sold-price').setValue('0')
@@ -353,7 +353,7 @@ describe('scan action dialogs (幂等键契约 docs/01 7.0)', () => {
     apiMocks.sellItem.mockResolvedValue(actionResult(itemByCode({ stockStatus: 2, saleStatus: 2 })))
     const wrapper = await mountView()
 
-    await locateByHand(wrapper, 'HT9-A1X')
+    await locateByHand(wrapper, 'HT09-A1X')
     await actionButtons(wrapper)[0].trigger('click')
     await wrapper.find('.scan-dialog-ok').trigger('click')
     await flushPromises()
@@ -366,7 +366,7 @@ describe('scan action dialogs (幂等键契约 docs/01 7.0)', () => {
     apiMocks.transferItem.mockResolvedValue(actionResult(itemByCode({ warehouse: 2 })))
     const wrapper = await mountView()
 
-    await locateByHand(wrapper, 'HT9-A1X')
+    await locateByHand(wrapper, 'HT09-A1X')
     await actionButtons(wrapper)[1].trigger('click') // 移動（默认 2=福岡）
     await flushPromises()
 
@@ -389,7 +389,7 @@ describe('scan action dialogs (幂等键契约 docs/01 7.0)', () => {
     apiMocks.markListedItem.mockResolvedValue(actionResult(itemByCode({ saleStatus: 1 })))
     const wrapper = await mountView()
 
-    await locateByHand(wrapper, 'HT9-A1X')
+    await locateByHand(wrapper, 'HT09-A1X')
     await actionButtons(wrapper)[3].trigger('click') // 出品済みにする
     await flushPromises()
 
@@ -410,7 +410,7 @@ describe('scan action dialogs (幂等键契约 docs/01 7.0)', () => {
     apiMocks.markCanceledItem.mockResolvedValue(actionResult(itemByCode({ saleStatus: 3 })))
     const wrapper = await mountView()
 
-    await locateByHand(wrapper, 'HT9-A1X')
+    await locateByHand(wrapper, 'HT09-A1X')
     await actionButtons(wrapper)[3].trigger('click') // 出品取り消し
     await flushPromises()
 
@@ -432,7 +432,7 @@ describe('scan action dialogs (幂等键契约 docs/01 7.0)', () => {
     apiMocks.returnItem.mockResolvedValue(actionResult(itemByCode({ stockStatus: 1, saleStatus: 3 })))
     const wrapper = await mountView()
 
-    await locateByHand(wrapper, 'HT9-A1X')
+    await locateByHand(wrapper, 'HT09-A1X')
     await actionButtons(wrapper)[0].trigger('click') // 返品を受け取る
     await wrapper.find('#scan-return-note').setValue('お客様都合')
     await wrapper.find('.scan-dialog-ok').trigger('click')
@@ -446,7 +446,7 @@ describe('scan action dialogs (幂等键契约 docs/01 7.0)', () => {
     apiMocks.returnItem.mockResolvedValue(actionResult(itemByCode({ stockStatus: 2, saleStatus: 3 })))
     const wrapper = await mountView()
 
-    await locateByHand(wrapper, 'HT9-A1X')
+    await locateByHand(wrapper, 'HT09-A1X')
     await actionButtons(wrapper)[4].trigger('click') // 会場へ返す
     await wrapper.find('.scan-dialog-ok').trigger('click')
     await flushPromises()
@@ -462,7 +462,7 @@ describe('scan action dialogs (幂等键契约 docs/01 7.0)', () => {
     )
     const wrapper = await mountView()
 
-    await locateByHand(wrapper, 'HT9-A1X')
+    await locateByHand(wrapper, 'HT09-A1X')
     await actionButtons(wrapper)[3].trigger('click')
     await wrapper.find('.scan-dialog-ok').trigger('click')
     await flushPromises()

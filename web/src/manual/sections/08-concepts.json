@@ -29,23 +29,23 @@
           },
           "bullets": {
             "ja": [
-              "例：HT9-A12X",
-              "HT：会場コード（この会場を表す2文字）",
-              "9：月（9月の落札）",
+              "例：HT09-A12X",
+              "HT：会場コード（会場ごとに決めた1〜8桁の英数字）",
+              "09：月（いつも2桁。9月なら09）",
               "A12：その月の通し番号",
               "X：価格帯の記号（仕入単価がどの範囲に入るか）"
             ],
             "zh": [
-              "例：HT9-A12X",
-              "HT：会场代码（代表该会场的两位字母）",
-              "9：月份（9 月落札）",
+              "例：HT09-A12X",
+              "HT：会场代码（每个会场自定的 1～8 位字母或数字）",
+              "09：月份（固定 2 位，9 月写作 09）",
               "A12：该月的流水号",
               "X：价格档位字母（进货单价落在哪个区间）"
             ],
             "en": [
-              "Example: HT9-A12X",
-              "HT: venue code (two letters identifying the venue)",
-              "9: month (won in September)",
+              "Example: HT09-A12X",
+              "HT: venue code (1 to 8 letters or digits chosen per venue)",
+              "09: month (always two digits; September is 09)",
               "A12: the running number within that month",
               "X: price-band letter (which price range the purchase falls into)"
             ]
@@ -70,9 +70,9 @@
             "en": "The code cannot be changed later"
           },
           "body": {
-            "ja": "発行された番号は固定です。内容を直しても番号は変わりません。金額や会場を間違えたときは「取り消して再登録」を使います。",
-            "zh": "签发后固定不变。即使修改内容，编号也不变。金额或会场填错时用「作废并重新录入」。",
-            "en": "Once issued it is fixed. Editing the content does not change it. If the price or venue is wrong, use Void and re-enter."
+            "ja": "発行された番号は固定です。内容を直しても番号は変わりません。金額や会場を間違えたときは「取り消して再登録」を使います。登録の画面で番号を自分で入れることもできますが、保存した後は変えられません。空欄のままにすると自動で付きます。",
+            "zh": "签发后固定不变。即使修改内容，编号也不变。金额或会场填错时用「作废并重新录入」。登记时也可以自己输入编号，但保存之后不能改；留空则由系统自动编号。",
+            "en": "Once issued it is fixed. Editing the content does not change it. If the price or venue is wrong, use Void and re-enter. You can type the number yourself at entry, but it cannot be changed after saving. Leave it blank to number automatically."
           },
           "note": {
             "ja": "取り消した番号は、二度と使いません。欠番になりますが、それが正しい姿です。",

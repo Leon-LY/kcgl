@@ -39,7 +39,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * 管理号引擎集成测试（M2-2，docs/01 7.1 唯一定义）：
- * - 取号正确性：同桶递增/月不补零/A99→B1/Z99→AA1 进位/补录旧桶
+ * - 取号正确性：同桶递增/月恒补零2位/A99→B1/Z99→AA1 进位/补录旧桶
  * - 前置校验：会场 404003/档位 404002/停用会场仍可补录（D-031）；跨年同月同桶连续（D-068）
  * - 幂等：clientReqId 重放读回原件零新行；键被其他操作占用=重试耗尽 INTERNAL+sys_alert
  * - 并发：16×50 同桶 800 号唯一+计数器==MAX+全员 CREATE 流水+零跳号；两线程建桶竞争
@@ -98,10 +98,10 @@ class ItemCodeIntegrationTest {
 
     @Test
     void allocate_sameBucket_incrementsWithPriceCode() {
-        assertThat(create(null, SEP_2026, 1000).getItemCode()).isEqualTo("HT9-A1X");
-        assertThat(create(null, SEP_2026, 1500).getItemCode()).isEqualTo("HT9-A2X");
+        assertThat(create(null, SEP_2026, 1000).getItemCode()).isEqualTo("HT09-A1X");
+        assertThat(create(null, SEP_2026, 1500).getItemCode()).isEqualTo("HT09-A2X");
         ItemEntity third = create("cr-3", SEP_2026, 2999);
-        assertThat(third.getItemCode()).isEqualTo("HT9-A3X");
+        assertThat(third.getItemCode()).isEqualTo("HT09-A3X");
 
         Map<String, Object> counter = bucket();
         assertThat(counter.get("cur_prefix")).isEqualTo("A");
@@ -128,9 +128,9 @@ class ItemCodeIntegrationTest {
     }
 
     @Test
-    void allocate_monthNotZeroPadded_eachMonthGetsOwnBucket() {
+    void allocate_monthZeroPadded_eachMonthGetsOwnBucket() {
         assertThat(create(null, LocalDate.of(2026, 10, 2), 1000).getItemCode()).isEqualTo("HT10-A1X");
-        assertThat(create(null, LocalDate.of(2026, 1, 8), 1000).getItemCode()).isEqualTo("HT1-A1X");
+        assertThat(create(null, LocalDate.of(2026, 1, 8), 1000).getItemCode()).isEqualTo("HT01-A1X");
         assertThat(create(null, LocalDate.of(2026, 12, 30), 1000).getItemCode()).isEqualTo("HT12-A1X");
         // 三个桶各自独立计数
         assertThat(count("SELECT COUNT(*) FROM seq_item_code")).isEqualTo(3);
@@ -139,22 +139,22 @@ class ItemCodeIntegrationTest {
     @Test
     void allocate_prefixAAt99_carriesToB1() {
         seedBucket("A", 99);
-        assertThat(create(null, SEP_2026, 1000).getItemCode()).isEqualTo("HT9-B1X");
-        assertThat(create(null, SEP_2026, 1000).getItemCode()).isEqualTo("HT9-B2X");
+        assertThat(create(null, SEP_2026, 1000).getItemCode()).isEqualTo("HT09-B1X");
+        assertThat(create(null, SEP_2026, 1000).getItemCode()).isEqualTo("HT09-B2X");
     }
 
     @Test
     void allocate_prefixZAt99_carriesToAA1() {
         seedBucket("Z", 99);
-        assertThat(create(null, SEP_2026, 1000).getItemCode()).isEqualTo("HT9-AA1X");
+        assertThat(create(null, SEP_2026, 1000).getItemCode()).isEqualTo("HT09-AA1X");
     }
 
     @Test
     void allocate_backdatedBuyDate_usesOldBucketIndependentSequence() {
-        assertThat(create(null, SEP_2026, 1000).getItemCode()).isEqualTo("HT9-A1X");
+        assertThat(create(null, SEP_2026, 1000).getItemCode()).isEqualTo("HT09-A1X");
         // 次日补录 8 月落札：进 8 月桶从 1 起，不与 9 月桶串号
-        assertThat(create(null, LocalDate.of(2026, 8, 20), 1000).getItemCode()).isEqualTo("HT8-A1X");
-        assertThat(create(null, LocalDate.of(2026, 8, 20), 1000).getItemCode()).isEqualTo("HT8-A2X");
+        assertThat(create(null, LocalDate.of(2026, 8, 20), 1000).getItemCode()).isEqualTo("HT08-A1X");
+        assertThat(create(null, LocalDate.of(2026, 8, 20), 1000).getItemCode()).isEqualTo("HT08-A2X");
         Map<String, Object> augBucket = jdbcTemplate.queryForMap(
                 "SELECT cur_prefix, cur_seq FROM seq_item_code WHERE venue_id = ? AND month = 8",
                 venueId);
@@ -175,8 +175,8 @@ class ItemCodeIntegrationTest {
     /** D-068 回归锚点：桶=(会场,月)跨年连续——若桶仍含年，2026-09 与 2027-09 各自 A1 起 → 撞 uk_item_code。 */
     @Test
     void create_crossYearSameMonth_sharesBucketContinuousSequence() {
-        assertThat(create(null, SEP_2026, 1000).getItemCode()).isEqualTo("HT9-A1X");
-        assertThat(create(null, LocalDate.of(2027, 9, 15), 1000).getItemCode()).isEqualTo("HT9-A2X");
+        assertThat(create(null, SEP_2026, 1000).getItemCode()).isEqualTo("HT09-A1X");
+        assertThat(create(null, LocalDate.of(2027, 9, 15), 1000).getItemCode()).isEqualTo("HT09-A2X");
         assertThat(count("SELECT COUNT(*) FROM seq_item_code")).isEqualTo(1);
         assertThat(bucket().get("cur_seq")).isEqualTo(2);
     }
@@ -193,7 +193,7 @@ class ItemCodeIntegrationTest {
     void create_disabledVenue_stillAllowsBackdatedEntry() {
         jdbcTemplate.update("UPDATE auction_venue SET enabled = 0 WHERE id = ?", venueId);
         ItemEntity item = create(null, SEP_2026, 1000);
-        assertThat(item.getItemCode()).isEqualTo("HT9-A1X");
+        assertThat(item.getItemCode()).isEqualTo("HT09-A1X");
     }
 
     // ------------------------------------------------------------------ 幂等
@@ -204,7 +204,7 @@ class ItemCodeIntegrationTest {
         // 第二次同键（网络超时重放）：返回原商品，不取新号不落新行
         ItemEntity replayed = create("replay-1", SEP_2026, 1000);
         assertThat(replayed.getId()).isEqualTo(first.getId());
-        assertThat(replayed.getItemCode()).isEqualTo("HT9-A1X");
+        assertThat(replayed.getItemCode()).isEqualTo("HT09-A1X");
         assertThat(count("SELECT COUNT(*) FROM item")).isEqualTo(1);
         assertThat(count("SELECT COUNT(*) FROM stock_ledger WHERE txn_type = 1")).isEqualTo(1);
         assertThat(bucket().get("cur_seq")).isEqualTo(1);
@@ -214,7 +214,7 @@ class ItemCodeIntegrationTest {
     void create_replayKeyHeldByOtherTxnType_retriesExhaustedInternal() {
         // 前置：client_req_id 已被一条非 CREATE 流水占用（前端缺陷场景）
         jdbcTemplate.update("INSERT INTO stock_ledger(client_req_id, txn_type, item_id, item_code, "
-                + "qty_change, operator_id, operator_name) VALUES ('hijack-key', 3, 1, 'HT9-A1X', -1, 1, '他操作')");
+                + "qty_change, operator_id, operator_name) VALUES ('hijack-key', 3, 1, 'HT09-A1X', -1, 1, '他操作')");
         assertThatThrownBy(() -> create("hijack-key", SEP_2026, 1000))
                 .isInstanceOf(BizException.class)
                 .extracting(e -> ((BizException) e).errorCode())
@@ -262,11 +262,11 @@ class ItemCodeIntegrationTest {
             String[] prefixes = {"A", "B", "C", "D", "E", "F", "G", "H"};
             for (String prefix : prefixes) {
                 for (int seq = 1; seq <= 99; seq++) {
-                    expected.add("HT9-" + prefix + seq + "X");
+                    expected.add("HT09-" + prefix + seq + "X");
                 }
             }
             for (int seq = 1; seq <= 8; seq++) {
-                expected.add("HT9-I" + seq + "X");
+                expected.add("HT09-I" + seq + "X");
             }
             assertThat(unique).isEqualTo(expected);
 
@@ -306,7 +306,7 @@ class ItemCodeIntegrationTest {
             gate.countDown();
             // 会场 HT + 5 月桶（跨年连续，D-068）
             Set<String> codes = Set.of(a.get(60, TimeUnit.SECONDS), b.get(60, TimeUnit.SECONDS));
-            assertThat(codes).isEqualTo(Set.of("HT5-A1X", "HT5-A2X"));
+            assertThat(codes).isEqualTo(Set.of("HT05-A1X", "HT05-A2X"));
             Map<String, Object> counter = jdbcTemplate.queryForMap(
                     "SELECT cur_prefix, cur_seq FROM seq_item_code WHERE venue_id = ? AND month = 5",
                     venueId);
@@ -327,21 +327,94 @@ class ItemCodeIntegrationTest {
         jdbcTemplate.update("""
                 INSERT INTO item(item_code, venue_id, venue_code, buy_month, seq_prefix,
                     seq_no, buy_date, purchase_price, price_band_code, warehouse, created_by)
-                VALUES ('HT9-A1X', ?, 'HT', 9, 'A', 1, '2026-09-01', 1000, 'X', 1, ?)
+                VALUES ('HT09-A1X', ?, 'HT', 9, 'A', 1, '2026-09-01', 1000, 'X', 1, ?)
                 """, venueId, operatorId);
         seedBucket("A", 0);
 
         ItemEntity item = create(null, SEP_2026, 1000);
-        assertThat(item.getItemCode()).isEqualTo("HT9-A2X");
+        assertThat(item.getItemCode()).isEqualTo("HT09-A2X");
         // 计数器同步推进到 2（保持 cur_seq==MAX(seq_no) 自检不变量）
         assertThat(bucket().get("cur_seq")).isEqualTo(2);
         // 跳号留痕：operation_log ITEM_CODE_SKIP，detail 含被跳过的号
         String detail = jdbcTemplate.queryForObject(
                 "SELECT detail FROM operation_log WHERE action = 'ITEM_CODE_SKIP'", String.class);
-        assertThat(detail).contains("HT9-A1X");
+        assertThat(detail).contains("HT09-A1X");
+    }
+
+    // ------------------------------------------------------------------ 手填管理号（D-167）
+
+    @Test
+    void createManual_validCode_insertsAsTypedAndAdvancesCounter() {
+        ItemEntity item = createManual(null, SEP_2026, 1000, "HT09-A7X");
+        assertThat(item.getItemCode()).isEqualTo("HT09-A7X");
+        assertThat(item.getSeqPrefix()).isEqualTo("A");
+        assertThat(item.getSeqNo()).isEqualTo(7);
+        // 计数器跳到 7，下一件自动号从 A8 起（不回退）
+        assertThat(create(null, SEP_2026, 1000).getItemCode()).isEqualTo("HT09-A8X");
+        assertThat(bucket().get("cur_seq")).isEqualTo(8);
+        assertThat(count("SELECT COUNT(*) FROM operation_log WHERE action = 'ITEM_CREATE'")).isEqualTo(2);
+    }
+
+    @Test
+    void createManual_lowercaseInput_normalizedToUpperCase() {
+        assertThat(createManual(null, SEP_2026, 1000, " ht09-a2x ").getItemCode()).isEqualTo("HT09-A2X");
+    }
+
+    @Test
+    void createManual_duplicateCode_409016() {
+        create(null, SEP_2026, 1000).getItemCode(); // 自动发号占掉 A1
+        assertThatThrownBy(() -> createManual(null, SEP_2026, 1000, "HT09-A1X"))
+                .isInstanceOf(BizException.class)
+                .extracting(e -> ((BizException) e).errorCode())
+                .isEqualTo(ErrorCode.ITEM_CODE_CONFLICT);
+    }
+
+    @Test
+    void createManual_venueSegmentMismatch_400018() {
+        assertThatThrownBy(() -> createManual(null, SEP_2026, 1000, "NG09-A1X"))
+                .isInstanceOf(BizException.class)
+                .extracting(e -> ((BizException) e).errorCode())
+                .isEqualTo(ErrorCode.ITEM_CODE_INVALID);
+        assertThat(count("SELECT COUNT(*) FROM item")).isZero();
+    }
+
+    @Test
+    void createManual_monthSegmentMismatch_400018() {
+        assertThatThrownBy(() -> createManual(null, SEP_2026, 1000, "HT08-A1X"))
+                .isInstanceOf(BizException.class)
+                .extracting(e -> ((BizException) e).errorCode())
+                .isEqualTo(ErrorCode.ITEM_CODE_INVALID);
+    }
+
+    @Test
+    void createManual_oldSingleDigitMonthFormat_400018() {
+        assertThatThrownBy(() -> createManual(null, SEP_2026, 1000, "HT9-A1X"))
+                .isInstanceOf(BizException.class)
+                .extracting(e -> ((BizException) e).errorCode())
+                .isEqualTo(ErrorCode.ITEM_CODE_INVALID);
+    }
+
+    @Test
+    void createManual_reEntry_rejected() {
+        CreateItemCommand cmd = new CreateItemCommand(
+                null, 999L, venueId, SEP_2026, null, 1000L, null, null, null,
+                1, null, null, null, "再登録テスト", null, null, null, null, null, null,
+                operatorId, "早瀬");
+        assertThatThrownBy(() -> itemCodeService.createWithManualCode(cmd, "HT09-A3X"))
+                .isInstanceOf(BizException.class)
+                .extracting(e -> ((BizException) e).errorCode())
+                .isEqualTo(ErrorCode.VALIDATION);
+        assertThat(count("SELECT COUNT(*) FROM item")).isZero();
     }
 
     // ------------------------------------------------------------------ 工具
+
+    private ItemEntity createManual(String clientReqId, LocalDate buyDate, long price, String code) {
+        return itemCodeService.createWithManualCode(new CreateItemCommand(
+                clientReqId, null, venueId, buyDate, null, price, null, null, null,
+                1, null, null, null, "手填管理号テスト", null, null, null, null, null, null,
+                operatorId, "早瀬"), code);
+    }
 
     private ItemEntity create(String clientReqId, LocalDate buyDate, long price) {
         return create(clientReqId, buyDate, price, venueId);

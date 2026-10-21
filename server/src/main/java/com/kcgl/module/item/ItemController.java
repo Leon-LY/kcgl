@@ -89,7 +89,11 @@ public class ItemController {
                 req.itemName(), req.category(), req.authorKiln(), req.sizeText(),
                 req.weightG(), req.salesChannel(),
                 operator.getUserId(), operator.getDisplayName());
-        return ApiResponse.ok(ItemResponse.from(itemCodeService.create(cmd)));
+        String manualCode = req.manualCode();
+        return ApiResponse.ok(ItemResponse.from(
+                manualCode != null && !manualCode.isBlank()
+                        ? itemCodeService.createWithManualCode(cmd, manualCode)
+                        : itemCodeService.create(cmd)));
     }
 
     @GetMapping("/{id}")

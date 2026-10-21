@@ -3,7 +3,7 @@ import { expect, test, type APIResponse, type Page } from '@playwright/test'
 
 /**
  * M4 Excel 管线 E2E（docs/03 G4，D-058/D-060/D-068）：模板下载（双 Sheet 契约）→
- * 双模式导入（旧号 EX1-A5X + 自动採番行，专用会场 EX 桶隔离→採番メモ A0→A5
+ * 双模式导入（旧号 EX01-A5X + 自动採番行，专用会场 EX 桶隔离→採番メモ A0→A5
  * 确定）→批次报告四计数→API by-code 双件落库→エクスポート単票抽出→
  * 同文件重传 409 就地提示；viewer 只读。
  * 夹具用 exceljs（D-060 E：npm xlsx 停更+CVE，安全汰换）。
@@ -76,7 +76,7 @@ async function buildWorkbook(rows: (string | number)[][]): Promise<Buffer> {
 async function dualModeWorkbook(): Promise<Buffer> {
   const empty = Array<string | number>(11).fill('')
   return buildWorkbook([
-    ['EX1-A5X', 'EX', FIXTURE_BUY_DATE, 2500, '', '', '', '名古屋', ...empty],
+    ['EX01-A5X', 'EX', FIXTURE_BUY_DATE, 2500, '', '', '', '名古屋', ...empty],
     ['', 'EX', '2026-01-16', 1200, '', '', '', '福岡', ...empty],
   ])
 }
@@ -147,14 +147,14 @@ test.describe('excel pipeline (desktop-chromium)', () => {
     await expect(cells.nth(7)).toHaveText('EX-1 A0→A5')
 
     // 双件落库：旧号原样 + 生成号接续（在途/未出品）
-    const oldItem = await itemByCode(page, 'EX1-A5X')
-    const generatedItem = await itemByCode(page, 'EX1-A6X')
+    const oldItem = await itemByCode(page, 'EX01-A5X')
+    const generatedItem = await itemByCode(page, 'EX01-A6X')
     expect(oldItem.stockStatus).toBe(0)
     expect(generatedItem.stockStatus).toBe(0)
 
     // ---- エクスポート：単票抽出（码条件优先，区间默认当日不校验）
     await page.getByRole('tab', { name: 'エクスポート' }).click()
-    await page.fill('.excel-code input', 'EX1-A5X')
+    await page.fill('.excel-code input', 'EX01-A5X')
     const exportDownload = page.waitForEvent('download')
     await page.getByRole('button', { name: 'エクスポート' }).click()
     const exportFile = await exportDownload
@@ -164,7 +164,7 @@ test.describe('excel pipeline (desktop-chromium)', () => {
     const exportSheet = exportBook.worksheets[0]!
     expect(exportSheet.getCell(1, 1).value).toBe('管理番号')
     expect(exportSheet.actualRowCount).toBe(2)
-    expect(String(exportSheet.getCell(2, 1).value)).toBe('EX1-A5X')
+    expect(String(exportSheet.getCell(2, 1).value)).toBe('EX01-A5X')
 
     // ---- 同文件重传：sha 重复 409 就地提示（不弹新批次）
     await page.getByRole('tab', { name: 'インポート' }).click()

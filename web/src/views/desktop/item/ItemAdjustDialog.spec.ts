@@ -28,7 +28,7 @@ import type { ItemResponse } from '@/utils/api'
 function item(overrides: Partial<ItemResponse> = {}): ItemResponse {
   return {
     id: 7,
-    itemCode: 'HT9-A1X',
+    itemCode: 'HT09-A1X',
     venueId: 1,
     venueCode: 'HT',
     buyMonth: 1,

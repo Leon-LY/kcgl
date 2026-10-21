@@ -40,6 +40,11 @@ export interface CreateItemPayload {
   warehouseInDate?: string
   groupNo?: string
   remark?: string
+  /**
+   * 手填管理号（D-167）：省略/空串=自动发号。须与 venueId 的会场码、buyDate 的月一致；
+   * 重复号服务端 409016 拒绝，格式/落札日不符 400018。重录时不可用。
+   */
+  manualCode?: string
 }
 
 /** 录入成功响应（生成列 totalCost/profit 已回填；未售时 profit 为 null 不出现）。 */

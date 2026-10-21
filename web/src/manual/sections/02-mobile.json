@@ -109,6 +109,18 @@
         },
         {
           "title": {
+            "ja": "管理番号は空欄のままでよい",
+            "zh": "管理号留空即可",
+            "en": "Leave the item code blank"
+          },
+          "body": {
+            "ja": "次の管理番号が薄く表示されます。そのままでよければ何も入れずに保存してください。どうしても自分で番号を決めたいときだけ、ここに入力します。会場・月・価格帯の記号が合っていないと保存できません。",
+            "zh": "这里会以浅色显示下一个管理号。保持不变的话什么也不用填，直接保存。只有确实想自己指定编号时才在这里输入。会场、月份、价格档位字母不一致就无法保存。",
+            "en": "The next item code appears in light grey. Leave it alone and just save. Type here only when you really need to choose the number yourself. It will be rejected if the venue, month, or price-band letter do not match."
+          }
+        },
+        {
+          "title": {
             "ja": "入庫予定の倉庫を選ぶ",
             "zh": "选择预计入库仓库",
             "en": "Select the destination warehouse"

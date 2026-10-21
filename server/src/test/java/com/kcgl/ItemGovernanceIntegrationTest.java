@@ -104,7 +104,7 @@ class ItemGovernanceIntegrationTest {
         return (MockHttpSession) result.getRequest().getSession();
     }
 
-    /** 真实录入一件（HT 2026-09-15 桶 → HT9-A1X），返回 id。extras 形如 ",\"fee\":300,\"remark\":\"初稿\""。 */
+    /** 真实录入一件（HT 2026-09-15 桶 → HT09-A1X），返回 id。extras 形如 ",\"fee\":300,\"remark\":\"初稿\""。 */
     private long createItem(MockHttpSession session, String clientReqId, long venueId,
             long price, int warehouse, String extras) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/items").session(session)
@@ -197,7 +197,7 @@ class ItemGovernanceIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.shelfNo").value("S-1"))
                 .andExpect(jsonPath("$.data.fee").value(500))
-                .andExpect(jsonPath("$.data.itemCode").value("HT9-A1X"));
+                .andExpect(jsonPath("$.data.itemCode").value("HT09-A1X"));
         Map<String, Object> row = jdbcTemplate.queryForMap(
                 "SELECT shelf_no, photo_date, fee, remark FROM item WHERE id = ?", id);
         assertThat(row.get("shelf_no")).isEqualTo("S-1");
@@ -232,10 +232,10 @@ class ItemGovernanceIntegrationTest {
         putItem(boss, id, editBody(versionOf(id), htVenueId, "2026-09-15", 5000, 1, ""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.priceBandCode").value("Y"))
-                .andExpect(jsonPath("$.data.itemCode").value("HT9-A1X"));
+                .andExpect(jsonPath("$.data.itemCode").value("HT09-A1X"));
         Map<String, Object> row = jdbcTemplate.queryForMap(
                 "SELECT item_code, price_band_code, venue_code, buy_month FROM item WHERE id = ?", id);
-        assertThat(row.get("item_code")).isEqualTo("HT9-A1X");
+        assertThat(row.get("item_code")).isEqualTo("HT09-A1X");
         assertThat(row.get("price_band_code")).isEqualTo("Y");
         assertThat(row.get("venue_code")).isEqualTo("HT");
         assertThat(((Number) row.get("buy_month")).intValue()).isEqualTo(9);
@@ -294,7 +294,7 @@ class ItemGovernanceIntegrationTest {
         assertThat(((Number) row.get("venue_id")).longValue()).isEqualTo(nrVenueId);
         assertThat(row.get("buy_date").toString()).isEqualTo("2026-08-20");
         // 号内快照段冻结（D-001）：号与快照列不动
-        assertThat(row.get("item_code")).isEqualTo("HT9-A1X");
+        assertThat(row.get("item_code")).isEqualTo("HT09-A1X");
         assertThat(row.get("venue_code")).isEqualTo("HT");
         assertThat(((Number) row.get("buy_month")).intValue()).isEqualTo(9);
     }
@@ -423,12 +423,12 @@ class ItemGovernanceIntegrationTest {
         jdbcTemplate.update("""
                 INSERT INTO yahoo_listing(yahoo_auction_id, item_id, raw_item_code, item_code,
                   list_price, sold_price, status, listed_at, closed_at)
-                VALUES ('auc-1', ?, 'HT9-A1X', 'HT9-A1X', 3000, NULL, 1, '2026-09-01 10:00:00', NULL)
+                VALUES ('auc-1', ?, 'HT09-A1X', 'HT09-A1X', 3000, NULL, 1, '2026-09-01 10:00:00', NULL)
                 """, id);
         jdbcTemplate.update("""
                 INSERT INTO yahoo_listing(yahoo_auction_id, item_id, raw_item_code, item_code,
                   list_price, sold_price, status, listed_at, closed_at)
-                VALUES ('auc-2', ?, 'HT9-A1X', 'HT9-A1X', 4000, 4500, 2, '2026-09-10 10:00:00', '2026-09-15 10:00:00')
+                VALUES ('auc-2', ?, 'HT09-A1X', 'HT09-A1X', 4000, 4500, 2, '2026-09-10 10:00:00', '2026-09-15 10:00:00')
                 """, id);
 
         mockMvc.perform(get("/api/items/{id}/yahoo-listings", id).session(boss))
@@ -639,7 +639,7 @@ class ItemGovernanceIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
                 .andExpect(jsonPath("$.data.page").value(1))
-                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HT9-A1X"));
+                .andExpect(jsonPath("$.data.rows[0].itemCode").value("HT09-A1X"));
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT deleted FROM item WHERE id = ?", Integer.class, live)).isEqualTo(0);
     }

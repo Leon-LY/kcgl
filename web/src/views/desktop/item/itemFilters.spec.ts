@@ -40,7 +40,7 @@ describe('filtersFromQuery', () => {
 
   it('域内值原样取用', () => {
     const filters = filtersFromQuery({
-      kw: 'HT9-A1X',
+      kw: 'HT09-A1X',
       warehouse: '2',
       stockStatus: '0',
       saleStatus: '3',
@@ -51,7 +51,7 @@ describe('filtersFromQuery', () => {
     })
 
     expect(filters).toEqual({
-      kw: 'HT9-A1X',
+      kw: 'HT09-A1X',
       warehouse: 2,
       stockStatus: 0,
       saleStatus: 3,
@@ -129,7 +129,7 @@ describe('listRequest', () => {
   })
 
   it('kw 两端去空白后发出；全空白视为未填', () => {
-    expect(listRequest({ ...empty(), kw: '  HT9-A1X ' }, 1, 20).kw).toBe('HT9-A1X')
+    expect(listRequest({ ...empty(), kw: '  HT09-A1X ' }, 1, 20).kw).toBe('HT09-A1X')
     expect(listRequest({ ...empty(), kw: '   ' }, 1, 20).kw).toBeUndefined()
   })
 
@@ -161,20 +161,20 @@ describe('queryOf', () => {
   })
 
   it('只投影非默认项，page=1 不投影', () => {
-    const filters: ItemFilterState = { ...empty(), kw: 'HT9-A1X', warehouse: 2 }
+    const filters: ItemFilterState = { ...empty(), kw: 'HT09-A1X', warehouse: 2 }
 
-    expect(queryOf(listRequest(filters, 1, 20))).toEqual({ kw: 'HT9-A1X', warehouse: '2' })
+    expect(queryOf(listRequest(filters, 1, 20))).toEqual({ kw: 'HT09-A1X', warehouse: '2' })
     expect(queryOf(listRequest(filters, 2, 20))).toEqual({
-      kw: 'HT9-A1X',
+      kw: 'HT09-A1X',
       warehouse: '2',
       page: '2',
     })
   })
 
   it('kw 的空白在投影前已被 trim：URL 与真正发出的检索参数同源', () => {
-    const filters: ItemFilterState = { ...empty(), kw: '  HT9-A1X ' }
+    const filters: ItemFilterState = { ...empty(), kw: '  HT09-A1X ' }
 
-    expect(queryOf(listRequest(filters, 1, 20))).toEqual({ kw: 'HT9-A1X' })
+    expect(queryOf(listRequest(filters, 1, 20))).toEqual({ kw: 'HT09-A1X' })
   })
 
   it('size 恒定，不进 URL', () => {
